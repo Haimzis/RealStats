@@ -1,0 +1,9 @@
+torch
+torchvision
+pytorch_wavelets
+numpy
+scikit-learn
+matplotlib
+Pillow
+tqdm
+PyWavelets
