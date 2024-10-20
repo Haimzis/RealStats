@@ -7,3 +7,6 @@ matplotlib
 Pillow
 tqdm
 PyWavelets
+opencv-python
+facenet_pytorch
+statsmodels
