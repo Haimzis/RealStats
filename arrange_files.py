@@ -3,10 +3,10 @@ import shutil
 import glob
 
 # Define the source directory where the files are located
-source_dir = '/home/dsi/haimzis/projects/wavelets_detector/'
+source_dir = '.'
 
 # Define the destination base directory
-base_destination_dir = '/home/dsi/haimzis/projects/wavelets_detector/experiments/histograms/SDXL/'
+base_destination_dir = 'experiments/norm_histograms/'
 
 # Use glob to find all files matching the pattern *_wave_{wavelet}.png
 file_pattern = os.path.join(source_dir, '*_wave_*.png')

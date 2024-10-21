@@ -159,4 +159,3 @@ class NormHistogram:
         
         # Save the figure
         plt.savefig(figname)
-        plt.show()

@@ -1,4 +1,4 @@
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 import random
 import pywt
 import torch
@@ -33,8 +33,8 @@ def main(data_dir_real, data_dir_fake, batch_size=128, action='pca', figname='pc
 
 def histogram_pipeline(real_dataset, fake_dataset, batch_size, figname, wavelet, selected_indices=[0]):
     # Initialize data loaders
-    data_loader_real = DataLoader(real_dataset, batch_size=batch_size, shuffle=False, num_workers=8)
-    data_loader_fake = DataLoader(fake_dataset, batch_size=batch_size, shuffle=False, num_workers=8)
+    data_loader_real = DataLoader(real_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+    data_loader_fake = DataLoader(fake_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
     
     # Generate histograms with the specified wavelet
     # histogram_generator = EnergyHistogram(J=7, selected_indices=[6], wavelet=wavelet)
@@ -48,9 +48,9 @@ def histogram_pipeline(real_dataset, fake_dataset, batch_size, figname, wavelet,
 
 def tsne_pipeline(real_dataset, fake_dataset, batch_size, figname, wavelet, selected_indices=[0]):
     # Create data loaders for real and fake datasets
-    fake_loader = DataLoader(fake_dataset, batch_size=batch_size, shuffle=False, num_workers=8)
+    fake_loader = DataLoader(fake_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
     real_subset_dataset = Subset(real_dataset, list(range(len(fake_dataset))))
-    real_subset_loader = DataLoader(real_subset_dataset, batch_size=batch_size, shuffle=False, num_workers=8)
+    real_subset_loader = DataLoader(real_subset_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
     # Initialize t-SNE generator and run t-SNE with the specified wavelet
     tsne_generator = TSNEWavelet(J=7, selected_indices=selected_indices, wave=wavelet)
@@ -58,8 +58,8 @@ def tsne_pipeline(real_dataset, fake_dataset, batch_size, figname, wavelet, sele
 
 def pca_pipeline(real_dataset, fake_dataset, batch_size, figname, wavelet, selected_indices=[0]):
     # Create data loaders for real and fake datasets
-    real_loader = DataLoader(real_dataset, batch_size=batch_size, shuffle=False, num_workers=8)
-    fake_loader = DataLoader(fake_dataset, batch_size=batch_size, shuffle=False, num_workers=8)
+    real_loader = DataLoader(real_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+    fake_loader = DataLoader(fake_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
     # Initialize PCA Outlier Detector and run PCA with the specified wavelet
     pca_detector = PCAOutlierDetector(J=7, selected_indices=selected_indices, wave=wavelet)
@@ -78,8 +78,8 @@ def process_wavelet_task(params, device_id):
 
 if __name__ == "__main__":
     set_seed(42)
-    data_dir_real = 'data/CelebaHQMaskDataset/train/images_faces'
-    data_dir_fake = 'data/stable-diffusion-face-dataset/1024/both_faces'
+    data_dir_real = 'data/real/train'
+    data_dir_fake = 'data/fake'
     action = 'histogram'
     
     # Define the wavelet families, wavelets, and levels
@@ -87,13 +87,13 @@ if __name__ == "__main__":
     for wave_family in ['haar', 'db', 'sym', 'coif', 'bior', 'rbio', 'dmey', 'gaus', 'mexh', 'morl', 'cgau', 'shan', 'fbsp', 'cmor']: 
         for wavelet in pywt.wavelist(wave_family):
             for level in [0, 2, 4, 6]:
-                wavelet_tasks.append((data_dir_real, data_dir_fake, 128, action, wavelet, level))
+                wavelet_tasks.append((data_dir_real, data_dir_fake, 256, action, wavelet, level))
 
     # Get number of GPUs
     num_gpus = torch.cuda.device_count()
     
-    # Create ProcessPoolExecutor to run tasks in parallel
-    with ProcessPoolExecutor(max_workers=20) as executor:
+    # Create ThreadPoolExecutor to run tasks in parallel
+    with ThreadPoolExecutor(max_workers=4) as executor:
         for task in wavelet_tasks:
             # Randomly assign a GPU for each task
             random_gpu = random.randint(0, num_gpus - 1)
