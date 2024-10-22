@@ -8,13 +8,13 @@ from torchvision import transforms
 from torch.utils.data import DataLoader
 from statsmodels.stats.multitest import multipletests
 from processing.histograms import NormHistogram
-from utils import set_seed
+from utils import save_independence_test_heatmaps, set_seed
 from sklearn.metrics import confusion_matrix, classification_report
 
 
 def preprocess_wavelet_level(dataset, batch_size, wavelet, wavelet_level):
     """Preprocess the dataset for a single wavelet level and wavelet type using NormHistogram."""
-    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=2)
     histogram_generator = NormHistogram(selected_indices=[wavelet_level], wave=wavelet)
     histograms = histogram_generator.create_histogram(data_loader)
     return histograms
@@ -23,7 +23,7 @@ def preprocess_wavelet_level(dataset, batch_size, wavelet, wavelet_level):
 def parallel_preprocess(dataset, batch_size, wavelet_list, wavelet_levels):
     """Preprocess the dataset for multiple wavelet levels and wavelet types in parallel."""
     results = {}
-    with ThreadPoolExecutor(max_workers=8) as executor:
+    with ThreadPoolExecutor(max_workers=4) as executor:
         future_to_level_wave = {
             executor.submit(preprocess_wavelet_level, dataset, batch_size, wave, level): (wave, level)
             for wave in wavelet_list
@@ -75,7 +75,6 @@ def calculate_p_value_for_sample(sample, population_cdf_info, alternative='less'
         raise ValueError("Invalid alternative hypothesis. Choose from 'less', 'greater', or 'both'.")
 
 
-
 def perform_fdr_classification(real_population_cdfs, input_samples_values, threshold=0.05):
     """Perform KS test and apply FDR correction using precomputed CDFs."""
     p_values_per_test = []
@@ -89,10 +88,11 @@ def perform_fdr_classification(real_population_cdfs, input_samples_values, thres
         p_value = calculate_p_value_for_sample(sample, population_cdf_info)
         p_values_per_test.append(p_value)
 
-    # Apply FDR correction across all tests
-    _, pvals_corrected, _, _ = multipletests(p_values_per_test, method='fdr_bh', alpha=threshold)
-    return int(np.any(pvals_corrected < threshold))  # Return True if any corrected p-value is below the threshold
-
+    ## Apply FDR correction across all tests
+    # _, pvals_corrected, _, _ = multipletests(p_values_per_test, method='fdr_bh', alpha=threshold)
+    # return int(np.any(pvals_corrected < threshold))  # Return True if any corrected p-value is below the threshold
+    
+    return p_values_per_test
 
 def create_inference_dataset(real_dir, fake_dir, num_samples_per_class):
     """Create a balanced dataset for inference by sampling images from real and fake directories."""
@@ -104,9 +104,9 @@ def create_inference_dataset(real_dir, fake_dir, num_samples_per_class):
     sampled_fake_images = random.sample(fake_images, num_samples_per_class)
 
     # Create dataset of tuples (file_path, label)
-    inference_data = [(img, 0) for img in sampled_real_images] + [(img, 1) for img in sampled_fake_images]
-    # inference_data = [(img, 1) for img in sampled_fake_images] # Fake
-    # inference_data = [(img, 0) for img in sampled_real_images] # Real
+    # inference_data = [(img, 0) for img in sampled_real_images] + [(img, 1) for img in sampled_fake_images]
+    # inference_data = [(img, 1) for img in sachi2_contingencympled_fake_images] # Fake
+    inference_data = [(img, 0) for img in sampled_real_images] # Real
 
     random.shuffle(inference_data)  # Shuffle the dataset
 
@@ -146,6 +146,12 @@ def main(real_population_dataset, inference_dataset, test_labels=None, batch_siz
     for i, input_sample in tqdm(enumerate(input_samples), desc="Classifying Samples"):
         predictions.append(perform_fdr_classification(real_population_cdfs, input_sample, threshold=threshold))
 
+    keys = list(input_samples[0].keys())
+    distributions = np.array(predictions).T
+
+    save_independence_test_heatmaps(keys, distributions)
+    
+    test_labels=None
     # Evaluation
     if test_labels:
         evaluate_predictions(predictions, test_labels)
@@ -155,13 +161,13 @@ if __name__ == "__main__":
     set_seed(42)
     
     # Directory paths
-    data_dir_real = 'data/debug'  # Population dataset (unchanged)
+    data_dir_real = 'data/real/train'  # Population dataset (unchanged)
     data_dir_fake_real = 'data/real/test'  # Inference real samples
     data_dir_fake = 'data/fake'  # Inference fake samples
     
     # Parameters
-    batch_size = 64
-    num_samples_per_class = 30
+    batch_size = 1024
+    num_samples_per_class = 2449
     pval_threshold = 0.15
 
     # Define transforms (e.g., resizing and converting to tensor)
