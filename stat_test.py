@@ -6,7 +6,7 @@ from torchvision import transforms
 from torch.utils.data import DataLoader
 from statsmodels.stats.multitest import multipletests
 from processing.histograms import NormHistogram
-from utils import calculate_p_value_for_sample, compute_cdfs, create_inference_dataset, evaluate_predictions, load_population_cdfs, plot_pvalues_vs_bh_threshold, save_independence_test_heatmaps, save_population_cdfs, set_seed
+from utils import calculate_p_value_for_sample, compute_cdfs, create_inference_dataset, evaluate_predictions, load_population_cdfs, plot_kdes, plot_pvalues_vs_bh_threshold, save_independence_test_heatmaps, save_population_cdfs, set_seed
 from scipy.stats import norm, combine_pvalues
 import os
 
@@ -64,9 +64,9 @@ def main(real_population_dataset, inference_dataset, test_labels=None, batch_siz
     wavelet_levels = [0, 1, 2, 3]
 
     # List of wavelets to process
-    # wavelet_list = ['bior1.1', 'bior3.1', 'bior6.8', 'coif1', 'coif10', 'db1', 'db38', 'haar', 'rbio6.8', 'sym2']
+    wavelet_list = ['bior1.1', 'bior3.1', 'bior6.8', 'coif1', 'coif10', 'db1', 'db38', 'haar', 'rbio6.8', 'sym2']
     # wavelet_list = ['db1', 'haar', 'bior1.1']
-    wavelet_list = ['rbio6.8', 'coif10', 'sym2']
+    # wavelet_list = ['rbio6.8', 'coif10', 'sym2']
 
     selected_keys = [(wave, level) for wave in wavelet_list for level in wavelet_levels]
     if reload_cdfs and os.path.exists(cdf_file):
@@ -91,14 +91,17 @@ def main(real_population_dataset, inference_dataset, test_labels=None, batch_siz
 
     # classification
     predictions = []
+    pvals = []
     for i, input_sample in tqdm(enumerate(input_samples), desc="Classifying Samples"):
         pvalues = calculate_cdfs_pvalues(real_population_cdfs, input_sample)
 
+        # pval = pvalues[2]
         # pred = int(np.any(np.array(pvalues) < threshold)) 
         # pred = fdr_classification(pvalues, threshold=threshold)
-        pred = 1 if combine_pvalues(pvalues, method='stouffer', weights=np.ones_like(pvalues) / len(pvalues)).pvalue < threshold else 0
-
+        pval = combine_pvalues(pvalues, method='stouffer', weights=np.ones_like(pvalues) / len(pvalues)).pvalue
+        pred = 1 if pval < threshold else 0 
         predictions.append(pred)
+        pvals.append(pval)
         # plot_pvalues_vs_bh_threshold(pvalues, figname=f"k_m_plot{i}.png")
 
     if save_independence_heatmaps:
@@ -109,6 +112,13 @@ def main(real_population_dataset, inference_dataset, test_labels=None, batch_siz
     # Evaluation
     if test_labels:
         evaluate_predictions(predictions, test_labels)
+
+    # DEBUG 
+    pvals_real = [p for p, label in zip(pvals, test_labels) if label == 0]
+    pvals_fake = [p for p, label in zip(pvals, test_labels) if label == 1]
+
+    # plot_kdes(np.array(pvals_real), np.array(pvals_fake), 'pvals_dist.png', "Sym wavelet's norm: KDE of p-values")
+    plot_kdes(np.array(pvals_real), np.array(pvals_fake), 'pvals_dist.png', "Stouffer's test: KDE of p-values")
 
 
 if __name__ == "__main__":

@@ -197,3 +197,15 @@ def load_population_cdfs(file_path):
     """Load the population CDFs from a file."""
     with open(file_path, 'rb') as f:
         return pickle.load(f)
+    
+
+def plot_kdes(hist1, hist2, figname, title):
+    plt.figure(figsize=(12, 6))
+    sns.kdeplot(hist1, label="Real", fill=True, bw_adjust=0.5, gridsize=2000)
+    sns.kdeplot(hist2, label="Fake", fill=True, bw_adjust=0.5, gridsize=2000)
+    plt.xlabel("p-values")
+    plt.ylabel("Density")
+    plt.title(title)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(figname)
