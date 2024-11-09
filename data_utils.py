@@ -50,3 +50,34 @@ class ImageDataset(Dataset):
             image = self.transform(image)
         
         return image, label
+
+
+class PatchDataset(Dataset):
+    """Dataset that extracts a specific patch from each image in the original dataset."""
+    def __init__(self, original_dataset, patch_size, patch_index):
+        self.original_dataset = original_dataset
+        self.patch_size = patch_size
+        self.patch_index = patch_index
+
+    def __len__(self):
+        return len(self.original_dataset)
+
+    def __getitem__(self, idx):
+        image, label = self.original_dataset[idx]  # Get the image and label from the original dataset
+
+        # Calculate number of patches along height and width
+        h_patches = image.shape[1] // self.patch_size[0]
+        w_patches = image.shape[2] // self.patch_size[1]
+
+        # Get row and column for the specific patch index
+        row_idx = self.patch_index // w_patches
+        col_idx = self.patch_index % w_patches
+
+        # Extract the patch
+        patch = image[
+            :,  # All channels
+            row_idx * self.patch_size[0]:(row_idx + 1) * self.patch_size[0],
+            col_idx * self.patch_size[1]:(col_idx + 1) * self.patch_size[1]
+        ]
+
+        return patch, label  # Return the patch and label

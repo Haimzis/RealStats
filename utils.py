@@ -126,16 +126,16 @@ def create_inference_dataset(real_dir, fake_dir, num_samples_per_class, classes=
     real_images = [os.path.join(real_dir, f) for f in os.listdir(real_dir) if f.endswith(('.jpg', '.png'))]
     fake_images = [os.path.join(fake_dir, f) for f in os.listdir(fake_dir) if f.endswith(('.jpg', '.png'))]
 
-    # Randomly sample from each class
-    sampled_real_images = random.sample(real_images, num_samples_per_class)
-    sampled_fake_images = random.sample(fake_images, num_samples_per_class)
-
     # Create dataset of tuples (file_path, label)
     if classes == 'both':
+        sampled_real_images = random.sample(real_images, num_samples_per_class)
+        sampled_fake_images = random.sample(fake_images, num_samples_per_class)
         inference_data = [(img, 0) for img in sampled_real_images] + [(img, 1) for img in sampled_fake_images]
     elif classes == 'fake':
+        sampled_fake_images = random.sample(fake_images, num_samples_per_class)
         inference_data = [(img, 1) for img in sampled_fake_images]
     else: # Real
+        sampled_real_images = random.sample(real_images, num_samples_per_class)
         inference_data = [(img, 0) for img in sampled_real_images] 
 
     random.shuffle(inference_data)  # Shuffle the dataset
@@ -185,12 +185,18 @@ def compute_cdfs(histogram_values, bins=10_000):
         cdfs[descriptor] = (hist, bin_edges, cdf)  # Store both the histogram and the CDF
     return cdfs
 
+def compute_cdf(histogram_values, bins=10_000):
+    """Compute CDFs from histogram values for each wavelet descriptor."""
+    hist, bin_edges = np.histogram(histogram_values, bins=10_000, density=True)
+    cdf = np.cumsum(hist) * np.diff(bin_edges)
+    cdf_dict = (hist, bin_edges, cdf)  # Store both the histogram and the CDF
+    return cdf_dict
+
 
 def save_population_cdfs(cdfs, file_path):
     """Save the population CDFs to a file."""
     with open(file_path, 'wb') as f:
         pickle.dump(cdfs, f)
-
 
 
 def load_population_cdfs(file_path):
