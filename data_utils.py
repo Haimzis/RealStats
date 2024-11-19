@@ -1,4 +1,5 @@
 import os
+import random
 from PIL import Image
 from torch.utils.data import Dataset
 
@@ -81,3 +82,24 @@ class PatchDataset(Dataset):
         ]
 
         return patch, label  # Return the patch and label
+
+
+def create_inference_dataset(real_dir, fake_dir, num_samples_per_class, classes='both'):
+    """Create a balanced dataset for inference by sampling images from real and fake directories."""
+    real_images = [os.path.join(real_dir, f) for f in os.listdir(real_dir) if f.endswith(('.jpg', '.png'))]
+    fake_images = [os.path.join(fake_dir, f) for f in os.listdir(fake_dir) if f.endswith(('.jpg', '.png'))]
+
+    # Create dataset of tuples (file_path, label)
+    if classes == 'both':
+        sampled_real_images = random.sample(real_images, num_samples_per_class)
+        sampled_fake_images = random.sample(fake_images, num_samples_per_class)
+        inference_data = [(img, 0) for img in sampled_real_images] + [(img, 1) for img in sampled_fake_images]
+    elif classes == 'fake':
+        sampled_fake_images = random.sample(fake_images, num_samples_per_class)
+        inference_data = [(img, 1) for img in sampled_fake_images]
+    else: # Real
+        sampled_real_images = random.sample(real_images, num_samples_per_class)
+        inference_data = [(img, 0) for img in sampled_real_images] 
+
+    random.shuffle(inference_data)  # Shuffle the dataset
+    return inference_data

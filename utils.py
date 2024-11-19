@@ -5,7 +5,7 @@ import torch
 import numpy as np
 from pytorch_wavelets import DTCWTForward, DTCWTInverse
 from scipy.stats import chi2_contingency
-from sklearn.metrics import classification_report, confusion_matrix, mutual_info_score
+from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, accuracy_score, confusion_matrix, mutual_info_score
 import os
 import seaborn as sns
 
@@ -121,36 +121,6 @@ def plot_pvalues_vs_bh_threshold(p_values_per_test, alpha=0.05, figname='k_m_plo
     plt.savefig(figname)
 
 
-def create_inference_dataset(real_dir, fake_dir, num_samples_per_class, classes='both'):
-    """Create a balanced dataset for inference by sampling images from real and fake directories."""
-    real_images = [os.path.join(real_dir, f) for f in os.listdir(real_dir) if f.endswith(('.jpg', '.png'))]
-    fake_images = [os.path.join(fake_dir, f) for f in os.listdir(fake_dir) if f.endswith(('.jpg', '.png'))]
-
-    # Create dataset of tuples (file_path, label)
-    if classes == 'both':
-        sampled_real_images = random.sample(real_images, num_samples_per_class)
-        sampled_fake_images = random.sample(fake_images, num_samples_per_class)
-        inference_data = [(img, 0) for img in sampled_real_images] + [(img, 1) for img in sampled_fake_images]
-    elif classes == 'fake':
-        sampled_fake_images = random.sample(fake_images, num_samples_per_class)
-        inference_data = [(img, 1) for img in sampled_fake_images]
-    else: # Real
-        sampled_real_images = random.sample(real_images, num_samples_per_class)
-        inference_data = [(img, 0) for img in sampled_real_images] 
-
-    random.shuffle(inference_data)  # Shuffle the dataset
-    return inference_data
-
-
-def evaluate_predictions(predictions, labels):
-    """Calculate confusion matrix"""
-    cm = confusion_matrix(labels, predictions)
-    print("Confusion Matrix:")
-    print(cm)
-    print("\nClassification Report:")
-    print(classification_report(labels, predictions))
-
-
 def calculate_p_value_for_sample(sample, population_cdf_info, alternative='less'):
     """
     Calculate the p-value for a sample using the precomputed CDF from the population.
@@ -180,14 +150,14 @@ def compute_cdfs(histogram_values, bins=10_000):
     """Compute CDFs from histogram values for each wavelet descriptor."""
     cdfs = {}
     for descriptor, values in histogram_values.items():
-        hist, bin_edges = np.histogram(values, bins=10_000, density=True)
+        hist, bin_edges = np.histogram(values, bins=bins, density=True)
         cdf = np.cumsum(hist) * np.diff(bin_edges)
         cdfs[descriptor] = (hist, bin_edges, cdf)  # Store both the histogram and the CDF
     return cdfs
 
 def compute_cdf(histogram_values, bins=10_000):
     """Compute CDFs from histogram values for each wavelet descriptor."""
-    hist, bin_edges = np.histogram(histogram_values, bins=10_000, density=True)
+    hist, bin_edges = np.histogram(histogram_values, bins=bins, density=True)
     cdf = np.cumsum(hist) * np.diff(bin_edges)
     cdf_dict = (hist, bin_edges, cdf)  # Store both the histogram and the CDF
     return cdf_dict
@@ -205,6 +175,50 @@ def load_population_cdfs(file_path):
         return pickle.load(f)
     
 
+def calculate_metrics(test_labels, predictions):
+    """
+    Calculate evaluation metrics including precision, recall, specificity, F1-score, and accuracy.
+    """
+    # Confusion matrix components
+    cm = confusion_matrix(test_labels, predictions)
+    tn, fp, fn, tp = cm.ravel()
+
+    # Metrics
+    precision = precision_score(test_labels, predictions)
+    recall = recall_score(test_labels, predictions)  # Sensitivity
+    specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
+    f1 = f1_score(test_labels, predictions)
+    accuracy = accuracy_score(test_labels, predictions)
+
+    return {
+        "precision": precision,
+        "recall": recall,
+        "specificity": specificity,
+        "f1_score": f1,
+        "accuracy": accuracy,
+        "confusion_matrix": cm.tolist()  # Include CM for reference
+    }
+
+
+def plot_sensitivity_specificity_by_patch_size(results, wavelet, threshold, output_dir):
+    """Plot sensitivity (recall) and specificity across wavelets and patches."""
+    patches = sorted(results.keys())
+    recalls = [results[patch]['recall'] for patch in patches]
+    specificities = [results[patch]['specificity'] for patch in patches]
+
+    # Plot recall and specificity
+    plt.figure()
+    plt.plot(patches, recalls, marker='o', label='Recall (Sensitivity)')
+    plt.plot(patches, specificities, marker='x', label='Specificity')
+    plt.title(f'Sensitivity and Specificity for Wavelet: {wavelet} (Alpha={threshold})')
+    plt.xlabel('Patch Size')
+    plt.ylabel('Value')
+    plt.legend()
+    plt.grid()
+    plt.savefig(os.path.join(output_dir, f'sensitivity_specificity_{wavelet}_alpha_{threshold}.png'))
+    plt.close()
+
+        
 def plot_kdes(hist1, hist2, figname, title):
     plt.figure(figsize=(12, 6))
     sns.kdeplot(hist1, label="Real", fill=True, bw_adjust=0.5, gridsize=2000)
@@ -215,3 +229,22 @@ def plot_kdes(hist1, hist2, figname, title):
     plt.legend()
     plt.tight_layout()
     plt.savefig(figname)
+
+
+def plot_sensitivity_specificity_by_num_waves(results, threshold, output_dir):
+    """Plot sensitivity (recall) and specificity across number of wavelet tests."""
+    num_waves = sorted(results.keys())
+    recalls = [results[nw]['recall'] for nw in num_waves]
+    specificities = [results[nw]['specificity'] for nw in num_waves]
+
+    # Plot recall and specificity
+    plt.figure()
+    plt.plot(num_waves, recalls, marker='o', label='Recall (Sensitivity)')
+    plt.plot(num_waves, specificities, marker='x', label='Specificity')
+    plt.title(f'Sensitivity and Specificity by Number of Wave Tests (Alpha={threshold})')
+    plt.xlabel('Number of Wave Tests')
+    plt.ylabel('Value')
+    plt.legend()
+    plt.grid()
+    plt.savefig(os.path.join(output_dir, f'sensitivity_specificity_by_{num_waves}_num_waves_alpha_{threshold}.png'))
+    plt.close()
