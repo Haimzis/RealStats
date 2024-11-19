@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import numpy as np
 from tqdm import tqdm
-from RBMpaper.python.pipeline import RBMPipeline
+# from RBMpaper.python.pipeline import RBMPipeline
 from data_utils import PatchDataset
 from torch.utils.data import DataLoader
 from processing.histograms import FourierNormHistogram, WaveletNormHistogram
@@ -214,9 +214,9 @@ def perform_ensemble_testing(pvalues, ensemble_test):
     """Perform ensemble testing (Stouffer or RBM)."""
     if ensemble_test == 'stouffer':
         return [combine_pvalues(p, method='stouffer')[1] for p in pvalues]
-    elif ensemble_test == 'rbm':
-        rbm_pipeline = RBMPipeline(n_visible=len(pvalues[0]), n_hidden_list=[1], learning_rate=0.001, epochs=25, batch_size=8)
-        rbm_pipeline.train(pvalues)
-        return rbm_pipeline.predict_pvals(pvalues).flatten()
+    # elif ensemble_test == 'rbm':
+    #     rbm_pipeline = RBMPipeline(n_visible=len(pvalues[0]), n_hidden_list=[1], learning_rate=0.001, epochs=25, batch_size=8)
+    #     rbm_pipeline.train(pvalues)
+    #     return rbm_pipeline.predict_pvals(pvalues).flatten()
     else:
         raise ValueError(f"Invalid ensemble test: {ensemble_test}")
