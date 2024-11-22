@@ -8,6 +8,60 @@ from scipy.stats import chi2_contingency
 from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, accuracy_score, confusion_matrix, mutual_info_score
 import os
 import seaborn as sns
+import networkx as nx
+
+
+def get_largest_independent_subgroup(keys, distributions, threshold=0.05):
+    """
+    Find the largest sub-group of independent keys.
+
+    Parameters:
+    -----------
+    keys : list of str
+        Names of the distributions.
+    distributions : dict
+        Dictionary where keys are distribution names and values are 1D arrays of values.
+    threshold : float
+        The p-value threshold above which two distributions are considered independent.
+
+    Returns:
+    --------
+    largest_independent_group : list of str
+        List of keys representing the largest independent subgroup.
+    """
+    # Create a graph
+    G = nx.Graph()
+    G.add_nodes_from(keys)
+
+    # Add edges for dependent pairs
+    for i, key1 in enumerate(keys):
+        dist_1 = distributions[i]
+        for j, key2 in enumerate(keys):
+            if i >= j:  # Avoid redundant comparisons and self-comparison
+                continue
+
+            dist_2 = distributions[j]
+
+            # Bin the distributions into histograms
+            bins = np.linspace(0, 1, 101)
+            hist_1, _ = np.histogram(dist_1, bins=bins)
+            hist_2, _ = np.histogram(dist_2, bins=bins)
+
+            # Create the contingency table
+            contingency_table = np.array([hist_1, hist_2])
+
+            # Perform Chi-Square Test
+            try:
+                _, chi2_p, _, _ = chi2_contingency(contingency_table)
+                if chi2_p <= threshold:
+                    # Add an edge if the pair is dependent
+                    G.add_edge(key1, key2)
+            except ValueError:
+                pass
+
+    # Find the largest independent set
+    largest_independent_group = nx.algorithms.approximation.maximum_independent_set(G)
+    return largest_independent_group
 
 
 def save_independence_test_heatmaps(keys, distributions, output_dir='logs'):
@@ -19,7 +73,7 @@ def save_independence_test_heatmaps(keys, distributions, output_dir='logs'):
 
     # Perform pairwise comparisons
     for i, key in enumerate(keys):
-        dist_1 = distributions[i]
+        dist_1 = distributions[key]
 
         for j, key2 in enumerate(keys):
             if i == j:
@@ -27,10 +81,10 @@ def save_independence_test_heatmaps(keys, distributions, output_dir='logs'):
                 mutual_info_p_matrix[i, j] = np.nan
                 continue
 
-            dist_2 = distributions[j]
+            dist_2 = distributions[key2]
 
             ### CHI^2 TEST ###
-            bins = np.linspace(0, 1, 21)  # N bins between 0 and 1
+            bins = np.linspace(0, 1, 101)  # N bins between 0 and 1
 
             # Bin the p-values into categories for both distributions
             hist_1, _ = np.histogram(dist_1, bins=bins)
@@ -59,7 +113,7 @@ def save_independence_test_heatmaps(keys, distributions, output_dir='logs'):
     # Create and save heatmaps for each test
     create_heatmap(chi2_p_matrix, keys, 'Chi-Square Test (P-values %)', output_dir, 'chi2_heatmap.png')
     create_heatmap(mutual_info_p_matrix, keys, 'Mutual Information (P-values %)', output_dir, 'mutual_info_heatmap.png', figsize=(40, 25))
-
+    pass
 
 def create_heatmap(data, keys, title, output_dir, filename, figsize=(25, 25)):
     plt.figure(figsize=figsize)
