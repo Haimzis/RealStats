@@ -105,7 +105,8 @@ def main_multiple_patch_test(
     ensemble_test='stouffer',
     max_workers=128,
     num_data_workers=2,
-    output_dir='logs'
+    output_dir='logs',
+    return_logits=False
 ):
     """Run test for number of patches and collect sensitivity and specificity results."""
     print(f"Running test with patch size: {patch_size}")
@@ -139,9 +140,16 @@ def main_multiple_patch_test(
     independent_keys_group = [list(input_samples[0].keys()).index(value) for value in independent_keys_group]
     independent_tests_pvalues = np.array(input_samples_pvalues).T[list(independent_keys_group)].T
     
+    independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
+
     # Perform ensemble testing
     ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
     predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
+
+    if return_logits:
+        return {
+            'scores': 1 - np.array(ensembled_pvalues)
+        }
 
     # Save plots
     if save_independence_heatmaps:
@@ -174,7 +182,8 @@ def main_multiple_wavelet_test(
     max_workers=128,
     num_data_workers=2,
     output_dir='logs',
-    max_level=4
+    max_level=4,
+    return_logits=False
 ):
     """Run test for multiple of wavelets and collect sensitivity and specificity results."""
     print(f"Running test with wavelets: {wavelet_list}")
@@ -201,10 +210,17 @@ def main_multiple_wavelet_test(
     independent_keys_group = [list(input_samples[0].keys()).index(value) for value in independent_keys_group]
     independent_tests_pvalues = np.array(input_samples_pvalues).T[list(independent_keys_group)].T
 
+    independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
+
     # Perform ensemble testing
     ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
     predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
 
+    if return_logits:
+        return {
+            'scores': 1 - np.array(ensembled_pvalues)
+        }
+    
     # Save plots
     if save_independence_heatmaps:
         save_independence_test_heatmaps(list(input_samples[0].keys()), predictions, output_dir)

@@ -5,7 +5,7 @@ import torch
 import numpy as np
 from pytorch_wavelets import DTCWTForward, DTCWTInverse
 from scipy.stats import chi2_contingency
-from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, accuracy_score, confusion_matrix, mutual_info_score
+from sklearn.metrics import auc, confusion_matrix, precision_score, recall_score, f1_score, accuracy_score, confusion_matrix, mutual_info_score, roc_curve
 import os
 import seaborn as sns
 import networkx as nx
@@ -301,4 +301,64 @@ def plot_sensitivity_specificity_by_num_waves(results, threshold, output_dir):
     plt.legend()
     plt.grid()
     plt.savefig(os.path.join(output_dir, f'sensitivity_specificity_by_{num_waves}_num_waves_alpha_{threshold}.png'))
+    plt.close()
+
+
+def plot_roc_curve_by_patch_size(results, wavelet, output_dir):
+    """Plot ROC curve across patch sizes for a specific wavelet."""
+    patches = sorted(results.keys())
+    tprs = []
+    fprs = []
+    roc_aucs = []
+
+    for patch in patches:
+        labels = results[patch]['labels']
+        scores = results[patch]['scores']
+        fpr, tpr, _ = roc_curve(labels, scores)
+        roc_auc = auc(fpr, tpr)
+        fprs.append(fpr)
+        tprs.append(tpr)
+        roc_aucs.append(roc_auc)
+
+    # Plot ROC curves
+    plt.figure()
+    for patch, fpr, tpr, roc_auc in zip(patches, fprs, tprs, roc_aucs):
+        plt.plot(fpr, tpr, label=f'Patch {patch} (AUC = {roc_auc:.2f})')
+
+    plt.title(f'ROC Curve for Wavelet: {wavelet}')
+    plt.xlabel('False Positive Rate (1 - Specificity)')
+    plt.ylabel('True Positive Rate (Recall)')
+    plt.legend(loc='lower right')
+    plt.grid()
+    plt.savefig(os.path.join(output_dir, f'roc_curve_{wavelet}_patches.png'))
+    plt.close()
+
+
+def plot_roc_curve_by_num_waves(results, output_dir):
+    """Plot ROC curve across number of wavelet tests."""
+    num_waves = sorted(results.keys())
+    tprs = []
+    fprs = []
+    roc_aucs = []
+
+    for nw in num_waves:
+        labels = results[nw]['labels']
+        scores = results[nw]['scores']
+        fpr, tpr, _ = roc_curve(labels, scores)
+        roc_auc = auc(fpr, tpr)
+        fprs.append(fpr)
+        tprs.append(tpr)
+        roc_aucs.append(roc_auc)
+
+    # Plot ROC curves
+    plt.figure()
+    for nw, fpr, tpr, roc_auc in zip(num_waves, fprs, tprs, roc_aucs):
+        plt.plot(fpr, tpr, label=f'{nw} Wavelets (AUC = {roc_auc:.2f})')
+
+    plt.title('ROC Curve by Number of Wave Tests')
+    plt.xlabel('False Positive Rate (1 - Specificity)')
+    plt.ylabel('True Positive Rate (Recall)')
+    plt.legend(loc='lower right')
+    plt.grid()
+    plt.savefig(os.path.join(output_dir, f'roc_curve_by_num_waves.png'))
     plt.close()
