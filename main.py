@@ -5,12 +5,13 @@ from data_utils import ImageDataset, create_inference_dataset
 from torchvision import transforms
 from utils import plot_roc_curve_by_num_waves, plot_roc_curve_by_patch_size, set_seed, plot_sensitivity_specificity_by_patch_size, plot_sensitivity_specificity_by_num_waves
 
-parser = argparse.ArgumentParser(description='Wavelet and Patch Testing Pipeline')
+parser = argparse.ArgumentParser(description='Wavelet anqd Patch Testing Pipeline')
 parser.add_argument('--test_type', choices=['multiple_patches', 'multiple_wavelets'], default='multiple_wavelets', help='Choose which type of multiple tests to perform')
 parser.add_argument('--batch_size', type=int, default=256, help='Batch size for data loading')
+parser.add_argument('--sample_size', type=int, default=256, help='Sample input size after downscale')
 parser.add_argument('--threshold', type=float, default=0.05, help='P-value threshold for significance testing')
-parser.add_argument('--cdf_file', type=str, default='patch_population_cdfs_10kb.pkl', help='File name to save/load population CDFs')
-parser.add_argument('--reload_cdfs', type=int, choices=[0, 1], default=1, help='Flag to reload precomputed CDFs from file (1 for True, 0 for False)')
+parser.add_argument('--histograms_file', type=str, default='patch_population_histograms_10kb.pkl', help='File name to save/load population histograms')
+parser.add_argument('--reload_population_histograms', type=int, choices=[0, 1], default=1, help='Flag to reload precomputed population histograms from file (1 for True, 0 for False)')
 parser.add_argument('--save_kdes', type=int, choices=[0, 1], default=0, help='Flag to save KDE plots for real and fake p-values (1 for True, 0 for False)')
 parser.add_argument('--ensemble_test', choices=['stouffer', 'rbm'], default='stouffer', help='Type of ensemble test to perform (e.g., stouffer, rbm)')
 parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=0, help='Flag to save independence test heatmaps (1 for True, 0 for False)')
@@ -20,7 +21,8 @@ parser.add_argument('--data_dir_fake', type=str, default='data/stable-diffusion-
 parser.add_argument('--output_dir', type=str, default='logs', help='Path where to save artifacts')
 parser.add_argument('--num_samples_per_class', type=int, default=2957, help='Number of samples per class for inference dataset')
 parser.add_argument('--num_data_workers', type=int, default=4, help='Number of workers for data loading')
-parser.add_argument('--max_workers', type=int, default=32, help='Maximum number of threads for parallel processing')
+parser.add_argument('--max_wave_level', type=int, default=4, help='Maximum number of levels in DWT')
+parser.add_argument('--max_workers', type=int, default=24, help='Maximum number of threads for parallel processing')
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
 args = parser.parse_args()
 
@@ -29,7 +31,7 @@ def main():
     set_seed(args.seed)
 
     # Load datasets
-    transform = transforms.Compose([transforms.Resize((256, 256)), transforms.ToTensor()])
+    transform = transforms.Compose([transforms.Resize((args.sample_size, args.sample_size)), transforms.ToTensor()])
     real_population_dataset = ImageDataset(args.data_dir_real, transform=transform, labels=0)
     inference_data = create_inference_dataset(args.data_dir_fake_real, args.data_dir_fake, args.num_samples_per_class, classes='both')
 
@@ -60,8 +62,8 @@ def main():
                         threshold=threshold,
                         patch_size=patch_size,
                         wavelet=wavelet,
-                        cdf_file=os.path.join('pkls', f"wavelet_{wavelet}_patch_size_{patch_size}_population_cdfs.pkl"),
-                        reload_cdfs=bool(args.reload_cdfs),
+                        population_histograms_file=os.path.join('pkls', f"wavelet_{wavelet}_patch_size_{patch_size}_population_histograms.pkl"),
+                        reload_population_histograms=bool(args.reload_population_histograms),
                         save_independence_heatmaps=bool(args.save_independence_heatmaps),
                         save_kdes=bool(args.save_kdes),
                         ensemble_test=args.ensemble_test,
@@ -90,13 +92,14 @@ def main():
                     test_labels=labels,
                     batch_size=args.batch_size,
                     threshold=threshold,
-                    cdf_file=os.path.join('pkls', f"num_wavelets_{i}_population_cdfs.pkl"),
-                    reload_cdfs=bool(args.reload_cdfs),
+                    population_histograms_file=os.path.join('pkls', f"num_wavelets_{i}_population_histograms.pkl"),
+                    reload_population_histograms=bool(args.reload_population_histograms),
                     save_independence_heatmaps=bool(args.save_independence_heatmaps),
                     save_kdes=bool(args.save_kdes),
                     ensemble_test=args.ensemble_test,
                     wavelet_list=wavelist[:i],
                     max_workers=args.max_workers,
+                    max_level=args.max_wave_level,
                     num_data_workers=args.num_data_workers,
                     output_dir=args.output_dir,
                     return_logits=True

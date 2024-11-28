@@ -10,8 +10,8 @@ from utils import (
     compute_cdf,
     calculate_metrics,
     get_largest_independent_subgroup,
-    load_population_cdfs,
-    save_population_cdfs,
+    load_population_histograms,
+    save_population_histograms,
     plot_kdes,
     save_independence_test_heatmaps,
 )
@@ -19,6 +19,9 @@ from statsmodels.stats.multitest import multipletests
 from scipy.stats import combine_pvalues
 import os
 
+# TODO: 
+# 2. make many many more tests [all levels, all waves, all patches, preprocessing]
+# 4. baselines table [AUC, 5 methods, 5 generators]
 
 def preprocess_wavelet(dataset, batch_size, wavelet, wavelet_level, num_data_workers):
     """Preprocess the dataset for a single wavelet level and wavelet type using NormHistogram."""
@@ -90,6 +93,12 @@ def calculate_cdfs_pvalues(real_population_cdfs, input_samples_values):
     return p_values_per_test
 
 
+def calculate_pvals_from_cdf(real_population_cdfs, samples_histogram_per_patch, split="Input's"):
+    input_samples = [dict(zip(samples_histogram_per_patch.keys(), values)) for values in zip(*samples_histogram_per_patch.values())]
+    input_samples_pvalues = [calculate_cdfs_pvalues(real_population_cdfs, sample) for sample in tqdm(input_samples, desc=f"Calculating {split} P-values")]
+    return input_samples_pvalues
+
+
 def main_multiple_patch_test(
     real_population_dataset,
     inference_dataset,
@@ -98,8 +107,8 @@ def main_multiple_patch_test(
     threshold=0.05,
     patch_size=256,
     wavelet='haar',
-    cdf_file="patch_population_cdfs.pkl",
-    reload_cdfs=False,
+    population_histograms_file="patch_population_histograms.pkl",
+    reload_population_histograms=False,
     save_independence_heatmaps=False,
     save_kdes=False,
     ensemble_test='stouffer',
@@ -118,28 +127,29 @@ def main_multiple_patch_test(
     w_patches = example_image.shape[2] // patch_size
     num_patches = h_patches * w_patches
 
-    # Load or compute real population CDFs
-    if reload_cdfs and os.path.exists(cdf_file):
-        real_population_cdfs = load_population_cdfs(cdf_file)
+    # Load or compute real population histograms
+    if reload_population_histograms and os.path.exists(population_histograms_file):
+        real_population_histogram_per_patch = load_population_histograms(population_histograms_file)
     else:
-        real_population_histograms_per_patch = patch_parallel_preprocess(
+        real_population_histogram_per_patch = patch_parallel_preprocess(
             real_population_dataset, batch_size, wavelet, wavelet_level, (patch_size, patch_size), num_patches, max_workers, num_data_workers
         )
-        real_population_cdfs = {patch_idx: compute_cdf(histogram) for patch_idx, histogram in real_population_histograms_per_patch.items()}
-        save_population_cdfs(real_population_cdfs, cdf_file)
+        save_population_histograms(real_population_histogram_per_patch, population_histograms_file)
 
-    # Preprocess inference dataset
-    inference_histograms_per_patch = patch_parallel_preprocess(
-        inference_dataset, batch_size, wavelet, wavelet_level, (patch_size, patch_size), num_patches, max_workers, num_data_workers
-    )
-    input_samples = [dict(zip(inference_histograms_per_patch.keys(), values)) for values in zip(*inference_histograms_per_patch.values())]
-    input_samples_pvalues = [calculate_cdfs_pvalues(real_population_cdfs, sample) for sample in tqdm(input_samples, desc="Calculating Input's P-values")]
+    real_population_cdfs = {patch_idx: compute_cdf(histogram) for patch_idx, histogram in real_population_histogram_per_patch.items()}
+    real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, real_population_histogram_per_patch, "Training")
 
     # Chi2 filter
-    independent_keys_group = get_largest_independent_subgroup(list(input_samples[0].keys()), np.array(input_samples_pvalues).T, 0.05)
-    independent_keys_group = [list(input_samples[0].keys()).index(value) for value in independent_keys_group]
+    independent_keys_group = get_largest_independent_subgroup(list(real_population_histogram_per_patch.keys()), np.array(real_population_pvals).T, 0.05)
+    independent_keys_group = [list(real_population_histogram_per_patch.keys()).index(value) for value in independent_keys_group]
+
+    # inference
+    inference_histogram_per_patch = patch_parallel_preprocess(
+        inference_dataset, batch_size, wavelet, wavelet_level, (patch_size, patch_size), num_patches, max_workers, num_data_workers
+    )
+    input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram_per_patch, "Test")
+
     independent_tests_pvalues = np.array(input_samples_pvalues).T[list(independent_keys_group)].T
-    
     independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
 
     # Perform ensemble testing
@@ -148,12 +158,14 @@ def main_multiple_patch_test(
 
     if return_logits:
         return {
-            'scores': 1 - np.array(ensembled_pvalues)
+            'scores': 1 - np.array(ensembled_pvalues),
+            'n_tests': len(list(independent_keys_group))
+
         }
 
     # Save plots
     if save_independence_heatmaps:
-        save_independence_test_heatmaps(list(input_samples[0].keys()), predictions, output_dir)
+        save_independence_test_heatmaps(list(real_population_histogram_per_patch.keys()), predictions, output_dir)
 
     if save_kdes and test_labels:
         plot_kdes([p for p, l in zip(ensembled_pvalues, test_labels) if l == 0],
@@ -174,8 +186,8 @@ def main_multiple_wavelet_test(
     batch_size=128,
     threshold=0.05,
     wavelet_list=[],
-    cdf_file="wavelet_population_cdfs.pkl",
-    reload_cdfs=False,
+    population_histograms_file="wavelet_population_histograms.pkl",
+    reload_population_histograms=False,
     save_independence_heatmaps=False,
     save_kdes=False,
     ensemble_test='stouffer',
@@ -188,28 +200,29 @@ def main_multiple_wavelet_test(
     """Run test for multiple of wavelets and collect sensitivity and specificity results."""
     print(f"Running test with wavelets: {wavelet_list}")
 
-    # Load or compute real population CDFs
-    if reload_cdfs and os.path.exists(cdf_file):
-        real_population_cdfs = load_population_cdfs(cdf_file)
+    # Load or compute real population histograms
+    if reload_population_histograms and os.path.exists(population_histograms_file):
+        real_population_histogram_per_wavelet = load_population_histograms(population_histograms_file)
     else:
-        real_population_histograms_per_wavelet = wave_parallel_preprocess(
+        real_population_histogram_per_wavelet = wave_parallel_preprocess(
             real_population_dataset, batch_size, wavelet_list, list(range(max_level + 1)), max_workers, num_data_workers
         )
-        real_population_cdfs = {key: compute_cdf(histogram) for key, histogram in real_population_histograms_per_wavelet.items()}
-        save_population_cdfs(real_population_cdfs, cdf_file)
+        save_population_histograms(real_population_histogram_per_wavelet, population_histograms_file)
 
-    # Preprocess inference dataset
-    inference_histograms_per_wavelet = wave_parallel_preprocess(
-        inference_dataset, batch_size, wavelet_list, list(range(5)), max_workers, num_data_workers
-    )
-    input_samples = [dict(zip(inference_histograms_per_wavelet.keys(), values)) for values in zip(*inference_histograms_per_wavelet.values())]
-    input_samples_pvalues = [calculate_cdfs_pvalues(real_population_cdfs, sample) for sample in tqdm(input_samples, desc="Calculating Input's P-values")]
+    real_population_cdfs = {key: compute_cdf(histogram) for key, histogram in real_population_histogram_per_wavelet.items()}
+    real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, real_population_histogram_per_wavelet, "Training")
 
     # Chi2 filter
-    independent_keys_group = get_largest_independent_subgroup(list(input_samples[0].keys()), np.array(input_samples_pvalues).T, 0.05)
-    independent_keys_group = [list(input_samples[0].keys()).index(value) for value in independent_keys_group]
-    independent_tests_pvalues = np.array(input_samples_pvalues).T[list(independent_keys_group)].T
+    independent_keys_group = get_largest_independent_subgroup(list(real_population_histogram_per_wavelet.keys()), np.array(real_population_pvals).T, 0.05)
+    independent_keys_group = [list(real_population_histogram_per_wavelet.keys()).index(value) for value in independent_keys_group]
 
+    # Inference
+    inference_histogram_per_wavelet = wave_parallel_preprocess(
+        inference_dataset, batch_size, wavelet_list, list(range(5)), max_workers, num_data_workers
+    )
+    input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram_per_wavelet, "Test")
+    
+    independent_tests_pvalues = np.array(input_samples_pvalues).T[list(independent_keys_group)].T
     independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
 
     # Perform ensemble testing
@@ -218,12 +231,13 @@ def main_multiple_wavelet_test(
 
     if return_logits:
         return {
-            'scores': 1 - np.array(ensembled_pvalues)
+            'scores': 1 - np.array(ensembled_pvalues),
+            'n_tests': len(list(independent_keys_group))
         }
     
     # Save plots
     if save_independence_heatmaps:
-        save_independence_test_heatmaps(list(input_samples[0].keys()), predictions, output_dir)
+        save_independence_test_heatmaps(list(real_population_histogram_per_wavelet.keys()), predictions, output_dir)
 
     if save_kdes and test_labels:
         plot_kdes([p for p, l in zip(ensembled_pvalues, test_labels) if l == 0],

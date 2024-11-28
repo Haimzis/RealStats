@@ -11,7 +11,8 @@ import seaborn as sns
 import networkx as nx
 
 
-def get_largest_independent_subgroup(keys, distributions, threshold=0.05):
+
+def get_largest_independent_subgroup(keys, distributions, p_threshold=0.05, v_threshold=0.1):
     """
     Find the largest sub-group of independent keys.
 
@@ -52,15 +53,25 @@ def get_largest_independent_subgroup(keys, distributions, threshold=0.05):
 
             # Perform Chi-Square Test
             try:
-                _, chi2_p, _, _ = chi2_contingency(contingency_table)
-                if chi2_p <= threshold:
-                    # Add an edge if the pair is dependent
+                chi2_stat, chi2_p, _, expected = chi2_contingency(contingency_table)
+
+                # Calculate Cramér's V
+                n = np.sum(contingency_table)  # Total observations
+                min_dim = min(contingency_table.shape) - 1  # Min(rows - 1, cols - 1)
+                cramer_v = np.sqrt(chi2_stat / (n * min_dim))
+
+                # Add an edge if the pair is independent (high p-value AND low effect size)
+                if chi2_p > p_threshold and cramer_v < v_threshold:
                     G.add_edge(key1, key2)
             except ValueError:
                 pass
 
-    # Find the largest independent set
-    largest_independent_group = nx.algorithms.approximation.maximum_independent_set(G)
+    # Process the connected subgraph
+    subgraph = G.subgraph([node for node, degree in G.degree() if degree > 0])
+    independent_set = nx.algorithms.approximation.clique.max_clique(subgraph)
+    
+    # Combine results
+    largest_independent_group =  list(independent_set)
     return largest_independent_group
 
 
@@ -217,14 +228,14 @@ def compute_cdf(histogram_values, bins=10_000):
     return cdf_dict
 
 
-def save_population_cdfs(cdfs, file_path):
-    """Save the population CDFs to a file."""
+def save_population_histograms(histograms, file_path):
+    """Save the population histograms to a file."""
     with open(file_path, 'wb') as f:
-        pickle.dump(cdfs, f)
+        pickle.dump(histograms, f)
 
 
-def load_population_cdfs(file_path):
-    """Load the population CDFs from a file."""
+def load_population_histograms(file_path):
+    """Load the population histograms from a file."""
     with open(file_path, 'rb') as f:
         return pickle.load(f)
     
@@ -323,7 +334,7 @@ def plot_roc_curve_by_patch_size(results, wavelet, output_dir):
     # Plot ROC curves
     plt.figure()
     for patch, fpr, tpr, roc_auc in zip(patches, fprs, tprs, roc_aucs):
-        plt.plot(fpr, tpr, label=f'Patch {patch} (AUC = {roc_auc:.2f})')
+        plt.plot(fpr, tpr, label=f"Patch {patch}, {results[patch]['n_tests']} Tests (AUC = {roc_auc:.2f})")
 
     plt.title(f'ROC Curve for Wavelet: {wavelet}')
     plt.xlabel('False Positive Rate (1 - Specificity)')
@@ -353,7 +364,7 @@ def plot_roc_curve_by_num_waves(results, output_dir):
     # Plot ROC curves
     plt.figure()
     for nw, fpr, tpr, roc_auc in zip(num_waves, fprs, tprs, roc_aucs):
-        plt.plot(fpr, tpr, label=f'{nw} Wavelets (AUC = {roc_auc:.2f})')
+        plt.plot(fpr, tpr, label=f"{nw} Wavelets, {results[nw]['n_tests']} Tests (AUC = {roc_auc:.2f})")
 
     plt.title('ROC Curve by Number of Wave Tests')
     plt.xlabel('False Positive Rate (1 - Specificity)')
@@ -362,3 +373,5 @@ def plot_roc_curve_by_num_waves(results, output_dir):
     plt.grid()
     plt.savefig(os.path.join(output_dir, f'roc_curve_by_num_waves.png'))
     plt.close()
+
+
