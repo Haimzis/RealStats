@@ -67,8 +67,8 @@ class PatchDataset(Dataset):
         image, label = self.original_dataset[idx]  # Get the image and label from the original dataset
 
         # Calculate number of patches along height and width
-        h_patches = image.shape[1] // self.patch_size[0]
-        w_patches = image.shape[2] // self.patch_size[1]
+        h_patches = image.shape[1] // self.patch_size
+        w_patches = image.shape[2] // self.patch_size
 
         # Get row and column for the specific patch index
         row_idx = self.patch_index // w_patches
@@ -77,8 +77,8 @@ class PatchDataset(Dataset):
         # Extract the patch
         patch = image[
             :,  # All channels
-            row_idx * self.patch_size[0]:(row_idx + 1) * self.patch_size[0],
-            col_idx * self.patch_size[1]:(col_idx + 1) * self.patch_size[1]
+            row_idx * self.patch_size:(row_idx + 1) * self.patch_size,
+            col_idx * self.patch_size:(col_idx + 1) * self.patch_size
         ]
 
         return patch, label  # Return the patch and label

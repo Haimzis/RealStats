@@ -215,8 +215,10 @@ def compute_cdfs(histogram_values, bins=10_000):
     """Compute CDFs from histogram values for each wavelet descriptor."""
     cdfs = {}
     for descriptor, values in histogram_values.items():
-        hist, bin_edges = np.histogram(values, bins=bins, density=True)
-        cdf = np.cumsum(hist) * np.diff(bin_edges)
+        hist, bin_edges = np.histogram(values, bins=bins, density=False)
+        pdf = hist / np.sum(hist)
+        cdf = np.cumsum(pdf)
+        # cdf = np.cumsum(hist) * np.diff(bin_edges) # Density=True
         cdfs[descriptor] = (hist, bin_edges, cdf)  # Store both the histogram and the CDF
     return cdfs
 
@@ -284,10 +286,11 @@ def plot_sensitivity_specificity_by_patch_size(results, wavelet, threshold, outp
     plt.close()
 
         
-def plot_kdes(hist1, hist2, figname, title):
+def plot_pvalue_histograms(real_pvalues, fake_pvalues, figname, title):
+    """Plot histograms for real and fake p-values with transparency and save to a file."""
     plt.figure(figsize=(12, 6))
-    sns.kdeplot(hist1, label="Real", fill=True, bw_adjust=0.5, gridsize=2000)
-    sns.kdeplot(hist2, label="Fake", fill=True, bw_adjust=0.5, gridsize=2000)
+    plt.hist(real_pvalues, bins=100, alpha=0.5, label="Real", color='blue', density=True, edgecolor='k')
+    plt.hist(fake_pvalues, bins=100, alpha=0.5, label="Fake", color='orange', density=True,  edgecolor='k')
     plt.xlabel("p-values")
     plt.ylabel("Density")
     plt.title(title)
@@ -296,82 +299,103 @@ def plot_kdes(hist1, hist2, figname, title):
     plt.savefig(figname)
 
 
-def plot_sensitivity_specificity_by_num_waves(results, threshold, output_dir):
-    """Plot sensitivity (recall) and specificity across number of wavelet tests."""
-    num_waves = sorted(results.keys())
-    recalls = [results[nw]['recall'] for nw in num_waves]
-    specificities = [results[nw]['specificity'] for nw in num_waves]
-
-    # Plot recall and specificity
-    plt.figure()
-    plt.plot(num_waves, recalls, marker='o', label='Recall (Sensitivity)')
-    plt.plot(num_waves, specificities, marker='x', label='Specificity')
-    plt.title(f'Sensitivity and Specificity by Number of Wave Tests (Alpha={threshold})')
-    plt.xlabel('Number of Wave Tests')
-    plt.ylabel('Value')
+def plot_histograms(hist, figname='plot.png', title='histogram'):
+    """Plot histograms for real and fake p-values with transparency and save to a file."""
+    plt.figure(figsize=(12, 6))
+    plt.hist(hist, bins=100, alpha=0.5, color='blue', density=True, edgecolor='k')
+    plt.xlabel("p-values")
+    plt.ylabel("Density")
+    plt.title(title)
     plt.legend()
-    plt.grid()
-    plt.savefig(os.path.join(output_dir, f'sensitivity_specificity_by_{num_waves}_num_waves_alpha_{threshold}.png'))
-    plt.close()
+    plt.tight_layout()
+    plt.savefig(figname)
 
 
-def plot_roc_curve_by_patch_size(results, wavelet, output_dir):
-    """Plot ROC curve across patch sizes for a specific wavelet."""
-    patches = sorted(results.keys())
-    tprs = []
-    fprs = []
-    roc_aucs = []
-
-    for patch in patches:
-        labels = results[patch]['labels']
-        scores = results[patch]['scores']
-        fpr, tpr, _ = roc_curve(labels, scores)
-        roc_auc = auc(fpr, tpr)
-        fprs.append(fpr)
-        tprs.append(tpr)
-        roc_aucs.append(roc_auc)
+def plot_roc_curve(results, test_id, output_dir):
+    """Plot ROC curve for a specific test."""
+    labels = results['labels']
+    scores = results['scores']
+    fpr, tpr, _ = roc_curve(labels, scores)
+    roc_auc = auc(fpr, tpr)
 
     # Plot ROC curves
     plt.figure()
-    for patch, fpr, tpr, roc_auc in zip(patches, fprs, tprs, roc_aucs):
-        plt.plot(fpr, tpr, label=f"Patch {patch}, {results[patch]['n_tests']} Tests (AUC = {roc_auc:.2f})")
+    plt.plot(fpr, tpr, label=f"{results['n_tests']} Tests (AUC = {roc_auc:.2f})")
 
-    plt.title(f'ROC Curve for Wavelet: {wavelet}')
+    plt.title(f'ROC Curve for Test: {test_id}')
     plt.xlabel('False Positive Rate (1 - Specificity)')
     plt.ylabel('True Positive Rate (Recall)')
     plt.legend(loc='lower right')
     plt.grid()
-    plt.savefig(os.path.join(output_dir, f'roc_curve_{wavelet}_patches.png'))
+    plt.savefig(os.path.join(output_dir, f'roc_curve.png'))
     plt.close()
 
 
-def plot_roc_curve_by_num_waves(results, output_dir):
-    """Plot ROC curve across number of wavelet tests."""
-    num_waves = sorted(results.keys())
-    tprs = []
-    fprs = []
-    roc_aucs = []
+def plot_stouffer_analysis(
+    pvalues, inverse_z_scores, stouffer_statistic, stouffer_pvalues, 
+    plot_bins=100, output_folder='logs', num_plots_pvalues=10, num_plots_zscores=10
+):
+    """
+    Generate and save plots for the p-values, inverse z-scores, Stouffer's statistics, and Stouffer's p-values.
 
-    for nw in num_waves:
-        labels = results[nw]['labels']
-        scores = results[nw]['scores']
-        fpr, tpr, _ = roc_curve(labels, scores)
-        roc_auc = auc(fpr, tpr)
-        fprs.append(fpr)
-        tprs.append(tpr)
-        roc_aucs.append(roc_auc)
+    Parameters:
+    - pvalues: Array of p-values (N x T).
+    - inverse_z_scores: Array of inverse z-scores (N x T).
+    - stouffer_statistic: Array of combined z-scores (N x 1).
+    - stouffer_pvalues: Array of Stouffer's combined p-values (N x 1).
+    - plot_bins: Number of bins for the plotted histograms.
+    - output_folder: Folder to save the output figures.
+    - num_plots_pvalues: Number of columns to display for p-values subplots.
+    - num_plots_zscores: Number of columns to display for inverse z-scores subplots.
+    """
+    T = pvalues.shape[1]  # Number of tests
 
-    # Plot ROC curves
-    plt.figure()
-    for nw, fpr, tpr, roc_auc in zip(num_waves, fprs, tprs, roc_aucs):
-        plt.plot(fpr, tpr, label=f"{nw} Wavelets, {results[nw]['n_tests']} Tests (AUC = {roc_auc:.2f})")
+    # Step 1: Plot sampled p-values for the first `num_plots_pvalues` tests
+    fig_pvalues, axes_pvalues = plt.subplots(1, min(num_plots_pvalues, T), figsize=(20, 6))
+    if T == 1:  # If there's only one test, axes_pvalues is not iterable
+        axes_pvalues = [axes_pvalues]
 
-    plt.title('ROC Curve by Number of Wave Tests')
-    plt.xlabel('False Positive Rate (1 - Specificity)')
-    plt.ylabel('True Positive Rate (Recall)')
-    plt.legend(loc='lower right')
-    plt.grid()
-    plt.savefig(os.path.join(output_dir, f'roc_curve_by_num_waves.png'))
-    plt.close()
+    for i in range(min(num_plots_pvalues, T)):
+        axes_pvalues[i].hist(pvalues[:, i], bins=plot_bins, edgecolor='k', alpha=0.7, density=True, color='blue')
+        axes_pvalues[i].set_title(f"P-Values Test {i+1}")
+        axes_pvalues[i].set_xlabel("P-Value")
+        axes_pvalues[i].set_ylabel("Density")
 
+    fig_pvalues.tight_layout()
+    fig_pvalues.savefig(f"{output_folder}/pvalues_histogram_subset.png")
+    plt.close(fig_pvalues)
 
+    # Step 2: Plot inverse z-scores for the first `num_plots_zscores` tests
+    fig_zscores, axes_zscores = plt.subplots(1, min(num_plots_zscores, T), figsize=(20, 6))
+    if T == 1:  # If there's only one test, axes_zscores is not iterable
+        axes_zscores = [axes_zscores]
+
+    for i in range(min(num_plots_zscores, T)):
+        axes_zscores[i].hist(inverse_z_scores[:, i], bins=plot_bins, edgecolor='k', alpha=0.7, density=True, color='orange')
+        axes_zscores[i].set_title(f"Z-Scores Test {i+1}")
+        axes_zscores[i].set_xlabel("Z-Score Value")
+        axes_zscores[i].set_ylabel("Density")
+
+    fig_zscores.tight_layout()
+    fig_zscores.savefig(f"{output_folder}/inverse_zscores_histogram_subset.png")
+    plt.close(fig_zscores)
+
+    # Step 3: Plot Stouffer's statistics
+    fig_stouffer_stat, ax_stouffer_stat = plt.subplots(figsize=(10, 6))
+    ax_stouffer_stat.hist(stouffer_statistic, bins=plot_bins, edgecolor='k', alpha=0.7, density=True, color='green')
+    ax_stouffer_stat.set_title("Histogram of Stouffer's Statistics")
+    ax_stouffer_stat.set_xlabel("Stouffer Statistic")
+    ax_stouffer_stat.set_ylabel("Density")
+    fig_stouffer_stat.tight_layout()
+    fig_stouffer_stat.savefig(f"{output_folder}/stouffer_statistics_histogram.png")
+    plt.close(fig_stouffer_stat)
+
+    # Step 4: Plot Stouffer's p-values
+    fig_stouffer_pvalues, ax_stouffer_pvalues = plt.subplots(figsize=(10, 6))
+    ax_stouffer_pvalues.hist(stouffer_pvalues, bins=plot_bins, edgecolor='k', alpha=0.7, density=True, color='purple')
+    ax_stouffer_pvalues.set_title("Histogram of Stouffer's P-Values")
+    ax_stouffer_pvalues.set_xlabel("P-Value")
+    ax_stouffer_pvalues.set_ylabel("Density")
+    fig_stouffer_pvalues.tight_layout()
+    fig_stouffer_pvalues.savefig(f"{output_folder}/stouffer_pvalues_histogram.png")
+    plt.close(fig_stouffer_pvalues)

@@ -1,9 +1,11 @@
-import argparse
 import os
-from stat_test import main_multiple_patch_test, main_multiple_wavelet_test
+import argparse
+from stat_test import main_multiple_patch_test
 from data_utils import ImageDataset, create_inference_dataset
 from torchvision import transforms
-from utils import plot_roc_curve_by_num_waves, plot_roc_curve_by_patch_size, set_seed, plot_sensitivity_specificity_by_patch_size, plot_sensitivity_specificity_by_num_waves
+from utils import plot_roc_curve, set_seed, plot_sensitivity_specificity_by_patch_size
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 parser = argparse.ArgumentParser(description='Wavelet anqd Patch Testing Pipeline')
 parser.add_argument('--test_type', choices=['multiple_patches', 'multiple_wavelets'], default='multiple_wavelets', help='Choose which type of multiple tests to perform')
@@ -12,13 +14,14 @@ parser.add_argument('--sample_size', type=int, default=256, help='Sample input s
 parser.add_argument('--threshold', type=float, default=0.05, help='P-value threshold for significance testing')
 parser.add_argument('--histograms_file', type=str, default='patch_population_histograms_10kb.pkl', help='File name to save/load population histograms')
 parser.add_argument('--reload_population_histograms', type=int, choices=[0, 1], default=1, help='Flag to reload precomputed population histograms from file (1 for True, 0 for False)')
-parser.add_argument('--save_kdes', type=int, choices=[0, 1], default=0, help='Flag to save KDE plots for real and fake p-values (1 for True, 0 for False)')
-parser.add_argument('--ensemble_test', choices=['stouffer', 'rbm'], default='stouffer', help='Type of ensemble test to perform (e.g., stouffer, rbm)')
+parser.add_argument('--save_histograms', type=int, choices=[0, 1], default=1, help='Flag to save KDE plots for real and fake p-values (1 for True, 0 for False)')
+parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm'], default='manual-stouffer', help='Type of ensemble test to perform (e.g., stouffer, rbm)')
 parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=0, help='Flag to save independence test heatmaps (1 for True, 0 for False)')
 parser.add_argument('--data_dir_real', type=str, default='data/CelebaHQMaskDataset/train/images_faces', help='Path to the real population dataset')
 parser.add_argument('--data_dir_fake_real', type=str, default='data/CelebaHQMaskDataset/test/images_faces', help='Path to the real-fake dataset')
 parser.add_argument('--data_dir_fake', type=str, default='data/stable-diffusion-face-dataset/1024/both_faces', help='Path to the fake dataset')
 parser.add_argument('--output_dir', type=str, default='logs', help='Path where to save artifacts')
+parser.add_argument('--pkls_dir', type=str, default='pkls', help='Path where to save pkls')
 parser.add_argument('--num_samples_per_class', type=int, default=2957, help='Number of samples per class for inference dataset')
 parser.add_argument('--num_data_workers', type=int, default=4, help='Number of workers for data loading')
 parser.add_argument('--max_wave_level', type=int, default=4, help='Maximum number of levels in DWT')
@@ -33,80 +36,42 @@ def main():
     # Load datasets
     transform = transforms.Compose([transforms.Resize((args.sample_size, args.sample_size)), transforms.ToTensor()])
     real_population_dataset = ImageDataset(args.data_dir_real, transform=transform, labels=0)
-    inference_data = create_inference_dataset(args.data_dir_fake_real, args.data_dir_fake, args.num_samples_per_class, classes='both')
+    inference_data = create_inference_dataset(args.data_dir_fake_real, args.data_dir_fake, args.num_samples_per_class, classes='real')
 
     # Prepare inference dataset
     image_paths = [x[0] for x in inference_data]
     labels = [x[1] for x in inference_data]
     inference_dataset = ImageDataset(image_paths, labels, transform=transform)
 
-    if args.test_type == 'multiple_patches':
-        thresholds = [0.05, 0.25, 0.5]
-        thresholds = [0.05]
-        wavelets = ['haar', 'coif1', 'sym2']
-        # wavelets = ['bior1.1']
-        patch_sizes = [256, 128, 64, 32, 16]
+    threshold = 0.05
+    wavelets = ['haar', 'coif1', 'sym2']
+    patch_sizes = [args.sample_size // 2**i for i in range(1)]
+    wavelet_levels=range(4)
+    
+    test_id = f"num_waves_{len(wavelets)}-{min(patch_sizes)}_{max(patch_sizes)}-max_level_{wavelet_levels[-1]}"
 
-        results = {}
+    results = main_multiple_patch_test(
+            real_population_dataset=real_population_dataset,
+            inference_dataset=inference_dataset,
+            test_labels=labels,
+            batch_size=args.batch_size,
+            threshold=threshold,
+            patch_sizes=patch_sizes,
+            wavelets=wavelets,
+            wavelet_levels=wavelet_levels,
+            save_independence_heatmaps=bool(args.save_independence_heatmaps),
+            save_histograms=bool(args.save_histograms),
+            ensemble_test=args.ensemble_test,
+            max_workers=args.max_workers,
+            num_data_workers=args.num_data_workers,
+            output_dir=args.output_dir,
+            pkl_dir=args.pkls_dir,
+            return_logits=True
+        )
 
-        for threshold in thresholds:
-            results[threshold] = {}
-            for wavelet in wavelets:
-                results[threshold][wavelet] = {}
-                for patch_size in patch_sizes:
-                    results[threshold][wavelet][patch_size] = main_multiple_patch_test(
-                        real_population_dataset=real_population_dataset,
-                        inference_dataset=inference_dataset,
-                        test_labels=labels,
-                        batch_size=args.batch_size,
-                        threshold=threshold,
-                        patch_size=patch_size,
-                        wavelet=wavelet,
-                        population_histograms_file=os.path.join('pkls', f"wavelet_{wavelet}_patch_size_{patch_size}_population_histograms.pkl"),
-                        reload_population_histograms=bool(args.reload_population_histograms),
-                        save_independence_heatmaps=bool(args.save_independence_heatmaps),
-                        save_kdes=bool(args.save_kdes),
-                        ensemble_test=args.ensemble_test,
-                        max_workers=args.max_workers,
-                        num_data_workers=args.num_data_workers,
-                        output_dir=args.output_dir,
-                        return_logits=True
-                    )
-                    results[threshold][wavelet][patch_size]['labels'] = labels
-                # plot_sensitivity_specificity_by_patch_size(results[threshold][wavelet], wavelet, threshold, args.output_dir)
-                plot_roc_curve_by_patch_size(results[threshold][wavelet], wavelet, args.output_dir)
-
-    elif args.test_type == 'multiple_wavelets':
-        thresholds = [0.05, 0.25, 0.5]
-        thresholds = [0.05]
-        wavelist = ['bior1.1', 'bior3.1', 'bior6.8', 'coif1', 'coif10', 'db1', 'db38', 'haar', 'rbio6.8', 'sym2']
-
-        results = {}
-
-        for threshold in thresholds:
-            results[threshold] = {}
-            for i in range(1, len(wavelist) + 1):
-                results[threshold][i] = main_multiple_wavelet_test(
-                    real_population_dataset,
-                    inference_dataset,
-                    test_labels=labels,
-                    batch_size=args.batch_size,
-                    threshold=threshold,
-                    population_histograms_file=os.path.join('pkls', f"num_wavelets_{i}_population_histograms.pkl"),
-                    reload_population_histograms=bool(args.reload_population_histograms),
-                    save_independence_heatmaps=bool(args.save_independence_heatmaps),
-                    save_kdes=bool(args.save_kdes),
-                    ensemble_test=args.ensemble_test,
-                    wavelet_list=wavelist[:i],
-                    max_workers=args.max_workers,
-                    max_level=args.max_wave_level,
-                    num_data_workers=args.num_data_workers,
-                    output_dir=args.output_dir,
-                    return_logits=True
-                )
-                results[threshold][i]['labels'] = labels
-            # plot_sensitivity_specificity_by_num_waves(results[threshold], threshold, args.output_dir)
-            plot_roc_curve_by_num_waves(results[threshold], args.output_dir)
+    results['labels'] = labels
+    # plot_sensitivity_specificity_by_patch_size(results[threshold][wavelet], wavelet, threshold, args.output_dir)
+    plot_roc_curve(results, test_id, args.output_dir)
 
 
 if __name__ == "__main__":
