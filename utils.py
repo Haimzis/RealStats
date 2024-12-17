@@ -1,18 +1,80 @@
 import pickle
 import random
 from matplotlib import pyplot as plt
+from sklearn.isotonic import spearmanr
 import torch
 import numpy as np
 from pytorch_wavelets import DTCWTForward, DTCWTInverse
 from scipy.stats import chi2_contingency
-from sklearn.metrics import auc, confusion_matrix, precision_score, recall_score, f1_score, accuracy_score, confusion_matrix, mutual_info_score, roc_curve
+from sklearn.metrics import auc, confusion_matrix, precision_score, recall_score, f1_score, accuracy_score, confusion_matrix, roc_curve
 import os
 import seaborn as sns
 import networkx as nx
+import numpy as np
+from scipy.stats import chi2
 
 
+def view_subgraph(subgraph, title="Subgraph Visualization", save_path='subgraph.png'):
+    """
+    Visualize the subgraph using networkx and matplotlib.
+    
+    Parameters:
+    -----------
+    subgraph : networkx.Graph
+        The subgraph to be visualized.
+    title : str
+        Title of the plot.
+    save_path : str or None
+        Path to save the plot as an image. If None, display interactively.
+    """
+    plt.figure(figsize=(10, 8))
+    pos = nx.spring_layout(subgraph)  # Layout for positioning the nodes
+    
+    # Assign random colors to edges
+    edges = subgraph.edges()
+    edge_colors = ["#" + "".join([random.choice("0123456789ABCDEF") for _ in range(6)]) for _ in edges]
+        
+    nx.draw(subgraph, pos, with_labels=False, node_size=400, node_color="skyblue", font_size=10, font_weight="bold")
+    nx.draw_networkx_edges(subgraph, pos, edgelist=edges, edge_color=edge_colors, width=2)
 
-def get_largest_independent_subgroup(keys, distributions, p_threshold=0.05, v_threshold=0.1):
+    plt.title(title)
+    plt.savefig(save_path, format='PNG')
+    print(f"Subgraph saved to {save_path}")
+
+
+def chi_square_independence_test(observed):
+    """
+    chi2_stat : float
+        Chi-square statistic.
+    df : int
+        Degrees of freedom.
+    p_value : float
+        P-value of the test.
+    expected : 2D array
+        Expected counts under null hypothesis of independence.
+    """
+    # Compute row and column sums
+    row_totals = observed.sum(axis=1)
+    col_totals = observed.sum(axis=0)
+    grand_total = observed.sum()
+
+    # Compute expected counts
+    expected = np.outer(row_totals, col_totals) / grand_total
+
+    # Compute the chi-square statistic
+    chi2_stat = ((observed - expected)**2 / (expected + np.finfo(np.float16).eps)).sum()
+
+    # Degrees of freedom
+    r, c = observed.shape
+    df = (r - 1) * (c - 1)
+
+    # Compute p-value
+    p_value = 1 - chi2.cdf(chi2_stat, df)
+
+    return chi2_stat, p_value, df, expected
+
+
+def get_largest_independent_subgroup(keys, distributions, p_threshold=0.05, plot_independence_heatmap=False, output_dir='logs'):
     """
     Find the largest sub-group of independent keys.
 
@@ -29,106 +91,64 @@ def get_largest_independent_subgroup(keys, distributions, p_threshold=0.05, v_th
     --------
     largest_independent_group : list of str
         List of keys representing the largest independent subgroup.
-    """
-    # Create a graph
+    """    
     G = nx.Graph()
     G.add_nodes_from(keys)
 
-    # Add edges for dependent pairs
-    for i, key1 in enumerate(keys):
-        dist_1 = distributions[i]
-        for j, key2 in enumerate(keys):
-            if i >= j:  # Avoid redundant comparisons and self-comparison
-                continue
+    num_dists = len(distributions)
+    chi2_p_matrix = np.zeros((num_dists, num_dists))
+    corr_p_matrix = np.zeros((num_dists, num_dists))
 
+    sorted_keys = sorted(keys)
+    pvalues = []
+
+    for i, key1 in enumerate(sorted_keys):
+        dist_1 = distributions[i]
+        for j, key2 in enumerate(sorted_keys):
+            if i <= j:
+                continue
+            
             dist_2 = distributions[j]
 
-            # Bin the distributions into histograms
-            bins = np.linspace(0, 1, 101)
-            hist_1, _ = np.histogram(dist_1, bins=bins)
-            hist_2, _ = np.histogram(dist_2, bins=bins)
+            contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(401, 401))
+            # _chi2_stat, _p_val, _df, _expected = chi_square_independence_test(contingency_table)
 
-            # Create the contingency table
-            contingency_table = np.array([hist_1, hist_2])
-
-            # Perform Chi-Square Test
+            # TODO: adding HP fine tuning for finding best threshold for CHI2, to get normality for stouffer.
             try:
-                chi2_stat, chi2_p, _, expected = chi2_contingency(contingency_table)
+                chi2_stat, chi2_p, df, expected = chi2_contingency(contingency_table)
+                _p_val = chi2_p 
+                chi2_p_matrix[i, j] = _p_val
+                corr_p_matrix[i, j] = np.corrcoef(dist_1, dist_2)[0, 1]
 
-                # Calculate Cramér's V
-                n = np.sum(contingency_table)  # Total observations
-                min_dim = min(contingency_table.shape) - 1  # Min(rows - 1, cols - 1)
-                cramer_v = np.sqrt(chi2_stat / (n * min_dim))
-
-                # Add an edge if the pair is independent (high p-value AND low effect size)
-                if chi2_p > p_threshold and cramer_v < v_threshold:
+                pvalues.append(_p_val)
+                # Add an edge if the pair is independent (high p-value)
+                if _p_val > p_threshold:
                     G.add_edge(key1, key2)
             except ValueError:
                 pass
 
-    # Process the connected subgraph
+    if plot_independence_heatmap:
+        create_heatmap(chi2_p_matrix, sorted_keys, 'Chi-Square Test (P-values %)', output_dir, 'chi2_heatmap.png')
+        create_heatmap(corr_p_matrix, sorted_keys, 'Spearman Correlation Test', output_dir, 'corr_heatmap.png')
+
     subgraph = G.subgraph([node for node, degree in G.degree() if degree > 0])
     independent_set = nx.algorithms.approximation.clique.max_clique(subgraph)
-    
-    # Combine results
-    largest_independent_group =  list(independent_set)
+    largest_independent_group = list(independent_set)
+    largest_independent_group = [sorted_keys[0]] if len(largest_independent_group) == 0 else largest_independent_group
     return largest_independent_group
 
 
-def save_independence_test_heatmaps(keys, distributions, output_dir='logs'):
-    num_dists = len(distributions)
+def create_heatmap(data, keys, title, output_dir, filename, figsize=(50, 25)):
+    mask = np.zeros_like(data, dtype=bool)
+    mask[np.triu_indices_from(mask)] = True
+
+    # Apply mask to zero-out the unwanted part
+    data = np.ma.masked_where(mask, data)
     
-    # Create matrices to store percentage p-values (pval * 100) for each test
-    chi2_p_matrix = np.zeros((num_dists, num_dists))
-    mutual_info_p_matrix = np.zeros((num_dists, num_dists))
-
-    # Perform pairwise comparisons
-    for i, key in enumerate(keys):
-        dist_1 = distributions[key]
-
-        for j, key2 in enumerate(keys):
-            if i == j:
-                chi2_p_matrix[i, j] = np.nan  # No comparison with itself
-                mutual_info_p_matrix[i, j] = np.nan
-                continue
-
-            dist_2 = distributions[key2]
-
-            ### CHI^2 TEST ###
-            bins = np.linspace(0, 1, 101)  # N bins between 0 and 1
-
-            # Bin the p-values into categories for both distributions
-            hist_1, _ = np.histogram(dist_1, bins=bins)
-            hist_2, _ = np.histogram(dist_2, bins=bins)
-
-            # Create the contingency table by stacking the binned histograms
-            contingency_table = np.array([hist_1, hist_2])
-
-            try:
-                chi2_stat, chi2_p, dof, expected = chi2_contingency(contingency_table)
-                chi2_p_matrix[i, j] = chi2_p * 100  # Store p-value * 100
-            except ValueError:
-                chi2_p_matrix[i, j] = np.nan  # If test fails, set as NaN
-
-            ### MUTUAL INFORMATION TEST ###
-            try:
-                mutual_info = mutual_info_score(hist_1, hist_2)
-                mutual_info_p_matrix[i, j] = mutual_info * 100  # Store MI value * 100 (proxy for p-value)
-            except ValueError:
-                mutual_info_p_matrix[i, j] = np.nan  # If test fails, set as NaN
-
-    # Ensure output directory exists
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-
-    # Create and save heatmaps for each test
-    create_heatmap(chi2_p_matrix, keys, 'Chi-Square Test (P-values %)', output_dir, 'chi2_heatmap.png')
-    create_heatmap(mutual_info_p_matrix, keys, 'Mutual Information (P-values %)', output_dir, 'mutual_info_heatmap.png', figsize=(40, 25))
-    pass
-
-def create_heatmap(data, keys, title, output_dir, filename, figsize=(25, 25)):
     plt.figure(figsize=figsize)
-    sns.heatmap(data, annot=True, fmt=".2f", cmap=sns.color_palette("YlOrBr", as_cmap=True), xticklabels=keys, yticklabels=keys, cbar_kws={'label': 'Percentage (%)'}, annot_kws={"size": 10})
+    sns.heatmap(data, annot=True, fmt=".2f", cmap=sns.color_palette("YlOrBr", as_cmap=True), 
+                xticklabels=keys, yticklabels=keys, mask=mask, 
+                cbar_kws={'label': 'Percentage (%)'}, annot_kws={"size": 10})
     plt.xticks(rotation=90, fontsize=10)
     plt.yticks(rotation=0, fontsize=10)
     plt.title(title)
@@ -351,7 +371,7 @@ def plot_stouffer_analysis(
     T = pvalues.shape[1]  # Number of tests
 
     # Step 1: Plot sampled p-values for the first `num_plots_pvalues` tests
-    fig_pvalues, axes_pvalues = plt.subplots(1, min(num_plots_pvalues, T), figsize=(20, 6))
+    fig_pvalues, axes_pvalues = plt.subplots(1, min(num_plots_pvalues, T), figsize=(20, 4))
     if T == 1:  # If there's only one test, axes_pvalues is not iterable
         axes_pvalues = [axes_pvalues]
 
@@ -366,7 +386,7 @@ def plot_stouffer_analysis(
     plt.close(fig_pvalues)
 
     # Step 2: Plot inverse z-scores for the first `num_plots_zscores` tests
-    fig_zscores, axes_zscores = plt.subplots(1, min(num_plots_zscores, T), figsize=(20, 6))
+    fig_zscores, axes_zscores = plt.subplots(1, min(num_plots_zscores, T), figsize=(20, 4))
     if T == 1:  # If there's only one test, axes_zscores is not iterable
         axes_zscores = [axes_zscores]
 

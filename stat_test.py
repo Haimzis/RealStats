@@ -13,7 +13,6 @@ from utils import (
     plot_stouffer_analysis,
     save_population_histograms,
     plot_pvalue_histograms,
-    save_independence_test_heatmaps,
     plot_histograms
 )
 from statsmodels.stats.multitest import multipletests
@@ -49,7 +48,7 @@ def preprocess_wavelet(dataset, batch_size, wavelet, wavelet_level, num_data_wor
     return result
 
 
-def patch_parallel_preprocess(original_dataset, batch_size, wavelets, wavelet_levels, patch_sizes, sample_size, max_workers, num_data_workers, pkl_dir='pkls', save_pkl=False, test=False):
+def patch_parallel_preprocess(original_dataset, batch_size, wavelets, wavelet_levels, patch_sizes, sample_size, max_workers, num_data_workers, pkl_dir='pkls', save_pkl=False, test=False, sort=True):
     """Preprocess the dataset for a specific wavelet, level, and patch in parallel."""
     results = {}
 
@@ -70,6 +69,8 @@ def patch_parallel_preprocess(original_dataset, batch_size, wavelets, wavelet_le
             except Exception as exc:
                 print(f"Patch {patch_idx}, generated an exception: {exc}")
 
+        if sort is True: 
+            results = {k: results[k] for k in sorted(results)}
     return results
 
 
@@ -135,14 +136,14 @@ def main_multiple_patch_test(
     real_population_histogram = patch_parallel_preprocess(
         real_population_dataset, batch_size, wavelets, wavelet_levels, patch_sizes, example_image.shape, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True
     )
-    save_population_histograms(real_population_histogram, 'train_values2.npy')
+    # save_population_histograms(real_population_histogram, 'train_values.npy')
 
     real_population_cdfs = {test_id: compute_cdf(values) for test_id, values in real_population_histogram.items()}
     real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, real_population_histogram, "Training")
     real_population_pvals = np.clip(real_population_pvals, 0, 1)
 
     # Chi2 filter
-    independent_keys_group = get_largest_independent_subgroup(list(real_population_histogram.keys()), np.array(real_population_pvals).T, 0.05)
+    independent_keys_group = get_largest_independent_subgroup(list(real_population_histogram.keys()), np.array(real_population_pvals).T, 0.05, plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir)
     independent_keys_group = [list(real_population_histogram.keys()).index(value) for value in independent_keys_group]
 
     print(f'Found {len(independent_keys_group)} independent tests.')
@@ -152,7 +153,7 @@ def main_multiple_patch_test(
         inference_dataset, batch_size, wavelets, wavelet_levels, patch_sizes, example_image.shape, max_workers, num_data_workers, test=True
     )
 
-    save_population_histograms(real_population_histogram, 'test_values2.npy')
+    # save_population_histograms(real_population_histogram, 'test_values.npy')
 
     input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, "Test")
     independent_tests_pvalues = np.array(input_samples_pvalues).T[list(independent_keys_group)].T
@@ -162,9 +163,6 @@ def main_multiple_patch_test(
     ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
     predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
 
-    # Save plots
-    if save_independence_heatmaps:
-        save_independence_test_heatmaps(list(real_population_histogram.keys()), predictions, output_dir)
 
     if save_histograms and test_labels:
         plot_pvalue_histograms(
@@ -191,7 +189,7 @@ def perform_ensemble_testing(pvalues, ensemble_test):
     if ensemble_test == 'stouffer':
         return [combine_pvalues(p, method='stouffer')[1] for p in pvalues]
     elif ensemble_test == 'manual-stouffer':
-        pvalues = np.clip(pvalues, np.finfo(np.float16).eps, 1.0 - np.finfo(np.float16).eps)
+        pvalues = np.clip(pvalues, np.finfo(np.float32).eps, 1.0 - np.finfo(np.float32).eps)
         inverse_z_scores = norm.ppf(pvalues)
         stouffer_z = np.sum(inverse_z_scores, axis=1) / np.sqrt(pvalues.shape[1])
         stouffer_pvalues = norm.cdf(stouffer_z)
