@@ -1,7 +1,7 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import pickle
 import random
 from matplotlib import pyplot as plt
-from sklearn.isotonic import spearmanr
 import torch
 import numpy as np
 from pytorch_wavelets import DTCWTForward, DTCWTInverse
@@ -12,6 +12,7 @@ import seaborn as sns
 import networkx as nx
 import numpy as np
 from scipy.stats import chi2
+from tqdm import tqdm
 
 
 def view_subgraph(subgraph, title="Subgraph Visualization", save_path='subgraph.png'):
@@ -74,68 +75,67 @@ def chi_square_independence_test(observed):
     return chi2_stat, p_value, df, expected
 
 
-def get_largest_independent_subgroup(keys, distributions, p_threshold=0.05, plot_independence_heatmap=False, output_dir='logs'):
-    """
-    Find the largest sub-group of independent keys.
+def calculate_chi2_and_corr(i, j, dist_1, dist_2):
+    """Compute chi-square p-value and correlation for two distributions."""
+    try:
+        contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(201, 201))
+        chi2_stat, chi2_p, _, _ = chi2_contingency(contingency_table)
+        correlation = np.corrcoef(dist_1, dist_2)[0, 1]
+        return i, j, chi2_p, correlation
+    except ValueError:
+        return i, j, -1, None
 
-    Parameters:
-    -----------
-    keys : list of str
-        Names of the distributions.
-    distributions : dict
-        Dictionary where keys are distribution names and values are 1D arrays of values.
-    threshold : float
-        The p-value threshold above which two distributions are considered independent.
 
-    Returns:
-    --------
-    largest_independent_group : list of str
-        List of keys representing the largest independent subgroup.
-    """    
-    G = nx.Graph()
-    G.add_nodes_from(keys)
-
+def compute_chi2_and_corr_matrix(keys, distributions, max_workers=128, plot_independence_heatmap=False, output_dir='logs'):
+    """Compute Chi-Square p-value matrix and correlation matrix."""
     num_dists = len(distributions)
     chi2_p_matrix = np.zeros((num_dists, num_dists))
-    corr_p_matrix = np.zeros((num_dists, num_dists))
+    corr_matrix = np.zeros((num_dists, num_dists))
 
-    sorted_keys = sorted(keys)
-    pvalues = []
+    tasks = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for i, key1 in enumerate(keys):
+            dist_1 = distributions[i]
+            for j, key2 in enumerate(keys):
+                if i <= j:  # Skip duplicates and diagonal
+                    continue
+                dist_2 = distributions[j]
+                tasks.append(executor.submit(calculate_chi2_and_corr, i, j, dist_1, dist_2))
 
-    for i, key1 in enumerate(sorted_keys):
-        dist_1 = distributions[i]
-        for j, key2 in enumerate(sorted_keys):
-            if i <= j:
-                continue
-            
-            dist_2 = distributions[j]
-
-            contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(401, 401))
-            # _chi2_stat, _p_val, _df, _expected = chi_square_independence_test(contingency_table)
-
-            # TODO: adding HP fine tuning for finding best threshold for CHI2, to get normality for stouffer.
-            try:
-                chi2_stat, chi2_p, df, expected = chi2_contingency(contingency_table)
-                _p_val = chi2_p 
-                chi2_p_matrix[i, j] = _p_val
-                corr_p_matrix[i, j] = np.corrcoef(dist_1, dist_2)[0, 1]
-
-                pvalues.append(_p_val)
-                # Add an edge if the pair is independent (high p-value)
-                if _p_val > p_threshold:
-                    G.add_edge(key1, key2)
-            except ValueError:
-                pass
+        for future in tqdm(as_completed(tasks), total=len(tasks), desc="Processing Chi2 and Correlation tests..."):
+            i, j, chi2_p, corr = future.result()
+            if chi2_p is not None:
+                chi2_p_matrix[i, j] = chi2_p
+                chi2_p_matrix[j, i] = chi2_p  # Symmetry
+            if corr is not None:
+                corr_matrix[i, j] = corr
+                corr_matrix[j, i] = corr
 
     if plot_independence_heatmap:
-        create_heatmap(chi2_p_matrix, sorted_keys, 'Chi-Square Test (P-values %)', output_dir, 'chi2_heatmap.png')
-        create_heatmap(corr_p_matrix, sorted_keys, 'Spearman Correlation Test', output_dir, 'corr_heatmap.png')
+        create_heatmap(chi2_p_matrix, keys, 'Chi-Square Test (P-values)', output_dir, 'chi2_heatmap.png')
+        create_heatmap(corr_matrix, keys, 'Correlation Matrix', output_dir, 'corr_heatmap.png')
 
+    return chi2_p_matrix, corr_matrix
+
+
+def find_largest_independent_group(keys, chi2_p_matrix, p_threshold=0.05):
+    """Find the largest independent group using the Chi-Square p-value matrix."""
+    G = nx.Graph()
+    G.add_nodes_from(keys)
+    
+    # Add edges where p-values are above the threshold
+    num_keys = len(keys)
+    for i in range(num_keys):
+        for j in range(i + 1, num_keys):
+            if chi2_p_matrix[i, j] > p_threshold:
+                G.add_edge(keys[i], keys[j])
+
+    # Subgraph of nodes with edges (dependencies)
     subgraph = G.subgraph([node for node, degree in G.degree() if degree > 0])
+    
+    # Find the largest independent set (nodes not connected to others)
     independent_set = nx.algorithms.approximation.clique.max_clique(subgraph)
-    largest_independent_group = list(independent_set)
-    largest_independent_group = [sorted_keys[0]] if len(largest_independent_group) == 0 else largest_independent_group
-    return largest_independent_group
+    return list(independent_set) if independent_set else [keys[0]]
 
 
 def create_heatmap(data, keys, title, output_dir, filename, figsize=(50, 25)):
