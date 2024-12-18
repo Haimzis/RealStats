@@ -26,15 +26,15 @@ import optuna
 # TODO: 
 # 2. make many many more tests [all levels, all waves, all patches, preprocessing]
 # 4. baselines table [AUC, 5 methods, 5 generators]
-def get_unique_id(patch_size, patch_idx, level, wave):
-    return f"PatchProcessing_wavelet={wave}_level={level}_patch_size={patch_size}_patch_index={patch_idx}"
+def get_unique_id(patch_size, patch_idx, level, wave, test):
+    return f"PatchProcessing_wavelet={wave}_level={level}_patch_size={patch_size}_patch_index={patch_idx}{'_test' if test else ''}"
 
 
 def preprocess_wave(dataset, batch_size, wavelet, wavelet_level, num_data_workers, patch_size, patch_index, pkl_dir, save_pkl, test=False):
     """Preprocess the dataset for a single wave level and wavelet type using NormHistogram."""
-    pkl_filename = os.path.join(pkl_dir, f"{get_unique_id(patch_size, patch_index, wavelet_level, wavelet)}.pkl")
+    pkl_filename = os.path.join(pkl_dir, f"{get_unique_id(patch_size, patch_index, wavelet_level, wavelet, test)}.pkl")
 
-    if not test and os.path.exists(pkl_filename):
+    if os.path.exists(pkl_filename):
         return load_population_histograms(pkl_filename)
 
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_data_workers)
@@ -72,13 +72,16 @@ def patch_parallel_preprocess(original_dataset, batch_size, waves, wavelet_level
 
         for future in tqdm(as_completed(future_to_level_wave), total=len(future_to_level_wave), desc="Processing..."):
             patch_size, patch_idx, level, wave = future_to_level_wave[future]
-            unique_id = get_unique_id(patch_size, patch_idx, level, wave)
+            unique_id = get_unique_id(patch_size, patch_idx, level, wave, test)
             try:
                 results[unique_id] = future.result()
             except Exception as exc:
                 print(f"Patch {patch_idx}, generated an exception: {exc}")
 
         results = {k: v for k, v in results.items() if v is not None}
+
+        if test:
+            results = {k.replace('_test', ''): v for k, v in results.items() if v is not None}
 
         if sort is True: 
             results = {k: results[k] for k in sorted(results)}
@@ -136,7 +139,7 @@ def main_multiple_patch_test(
     output_dir='logs',
     pkl_dir='pkls',
     return_logits=False,
-    portion=0.1
+    portion=0.05
 ):
     """Run test for number of patches and collect sensitivity and specificity results."""
     print(f"Running test with: \npatches sizes: {patch_sizes}\nwavelets: {waves}\nlevels: {wavelet_levels}")
@@ -156,7 +159,7 @@ def main_multiple_patch_test(
     training_histogram = {k: v[split_point:] for k, v in real_population_histogram.items()}
 
     real_population_cdfs = {test_id: compute_cdf(values) for test_id, values in training_histogram.items()}
-    tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, tuning_histogram, "Training")
+    tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, tuning_histogram, "Tuning")
     tuning_real_population_pvals = np.clip(tuning_real_population_pvals, 0, 1)
 
     # Chi-Square and Correlation Matrix Computation
@@ -174,7 +177,7 @@ def main_multiple_patch_test(
         chi2_p_matrix=chi2_p_matrix,
         pvals_matrix=distributions,
         ensemble_test=ensemble_test,
-        n_trials=30
+        n_trials=50
     )
 
     # Find the Largest Independent Group using the best p_threshold
@@ -185,7 +188,7 @@ def main_multiple_patch_test(
 
     # Inference
     inference_histogram = patch_parallel_preprocess(
-        inference_dataset, batch_size, waves, wavelet_levels, patch_sizes, example_image.shape, max_workers, num_data_workers, test=True
+        inference_dataset, batch_size, waves, wavelet_levels, patch_sizes, example_image.shape, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, test=True
     )
 
     input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, "Test")
@@ -257,7 +260,7 @@ def objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test):
     return ks_stat, num_independent_tests
 
 
-def fine_tune_p_threshold_with_optuna(keys, chi2_p_matrix, pvals_matrix, ensemble_test, n_trials=30):
+def fine_tune_p_threshold_with_optuna(keys, chi2_p_matrix, pvals_matrix, ensemble_test, n_trials=50):
     """
     Multi-objective optimization of p_threshold using Optuna to minimize KS statistic
     and maximize the number of independent tests.
@@ -268,6 +271,6 @@ def fine_tune_p_threshold_with_optuna(keys, chi2_p_matrix, pvals_matrix, ensembl
                    n_trials=n_trials, show_progress_bar=True)
 
     # Return the best trial based on your preference
-    best_trial = sorted(study.best_trials, key=lambda t: (t.values[0], -t.values[1]))[0] # prioritize KS stat minimization
+    best_trial = sorted(study.best_trials, key=lambda t: (-t.values[1], t.values[0]))[0] # prioritize KS statistic minimization
     print(f"Best State: p_threshold: {best_trial.params['p_threshold']}, KS Statistic: {best_trial.values[0]}, Num Tests: {best_trial.values[1]}")
     return best_trial.params['p_threshold']

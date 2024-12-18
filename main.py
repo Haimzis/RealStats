@@ -5,7 +5,7 @@ from data_utils import ImageDataset, create_inference_dataset
 from torchvision import transforms
 from utils import plot_roc_curve, set_seed, plot_sensitivity_specificity_by_patch_size
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 parser = argparse.ArgumentParser(description='Wavelet anqd Patch Testing Pipeline')
 parser.add_argument('--test_type', choices=['multiple_patches', 'multiple_wavelets'], default='multiple_wavelets', help='Choose which type of multiple tests to perform')
@@ -21,7 +21,7 @@ parser.add_argument('--data_dir_real', type=str, default='data/CelebaHQMaskDatas
 parser.add_argument('--data_dir_fake_real', type=str, default='data/CelebaHQMaskDataset/test/images_faces', help='Path to the real-fake dataset')
 parser.add_argument('--data_dir_fake', type=str, default='data/stable-diffusion-face-dataset/1024/both_faces', help='Path to the fake dataset')
 parser.add_argument('--output_dir', type=str, default='logs', help='Path where to save artifacts')
-parser.add_argument('--pkls_dir', type=str, default='pkls', help='Path where to save pkls')
+parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/pkls', help='Path where to save pkls')
 parser.add_argument('--num_samples_per_class', type=int, default=2957, help='Number of samples per class for inference dataset')
 parser.add_argument('--num_data_workers', type=int, default=4, help='Number of workers for data loading')
 parser.add_argument('--max_wave_level', type=int, default=4, help='Maximum number of levels in DWT')
@@ -36,7 +36,7 @@ def main():
     # Load datasets
     transform = transforms.Compose([transforms.Resize((args.sample_size, args.sample_size)), transforms.ToTensor()])
     real_population_dataset = ImageDataset(args.data_dir_real, transform=transform, labels=0)
-    inference_data = create_inference_dataset(args.data_dir_fake_real, args.data_dir_fake, args.num_samples_per_class, classes='real')
+    inference_data = create_inference_dataset(args.data_dir_fake_real, args.data_dir_fake, args.num_samples_per_class, classes='both')
 
     # Prepare inference dataset
     image_paths = [x[0] for x in inference_data]
@@ -45,7 +45,7 @@ def main():
 
     threshold = 0.05
     waves = ['haar', 'coif1', 'sym2', 'fourier', 'dct']
-    patch_sizes = [args.sample_size // 2**i for i in range(5)]
+    patch_sizes = [args.sample_size // 2**i for i in range(4)]
     wavelet_levels=range(5)
     
     test_id = f"num_waves_{len(waves)}-{min(patch_sizes)}_{max(patch_sizes)}-max_level_{wavelet_levels[-1]}"
