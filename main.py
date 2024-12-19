@@ -5,7 +5,7 @@ from data_utils import ImageDataset, create_inference_dataset
 from torchvision import transforms
 from utils import plot_roc_curve, set_seed, plot_sensitivity_specificity_by_patch_size
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 parser = argparse.ArgumentParser(description='Wavelet anqd Patch Testing Pipeline')
 parser.add_argument('--test_type', choices=['multiple_patches', 'multiple_wavelets'], default='multiple_wavelets', help='Choose which type of multiple tests to perform')
@@ -16,7 +16,7 @@ parser.add_argument('--histograms_file', type=str, default='patch_population_his
 parser.add_argument('--reload_population_histograms', type=int, choices=[0, 1], default=1, help='Flag to reload precomputed population histograms from file (1 for True, 0 for False)')
 parser.add_argument('--save_histograms', type=int, choices=[0, 1], default=1, help='Flag to save KDE plots for real and fake p-values (1 for True, 0 for False)')
 parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm'], default='manual-stouffer', help='Type of ensemble test to perform (e.g., stouffer, rbm)')
-parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=1, help='Flag to save independence test heatmaps (1 for True, 0 for False)')
+parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=0, help='Flag to save independence test heatmaps (1 for True, 0 for False)')
 parser.add_argument('--data_dir_real', type=str, default='data/CelebaHQMaskDataset/train/images_faces', help='Path to the real population dataset')
 parser.add_argument('--data_dir_fake_real', type=str, default='data/CelebaHQMaskDataset/test/images_faces', help='Path to the real-fake dataset')
 parser.add_argument('--data_dir_fake', type=str, default='data/stable-diffusion-face-dataset/1024/both_faces', help='Path to the fake dataset')
@@ -45,8 +45,8 @@ def main():
 
     threshold = 0.05
     waves = ['haar', 'coif1', 'sym2', 'fourier', 'dct']
-    patch_sizes = [args.sample_size // 2**i for i in range(4)]
-    wavelet_levels=range(5)
+    patch_sizes = [args.sample_size // 2**i for i in range(3)]
+    wavelet_levels=range(3)
     
     test_id = f"num_waves_{len(waves)}-{min(patch_sizes)}_{max(patch_sizes)}-max_level_{wavelet_levels[-1]}"
 
@@ -66,7 +66,8 @@ def main():
             num_data_workers=args.num_data_workers,
             output_dir=args.output_dir,
             pkl_dir=args.pkls_dir,
-            return_logits=True
+            return_logits=True,
+            portion=args.finetune_portion
         )
 
     results['labels'] = labels

@@ -1,6 +1,7 @@
 import itertools
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import re
 import numpy as np
 from tqdm import tqdm
 from torch.utils.data import DataLoader
@@ -34,7 +35,7 @@ def preprocess_wave(dataset, batch_size, wavelet, wavelet_level, num_data_worker
     """Preprocess the dataset for a single wave level and wavelet type using NormHistogram."""
     pkl_filename = os.path.join(pkl_dir, f"{get_unique_id(patch_size, patch_index, wavelet_level, wavelet, test)}.pkl")
 
-    if os.path.exists(pkl_filename):
+    if not test and os.path.exists(pkl_filename):
         return load_population_histograms(pkl_filename)
 
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_data_workers)
@@ -57,37 +58,6 @@ def preprocess_wave(dataset, batch_size, wavelet, wavelet_level, num_data_worker
     return result
 
 
-def patch_parallel_preprocess(original_dataset, batch_size, waves, wavelet_levels, patch_sizes, sample_size, max_workers, num_data_workers, pkl_dir='pkls', save_pkl=False, test=False, sort=True):
-    """Preprocess the dataset for a specific wavelet, level, and patch in parallel."""
-    results = {}
-
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_level_wave = {
-            executor.submit(preprocess_wave, PatchDataset(original_dataset, patch_size, patch_idx),
-                            batch_size, wavelet, level, num_data_workers, patch_size, patch_idx, pkl_dir, save_pkl, test): (patch_size, patch_idx, level, wavelet)
-            for patch_size in patch_sizes
-            for wavelet, level in itertools.product(waves, wavelet_levels)
-            for patch_idx in range((sample_size[1] // patch_size) * (sample_size[2] // patch_size))
-        }        
-
-        for future in tqdm(as_completed(future_to_level_wave), total=len(future_to_level_wave), desc="Processing..."):
-            patch_size, patch_idx, level, wave = future_to_level_wave[future]
-            unique_id = get_unique_id(patch_size, patch_idx, level, wave, test)
-            try:
-                results[unique_id] = future.result()
-            except Exception as exc:
-                print(f"Patch {patch_idx}, generated an exception: {exc}")
-
-        results = {k: v for k, v in results.items() if v is not None}
-
-        if test:
-            results = {k.replace('_test', ''): v for k, v in results.items() if v is not None}
-
-        if sort is True: 
-            results = {k: results[k] for k in sorted(results)}
-    return results
-
-
 def fdr_classification(pvalues, threshold=0.05):
     """Perform FDR correction and return whether any p-values are significant."""
     _, pvals_corrected, _, _ = multipletests(pvalues, method='fdr_bh', alpha=threshold)
@@ -97,8 +67,7 @@ def fdr_classification(pvalues, threshold=0.05):
 def calculate_cdfs_pvalues(real_population_cdfs, input_samples_values):
     """Calculate p-values for input samples against real population CDFs."""
     p_values_per_test = []
-    for descriptor in real_population_cdfs.keys():
-        sample = input_samples_values[descriptor]
+    for descriptor, sample in input_samples_values.items():
         _, bin_edges, population_cdf = real_population_cdfs[descriptor]
         bin_index = np.clip(np.digitize(sample, bin_edges) - 1, 0, len(population_cdf) - 1)
         p_values_per_test.append(population_cdf[bin_index])        
@@ -122,6 +91,67 @@ def calculate_pvals_from_cdf(real_population_cdfs, samples_histogram, split="Inp
     return input_samples_pvalues
 
 
+
+def generate_combinations(patch_sizes, waves, wavelet_levels, sample_size):
+    """Generate all combinations for the training phase."""
+    combinations = []
+    for patch_size, wavelet, level in itertools.product(patch_sizes, waves, wavelet_levels):
+        num_patches = (sample_size[1] // patch_size) * (sample_size[2] // patch_size)
+        for patch_index in range(num_patches):
+            combinations.append({
+                'patch_size': patch_size,
+                'wavelet': wavelet,
+                'level': level,
+                'patch_index': patch_index
+            })
+    return combinations
+
+
+def interpret_keys_to_combinations(independent_keys_group):
+    """Convert independent keys to relevant test combinations."""
+    combinations = []
+    for key in independent_keys_group:
+        match = re.match(r"PatchProcessing_wavelet=(\w+)_level=(\d+)_patch_size=(\d+)_patch_index=(\d+)", key)
+        if match:
+            wavelet, level, patch_size, patch_index = match.groups()
+            combinations.append({
+                'wavelet': wavelet,
+                'level': int(level),
+                'patch_size': int(patch_size),
+                'patch_index': int(patch_index)
+            })
+    return combinations
+
+
+def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_workers, num_data_workers, pkl_dir='pkls', save_pkl=False, test=False, sort=True):
+    """Preprocess the dataset for specific combinations in parallel."""
+    results = {}
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_combination = {
+            executor.submit(preprocess_wave, PatchDataset(original_dataset, comb['patch_size'], comb['patch_index']),
+                            batch_size, comb['wavelet'], comb['level'], num_data_workers, comb['patch_size'], comb['patch_index'], pkl_dir, save_pkl, test): comb
+            for comb in combinations
+        }
+
+        for future in tqdm(as_completed(future_to_combination), total=len(future_to_combination), desc="Processing..."):
+            combination = future_to_combination[future]
+            unique_id = get_unique_id(combination['patch_size'], combination['patch_index'], combination['level'], combination['wavelet'], test)
+            try:
+                results[unique_id] = future.result()
+            except Exception as exc:
+                print(f"Combination {combination}, generated an exception: {exc}")
+
+        results = {k: v for k, v in results.items() if v is not None}
+
+        if test:
+            results = {k.replace('_test', ''): v for k, v in results.items() if v is not None}
+
+        if sort:
+            results = {k: results[k] for k in sorted(results)}
+    return results
+
+
 def main_multiple_patch_test(
     real_population_dataset,
     inference_dataset,
@@ -139,7 +169,8 @@ def main_multiple_patch_test(
     output_dir='logs',
     pkl_dir='pkls',
     return_logits=False,
-    portion=0.05
+    portion=0.05,
+    criteria='KS'
 ):
     """Run test for number of patches and collect sensitivity and specificity results."""
     print(f"Running test with: \npatches sizes: {patch_sizes}\nwavelets: {waves}\nlevels: {wavelet_levels}")
@@ -147,9 +178,12 @@ def main_multiple_patch_test(
     # Determine number of patches
     example_image, _ = real_population_dataset[0]
 
+    # Generate all combinations for training
+    training_combinations = generate_combinations(patch_sizes, waves, wavelet_levels, example_image.shape)
+
     # Load or compute real population histograms
     real_population_histogram = patch_parallel_preprocess(
-        real_population_dataset, batch_size, waves, wavelet_levels, patch_sizes, example_image.shape, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True
+        real_population_dataset, batch_size, training_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, test=False
     )
 
     # Spliting 
@@ -171,32 +205,34 @@ def main_multiple_patch_test(
         plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir
     )
 
-    # Fine-tune p_threshold using KS test
-    best_p_threshold = fine_tune_p_threshold_with_optuna(
+    # Find the Largest Optimal Independent Group using the best p_threshold Fine-tune
+    independent_keys_group = finding_optimal_independent_subgroup(
         keys=keys,
         chi2_p_matrix=chi2_p_matrix,
         pvals_matrix=distributions,
         ensemble_test=ensemble_test,
-        n_trials=50
+        n_trials=50,
+        criteria=criteria
     )
 
-    # Find the Largest Independent Group using the best p_threshold
-    independent_keys_group = find_largest_independent_group(keys, chi2_p_matrix, p_threshold=best_p_threshold)
     independent_keys_group_indices = [keys.index(value) for value in independent_keys_group]
-
-    print(f'Found {len(independent_keys_group_indices)} independent tests.')
+    tuning_independent_pvals = distributions[independent_keys_group_indices].T
+    perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)    
+    
+    # Convert independent keys to combinations
+    independent_combinations = interpret_keys_to_combinations(independent_keys_group)
 
     # Inference
     inference_histogram = patch_parallel_preprocess(
-        inference_dataset, batch_size, waves, wavelet_levels, patch_sizes, example_image.shape, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, test=True
+        inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=False, test=True
     )
 
     input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, "Test")
-    independent_tests_pvalues = np.array(input_samples_pvalues).T[independent_keys_group_indices].T
+    independent_tests_pvalues = np.array(input_samples_pvalues)
     independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
 
     # Perform ensemble testing
-    ensembled_stats, ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test, plot=True)
+    ensembled_stats, ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
     predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
 
     if save_histograms and test_labels:
@@ -219,7 +255,7 @@ def main_multiple_patch_test(
         return metrics
 
 
-def perform_ensemble_testing(pvalues, ensemble_test, plot=False):
+def perform_ensemble_testing(pvalues, ensemble_test, output_dir='logs', plot=False):
     """Perform ensemble testing (Stouffer or RBM)."""
     if ensemble_test == 'stouffer':
         return [combine_pvalues(p, method='stouffer')[1] for p in pvalues]
@@ -229,7 +265,7 @@ def perform_ensemble_testing(pvalues, ensemble_test, plot=False):
         stouffer_z = np.sum(inverse_z_scores, axis=1) / np.sqrt(pvalues.shape[1])
         stouffer_pvalues = norm.cdf(stouffer_z)
         if plot:
-            plot_stouffer_analysis(pvalues, inverse_z_scores, stouffer_z, stouffer_pvalues, num_plots_pvalues=5, num_plots_zscores=5)
+            plot_stouffer_analysis(pvalues, inverse_z_scores, stouffer_z, stouffer_pvalues, num_plots_pvalues=5, num_plots_zscores=5, output_folder=output_dir)
         return stouffer_z, stouffer_pvalues
     else:
         raise ValueError(f"Invalid ensemble test: {ensemble_test}")
@@ -256,21 +292,28 @@ def objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test):
     # Step 4: Perform KS test against standard normal distribution
     ks_stat, _ = kstest(ensembled_stats, 'norm', args=(0, 1))  # mean=0, std=1 for standard normal
 
+    trial.set_user_attr("independent_keys_group", independent_keys_group)
     # Return two objectives: KS statistic and negative number of independent tests (maximize by negating)
     return ks_stat, num_independent_tests
 
 
-def fine_tune_p_threshold_with_optuna(keys, chi2_p_matrix, pvals_matrix, ensemble_test, n_trials=50):
+def finding_optimal_independent_subgroup(keys, chi2_p_matrix, pvals_matrix, ensemble_test, n_trials=50, criteria='KS'):
     """
     Multi-objective optimization of p_threshold using Optuna to minimize KS statistic
     and maximize the number of independent tests.
     """
+    # criteria selection
+    sorting_order = lambda trial: (-trial.values[1], trial.values[0]) if criteria != 'KS' else (trial.values[0], -trial.values[1]) 
+
     # Create a study for multi-objective optimization
     study = optuna.create_study(directions=["minimize", "maximize"])
     study.optimize(lambda trial: objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test),
                    n_trials=n_trials, show_progress_bar=True)
 
     # Return the best trial based on your preference
-    best_trial = sorted(study.best_trials, key=lambda t: (-t.values[1], t.values[0]))[0] # prioritize KS statistic minimization
+    best_trial = sorted(study.best_trials, key=lambda t: sorting_order(t))[0] # prioritize KS statistic minimization
+    independent_keys_group = best_trial.user_attrs["independent_keys_group"]
     print(f"Best State: p_threshold: {best_trial.params['p_threshold']}, KS Statistic: {best_trial.values[0]}, Num Tests: {best_trial.values[1]}")
-    return best_trial.params['p_threshold']
+    print(f"Independent Keys Group: {independent_keys_group}")
+
+    return independent_keys_group
