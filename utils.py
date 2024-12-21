@@ -75,10 +75,10 @@ def chi_square_independence_test(observed):
     return chi2_stat, p_value, df, expected
 
 
-def calculate_chi2_and_corr(i, j, dist_1, dist_2):
+def calculate_chi2_and_corr(i, j, dist_1, dist_2, bins):
     """Compute chi-square p-value and correlation for two distributions."""
     try:
-        contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(201, 201))
+        contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(bins, bins))
         chi2_stat, chi2_p, _, _ = chi2_contingency(contingency_table)
         correlation = np.corrcoef(dist_1, dist_2)[0, 1]
         return i, j, chi2_p, correlation
@@ -86,11 +86,21 @@ def calculate_chi2_and_corr(i, j, dist_1, dist_2):
         return i, j, -1, None
 
 
-def compute_chi2_and_corr_matrix(keys, distributions, max_workers=128, plot_independence_heatmap=False, output_dir='logs'):
+def calculate_chi2(i, j, dist_1, dist_2, bins):
+    """Compute chi-square p-value and correlation for two distributions."""
+    try:
+        contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(bins, bins))
+        chi2_stat, chi2_p, _, _ = chi2_contingency(contingency_table)
+        return i, j, chi2_p
+    except ValueError:
+        return i, j, -1
+    
+
+def compute_chi2_and_corr_matrix(keys, distributions, max_workers=128, plot_independence_heatmap=False, output_dir='logs', bins=101):
     """Compute Chi-Square p-value matrix and correlation matrix."""
     num_dists = len(distributions)
     chi2_p_matrix = np.zeros((num_dists, num_dists))
-    corr_matrix = np.zeros((num_dists, num_dists))
+    # corr_matrix = np.zeros((num_dists, num_dists))
 
     tasks = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -100,22 +110,19 @@ def compute_chi2_and_corr_matrix(keys, distributions, max_workers=128, plot_inde
                 if i <= j:  # Skip duplicates and diagonal
                     continue
                 dist_2 = distributions[j]
-                tasks.append(executor.submit(calculate_chi2_and_corr, i, j, dist_1, dist_2))
+                tasks.append(executor.submit(calculate_chi2, i, j, dist_1, dist_2, bins))
 
         for future in tqdm(as_completed(tasks), total=len(tasks), desc="Processing Chi2 and Correlation tests..."):
-            i, j, chi2_p, corr = future.result()
+            i, j, chi2_p = future.result()
             if chi2_p is not None:
                 chi2_p_matrix[i, j] = chi2_p
                 chi2_p_matrix[j, i] = chi2_p  # Symmetry
-            if corr is not None:
-                corr_matrix[i, j] = corr
-                corr_matrix[j, i] = corr
 
     if plot_independence_heatmap:
-        create_heatmap(chi2_p_matrix, keys, 'Chi-Square Test (P-values)', output_dir, 'chi2_heatmap.png')
-        create_heatmap(corr_matrix, keys, 'Correlation Matrix', output_dir, 'corr_heatmap.png')
+        create_heatmap(chi2_p_matrix, keys, 'Chi-Square Test (P-values)', output_dir, 'chi2_heatmap.png', annot=len(keys) < 64)
+        # create_heatmap(corr_matrix, keys, 'Correlation Matrix', output_dir, 'corr_heatmap.png')
 
-    return chi2_p_matrix, corr_matrix
+    return chi2_p_matrix, None
 
 
 def find_largest_independent_group(keys, chi2_p_matrix, p_threshold=0.05):
@@ -138,7 +145,7 @@ def find_largest_independent_group(keys, chi2_p_matrix, p_threshold=0.05):
     return list(independent_set) if independent_set else [keys[0]]
 
 
-def create_heatmap(data, keys, title, output_dir, filename, figsize=(50, 25)):
+def create_heatmap(data, keys, title, output_dir, filename, figsize=(50, 25), annot=True):
     mask = np.zeros_like(data, dtype=bool)
     mask[np.triu_indices_from(mask)] = True
 
@@ -146,7 +153,7 @@ def create_heatmap(data, keys, title, output_dir, filename, figsize=(50, 25)):
     data = np.ma.masked_where(mask, data)
     
     plt.figure(figsize=figsize)
-    sns.heatmap(data, annot=True, fmt=".2f", cmap=sns.color_palette("YlOrBr", as_cmap=True), 
+    sns.heatmap(data, annot=annot, fmt=".2f", cmap=sns.color_palette("YlOrBr", as_cmap=True), 
                 xticklabels=keys, yticklabels=keys, mask=mask, 
                 cbar_kws={'label': 'Percentage (%)'}, annot_kws={"size": 10})
     plt.xticks(rotation=90, fontsize=10)
@@ -349,6 +356,7 @@ def plot_roc_curve(results, test_id, output_dir):
     plt.grid()
     plt.savefig(os.path.join(output_dir, f'roc_curve.png'))
     plt.close()
+    return roc_auc
 
 
 def plot_stouffer_analysis(

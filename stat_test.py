@@ -111,7 +111,7 @@ def interpret_keys_to_combinations(independent_keys_group):
     """Convert independent keys to relevant test combinations."""
     combinations = []
     for key in independent_keys_group:
-        match = re.match(r"PatchProcessing_wavelet=(\w+)_level=(\d+)_patch_size=(\d+)_patch_index=(\d+)", key)
+        match = re.match(r"PatchProcessing_wavelet=([\w.]+)_level=(\d+)_patch_size=(\d+)_patch_index=(\d+)", key)
         if match:
             wavelet, level, patch_size, patch_index = match.groups()
             combinations.append({
@@ -170,7 +170,10 @@ def main_multiple_patch_test(
     pkl_dir='pkls',
     return_logits=False,
     portion=0.05,
-    criteria='KS'
+    criteria='KS',
+    chi2_bins=201,
+    n_trials=100,
+    logger=None
 ):
     """Run test for number of patches and collect sensitivity and specificity results."""
     print(f"Running test with: \npatches sizes: {patch_sizes}\nwavelets: {waves}\nlevels: {wavelet_levels}")
@@ -202,18 +205,23 @@ def main_multiple_patch_test(
 
     chi2_p_matrix, corr_matrix = compute_chi2_and_corr_matrix(
         keys, distributions, max_workers=max_workers,
-        plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir
+        plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir, bins=chi2_bins
     )
 
     # Find the Largest Optimal Independent Group using the best p_threshold Fine-tune
-    independent_keys_group = finding_optimal_independent_subgroup(
+    independent_keys_group, results = finding_optimal_independent_subgroup(
         keys=keys,
         chi2_p_matrix=chi2_p_matrix,
         pvals_matrix=distributions,
         ensemble_test=ensemble_test,
-        n_trials=50,
+        n_trials=n_trials,
         criteria=criteria
     )
+
+    if logger:
+        logger.log_param("num_tests", len(real_population_histogram.keys()))
+        logger.log_param("Independent keys", independent_keys_group)
+        logger.log_metrics(results)
 
     independent_keys_group_indices = [keys.index(value) for value in independent_keys_group]
     tuning_independent_pvals = distributions[independent_keys_group_indices].T
@@ -273,7 +281,7 @@ def perform_ensemble_testing(pvalues, ensemble_test, output_dir='logs', plot=Fal
 
 def objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test):
     """
-    Multi-objective optimization: minimize KS statistic and maximize independent test count.
+    Multi-objective optimization: maximize KS pvalue and maximize independent test count.
     """
     # Suggest a p_threshold value to test
     p_threshold = trial.suggest_float("p_threshold", 0.05, 0.5, log=True)
@@ -290,30 +298,31 @@ def objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test):
     ensembled_stats, _ = perform_ensemble_testing(independent_pvals, ensemble_test)
 
     # Step 4: Perform KS test against standard normal distribution
-    ks_stat, _ = kstest(ensembled_stats, 'norm', args=(0, 1))  # mean=0, std=1 for standard normal
+    _, ks_pvalue = kstest(ensembled_stats, 'norm', args=(0, 1))  # mean=0, std=1 for standard normal
 
     trial.set_user_attr("independent_keys_group", independent_keys_group)
-    # Return two objectives: KS statistic and negative number of independent tests (maximize by negating)
-    return ks_stat, num_independent_tests
+
+    return ks_pvalue, num_independent_tests
 
 
 def finding_optimal_independent_subgroup(keys, chi2_p_matrix, pvals_matrix, ensemble_test, n_trials=50, criteria='KS'):
     """
-    Multi-objective optimization of p_threshold using Optuna to minimize KS statistic
+    Multi-objective optimization of p_threshold using Optuna to maximize KS pvalue
     and maximize the number of independent tests.
     """
     # criteria selection
-    sorting_order = lambda trial: (-trial.values[1], trial.values[0]) if criteria != 'KS' else (trial.values[0], -trial.values[1]) 
+    sorting_order = lambda trial: (trial.values[1], trial.values[0]) if criteria != 'KS' else (trial.values[0], trial.values[1]) 
 
     # Create a study for multi-objective optimization
-    study = optuna.create_study(directions=["minimize", "maximize"])
+    study = optuna.create_study(directions=["maximize", "maximize"])
     study.optimize(lambda trial: objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test),
                    n_trials=n_trials, show_progress_bar=True)
 
     # Return the best trial based on your preference
-    best_trial = sorted(study.best_trials, key=lambda t: sorting_order(t))[0] # prioritize KS statistic minimization
+    best_trial = sorted(study.best_trials, key=lambda t: sorting_order(t), reverse=True)[0] # prioritize KS statistic minimization
     independent_keys_group = best_trial.user_attrs["independent_keys_group"]
-    print(f"Best State: p_threshold: {best_trial.params['p_threshold']}, KS Statistic: {best_trial.values[0]}, Num Tests: {best_trial.values[1]}")
+    print(f"Best State: p_threshold: {best_trial.params['p_threshold']}, KS Pvalue: {best_trial.values[0]}, Num Tests: {best_trial.values[1]}")
     print(f"Independent Keys Group: {independent_keys_group}")
 
-    return independent_keys_group
+    results = {'best_KS': best_trial.values[0], 'best_N': best_trial.values[1], 'best_alpha_threshold': best_trial.params['p_threshold']}
+    return independent_keys_group, results

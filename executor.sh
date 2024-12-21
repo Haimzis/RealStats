@@ -8,59 +8,14 @@ DATA_DIR_FAKE="data/stable-diffusion-face-dataset/1024/both_faces"
 # Base directory for logs
 LOGS_BASE_DIR="logs"
 
-# Hard-coded configurations
-configs=(
-    "--finetune_portion 0.05 --waves haar coif1 sym2 --criteria KS --patch_divisors 0 1 2"
-    "--finetune_portion 0.1 --waves fourier dct --criteria N --patch_divisors 1 2 3"
-    "--finetune_portion 0.15 --waves haar coif1 sym2 fourier --criteria KS --patch_divisors 0 2 4"
-    "--finetune_portion 0.2 --waves haar coif1 sym2 fourier dct --criteria N --patch_divisors 2 3 4"
-    "--finetune_portion 0.05 --waves haar coif1 sym2 fourier --criteria KS --patch_divisors 1 3"
-    "--finetune_portion 0.1 --waves fourier dct --criteria KS --patch_divisors 0 2"
-    "--finetune_portion 0.15 --waves haar coif1 sym2 --criteria KS --patch_divisors 1 2"
-    "--finetune_portion 0.2 --waves fourier dct --criteria N --patch_divisors 0 3"
-    "--finetune_portion 0.05 --waves haar coif1 sym2 fourier dct --criteria KS --patch_divisors 0 1 2"
-    "--finetune_portion 0.1 --waves haar coif1 sym2 --criteria N --patch_divisors 2 3"
-    "--finetune_portion 0.15 --waves fourier dct --criteria KS --patch_divisors 1 2 4"
-    "--finetune_portion 0.2 --waves haar coif1 sym2 --criteria N --patch_divisors 0 2"
-    "--finetune_portion 0.05 --waves fourier dct --criteria KS --patch_divisors 1 2"
-    "--finetune_portion 0.1 --waves haar coif1 sym2 fourier dct --criteria N --patch_divisors 2 3 4"
-    "--finetune_portion 0.15 --waves haar coif1 sym2 --criteria KS --patch_divisors 0 1 3"
-    "--finetune_portion 0.2 --waves fourier dct --criteria KS --patch_divisors 0 3 4"
-    "--finetune_portion 0.05 --waves haar coif1 sym2 --criteria N --patch_divisors 1 2 3"
-    "--finetune_portion 0.1 --waves fourier dct --criteria KS --patch_divisors 0 1 4"
-    "--finetune_portion 0.15 --waves haar coif1 sym2 fourier --criteria N --patch_divisors 2 3"
-    "--finetune_portion 0.2 --waves haar coif1 sym2 --criteria KS --patch_divisors 0 1 4"
-    "--finetune_portion 0.25 --waves haar coif1 sym2 fourier dct --criteria KS --patch_divisors 1 2 4"
-    "--finetune_portion 0.3 --waves haar coif1 sym2 --criteria N --patch_divisors 0 1 3"
-    "--finetune_portion 0.05 --waves fourier dct --criteria KS --patch_divisors 2 3"
-    "--finetune_portion 0.1 --waves haar coif1 sym2 fourier --criteria N --patch_divisors 0 3"
-    "--finetune_portion 0.15 --waves haar coif1 sym2 fourier dct --criteria KS --patch_divisors 1 2 3"
-    "--finetune_portion 0.2 --waves fourier dct --criteria N --patch_divisors 0 2 4"
-    "--finetune_portion 0.25 --waves haar coif1 sym2 --criteria KS --patch_divisors 1 3"
-    "--finetune_portion 0.3 --waves haar coif1 sym2 fourier dct --criteria N --patch_divisors 2 4"
-    "--finetune_portion 0.1 --waves haar coif1 sym2 --criteria KS --patch_divisors 0 1 2"
-    "--finetune_portion 0.05 --waves fourier dct --criteria N --patch_divisors 1 3 4"
-    "--finetune_portion 0.15 --waves haar coif1 sym2 fourier --criteria KS --patch_divisors 0 2"
-    "--finetune_portion 0.2 --waves haar coif1 sym2 fourier dct --criteria N --patch_divisors 3 4"
-    "--finetune_portion 0.25 --waves fourier dct --criteria KS --patch_divisors 0 1"
-    "--finetune_portion 0.3 --waves haar coif1 sym2 --criteria N --patch_divisors 2 3 4"
-    "--finetune_portion 0.05 --waves haar coif1 sym2 fourier dct --criteria KS --patch_divisors 0 1 3"
-    "--finetune_portion 0.1 --waves haar coif1 sym2 --criteria KS --patch_divisors 2 4"
-    "--finetune_portion 0.15 --waves fourier dct --criteria N --patch_divisors 1 2 3"
-    "--finetune_portion 0.2 --waves haar coif1 sym2 fourier --criteria KS --patch_divisors 0 3 4"
-    "--finetune_portion 0.25 --waves fourier dct --criteria KS --patch_divisors 0 2"
-    "--finetune_portion 0.3 --waves haar coif1 sym2 fourier dct --criteria N --patch_divisors 1 3"
-    "--finetune_portion 0.1 --waves haar coif1 sym2 --criteria KS --patch_divisors 2 3"
-    "--finetune_portion 0.05 --waves haar coif1 sym2 fourier dct --criteria KS --patch_divisors 0 1 2"
-    "--finetune_portion 0.15 --waves haar coif1 sym2 fourier --criteria N --patch_divisors 1 4"
-    "--finetune_portion 0.2 --waves fourier dct --criteria KS --patch_divisors 2 3 4"
-    "--finetune_portion 0.25 --waves haar coif1 sym2 --criteria KS --patch_divisors 0 2"
-    "--finetune_portion 0.3 --waves haar coif1 sym2 fourier --criteria N --patch_divisors 3 4"
-)
+# Load configurations from JSON file
+CONFIGS=$(cat configs.json)
+CONFIGS_LENGTH=$(echo "$CONFIGS" | jq '. | length')
 
-
-# Loop through hard-coded configurations
-for i in "${!configs[@]}"; do
+# Loop through configurations
+for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
+    CONFIG=$(echo "$CONFIGS" | jq -r ".[$i]")
+    
     # Generate timestamped logs directory
     TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
     LOGS_DIR="$LOGS_BASE_DIR/run_$TIMESTAMP"
@@ -69,11 +24,10 @@ for i in "${!configs[@]}"; do
     # Redirect all output to logs.txt
     {
         echo "Starting run $((i + 1))..."
-        echo "Command: python executor.py ${configs[$i]}"
+        echo "Command: python executor.py $CONFIG"
 
         python executor.py \
             --batch_size 256 \
-            --sample_size 256 \
             --data_dir_real "$DATA_DIR_REAL" \
             --data_dir_fake_real "$DATA_DIR_FAKE_REAL" \
             --data_dir_fake "$DATA_DIR_FAKE" \
@@ -84,7 +38,8 @@ for i in "${!configs[@]}"; do
             --max_wave_level 4 \
             --max_workers 16 \
             --seed 42 \
-            ${configs[$i]}
+            --run_id "run_$TIMESTAMP" \
+            $CONFIG
 
         echo "Run $((i + 1)) complete. Logs saved to $LOGS_DIR/logs.txt"
     } &> "$LOGS_DIR/logs.txt"
