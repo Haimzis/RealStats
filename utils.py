@@ -131,11 +131,10 @@ def find_largest_independent_group(keys, chi2_p_matrix, p_threshold=0.05):
     G.add_nodes_from(keys)
     
     # Add edges where p-values are above the threshold
-    num_keys = len(keys)
-    for i in range(num_keys):
-        for j in range(i + 1, num_keys):
-            if chi2_p_matrix[i, j] > p_threshold:
-                G.add_edge(keys[i], keys[j])
+    indices = np.triu(chi2_p_matrix, k=1) > p_threshold
+    rows, cols = np.where(indices)
+    edges = np.column_stack((np.array(keys)[rows], np.array(keys)[cols]))
+    G.add_edges_from(edges)
 
     # Subgraph of nodes with edges (dependencies)
     subgraph = G.subgraph([node for node, degree in G.degree() if degree > 0])
@@ -143,6 +142,25 @@ def find_largest_independent_group(keys, chi2_p_matrix, p_threshold=0.05):
     # Find the largest independent set (nodes not connected to others)
     independent_set = nx.algorithms.approximation.clique.max_clique(subgraph)
     return list(independent_set) if independent_set else [keys[0]]
+
+
+def find_largest_independent_group_iterative(keys, chi2_p_matrix, p_threshold=0.05):
+    """Find the largest independent group using the Chi-Square p-value matrix."""
+    G = nx.Graph()
+    G.add_nodes_from(keys)
+    
+    indices = np.triu(chi2_p_matrix, k=1) > p_threshold
+    rows, cols = np.where(indices)
+    edges = np.column_stack((np.array(keys)[rows], np.array(keys)[cols]))
+    G.add_edges_from(edges)
+
+    # Subgraph of nodes with edges (dependencies)
+    subgraph = G.subgraph([node for node, degree in G.degree() if degree > 0])
+    
+    # All maximal cliques for node
+    cliques = list(nx.find_cliques(subgraph))
+    maximal_clique = max(cliques, key=len)
+    return list(maximal_clique) if maximal_clique else [keys[0]]
 
 
 def create_heatmap(data, keys, title, output_dir, filename, figsize=(50, 25), annot=True):
@@ -174,6 +192,32 @@ def set_seed(seed=42):
     torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+
+
+def split_population_histogram(real_population_histogram, portion):
+    """
+    Split the population histogram into tuning and training portions in a uniform way using a seed.
+    """
+    
+    # Get the population length
+    population_length = len(list(real_population_histogram.values())[0])
+    
+    # Generate shuffled indices
+    indices = list(range(population_length))
+    random.shuffle(indices)
+    
+    # Determine the split point
+    split_point = int(population_length * portion)
+    
+    # Create the tuning and training histograms based on shuffled indices
+    tuning_histogram = {
+        k: [v[i] for i in indices[:split_point]] for k, v in real_population_histogram.items()
+    }
+    training_histogram = {
+        k: [v[i] for i in indices[split_point:]] for k, v in real_population_histogram.items()
+    }
+    
+    return tuning_histogram, training_histogram
 
 
 def preprocess(image_batch, wavelet_decompose: DTCWTForward, wavelet_compose: DTCWTInverse):
@@ -248,6 +292,7 @@ def compute_cdfs(histogram_values, bins=10_000):
         # cdf = np.cumsum(hist) * np.diff(bin_edges) # Density=True
         cdfs[descriptor] = (hist, bin_edges, cdf)  # Store both the histogram and the CDF
     return cdfs
+
 
 def compute_cdf(histogram_values, bins=10_000):
     """Compute CDFs from histogram values for each wavelet descriptor."""
@@ -427,3 +472,21 @@ def plot_stouffer_analysis(
     fig_stouffer_pvalues.tight_layout()
     fig_stouffer_pvalues.savefig(f"{output_folder}/stouffer_pvalues_histogram.png")
     plt.close(fig_stouffer_pvalues)
+
+
+def plot_ks_vs_pthreshold(thresholds, ks_pvalues, output_dir):
+    """
+    Plots KS p-value vs p-threshold.
+    """
+    sorted_indices = np.argsort(thresholds)
+    sorted_thresholds = np.array(thresholds)[sorted_indices]
+    sorted_ks_pvalues = np.array(ks_pvalues)[sorted_indices]
+
+    plt.figure(figsize=(10, 6))
+    plt.plot(sorted_thresholds, sorted_ks_pvalues, marker='o', linestyle='-', label="KS p-value")
+    plt.xlabel("p_threshold")
+    plt.ylabel("KS p-value")
+    plt.title("KS p-value vs p-threshold")
+    plt.grid(True, which="both", linestyle="--", linewidth=0.5)
+    plt.legend()
+    plt.savefig(os.path.join(output_dir, "ks_pvalue_wrt_p_threshold.png"))

@@ -11,11 +11,14 @@ from utils import (
     calculate_metrics,
     compute_chi2_and_corr_matrix,
     find_largest_independent_group,
+    find_largest_independent_group_iterative,
     load_population_histograms,
+    plot_ks_vs_pthreshold,
     plot_stouffer_analysis,
     save_population_histograms,
     plot_pvalue_histograms,
-    plot_histograms
+    plot_histograms,
+    split_population_histogram
 )
 from statsmodels.stats.multitest import multipletests
 from scipy.stats import combine_pvalues
@@ -24,9 +27,6 @@ from scipy.stats import norm, kstest
 import optuna
 
 
-# TODO: 
-# 2. make many many more tests [all levels, all waves, all patches, preprocessing]
-# 4. baselines table [AUC, 5 methods, 5 generators]
 def get_unique_id(patch_size, patch_idx, level, wave, test):
     return f"PatchProcessing_wavelet={wave}_level={level}_patch_size={patch_size}_patch_index={patch_idx}{'_test' if test else ''}"
 
@@ -89,7 +89,6 @@ def calculate_pvals_from_cdf(real_population_cdfs, samples_histogram, split="Inp
     validate_real_population_cdfs(real_population_cdfs, input_samples)
     input_samples_pvalues = [calculate_cdfs_pvalues(real_population_cdfs, sample) for sample in tqdm(input_samples, desc=f"Calculating {split} P-values")]
     return input_samples_pvalues
-
 
 
 def generate_combinations(patch_sizes, waves, wavelet_levels, sample_size):
@@ -170,11 +169,15 @@ def main_multiple_patch_test(
     pkl_dir='pkls',
     return_logits=False,
     portion=0.05,
-    criteria='KS',
     chi2_bins=201,
     n_trials=100,
-    logger=None
+    uniform_p_threshold=0.05,
+    logger=None,
 ):
+    # TODO
+    # Action Items: 
+    # 3. baselines and benchmarks- 2/3 datasets and papers. Faces / Natural domains
+    # 4. more independent tests 
     """Run test for number of patches and collect sensitivity and specificity results."""
     print(f"Running test with: \npatches sizes: {patch_sizes}\nwavelets: {waves}\nlevels: {wavelet_levels}")
 
@@ -190,38 +193,55 @@ def main_multiple_patch_test(
     )
 
     # Spliting 
-    population_length = len(list(real_population_histogram.values())[0])
-    split_point = int(population_length * portion) # Split the population into tuning and training portions
-    tuning_histogram = {k: v[:split_point] for k, v in real_population_histogram.items()}
-    training_histogram = {k: v[split_point:] for k, v in real_population_histogram.items()}
-
-    real_population_cdfs = {test_id: compute_cdf(values) for test_id, values in training_histogram.items()}
+    tuning_histogram, training_histogram = split_population_histogram(real_population_histogram, portion)
+    tuning_histogram, _ = split_population_histogram(training_histogram, 0.2)
+    
+    # CDF creation
+    real_population_cdfs = {test_id: compute_cdf(values) for test_id, values in training_histogram.items()}    
+    
+    # Tuning Pvalues
     tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, tuning_histogram, "Tuning")
     tuning_real_population_pvals = np.clip(tuning_real_population_pvals, 0, 1)
 
-    # Chi-Square and Correlation Matrix Computation
+    # Ignore non uniform distributions
+    uniform_tests = [i for i, test_pvalues in tqdm(enumerate(tuning_real_population_pvals.T),
+                                                    desc=f"Filtering uniform pvalues distributions",
+                                                    total=len(real_population_cdfs.keys())) if kstest(test_pvalues, 'uniform')[1] > uniform_p_threshold]
     keys = list(real_population_histogram.keys())
+    uniform_keys = [keys[i] for i in uniform_tests]
+    uniform_dists = tuning_real_population_pvals[:, uniform_tests]
+    keys = uniform_keys
+    tuning_real_population_pvals = uniform_dists
+
+    if logger:
+        logger.log_param("num_tests", len(real_population_histogram.keys()))
+        logger.log_param("num_uniform_tests", len(uniform_keys))
+        logger.log_param("non_uniform_proportion", (len(real_population_histogram.keys()) - len(uniform_keys)) / len(real_population_histogram.keys()))
+
+    return # TODO: put that just for non_uniform check.
+
+    # Chi-Square and Correlation Matrix Computation
     distributions = np.array(tuning_real_population_pvals).T
 
-    chi2_p_matrix, corr_matrix = compute_chi2_and_corr_matrix(
+    chi2_p_matrix, _ = compute_chi2_and_corr_matrix(
         keys, distributions, max_workers=max_workers,
         plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir, bins=chi2_bins
     )
 
     # Find the Largest Optimal Independent Group using the best p_threshold Fine-tune
-    independent_keys_group, results = finding_optimal_independent_subgroup(
+    independent_keys_group, best_results, optimization_roc = finding_optimal_independent_subgroup(
         keys=keys,
         chi2_p_matrix=chi2_p_matrix,
         pvals_matrix=distributions,
         ensemble_test=ensemble_test,
         n_trials=n_trials,
-        criteria=criteria
     )
 
+    plot_ks_vs_pthreshold(optimization_roc["thresholds"], optimization_roc["ks_pvalues"], output_dir=output_dir)
+
     if logger:
-        logger.log_param("num_tests", len(real_population_histogram.keys()))
         logger.log_param("Independent keys", independent_keys_group)
-        logger.log_metrics(results)
+        logger.log_metrics(best_results)
 
     independent_keys_group_indices = [keys.index(value) for value in independent_keys_group]
     tuning_independent_pvals = distributions[independent_keys_group_indices].T
@@ -281,7 +301,7 @@ def perform_ensemble_testing(pvalues, ensemble_test, output_dir='logs', plot=Fal
 
 def objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test):
     """
-    Multi-objective optimization: maximize KS pvalue and maximize independent test count.
+    Single-objective optimization: Minimize abs(ks_p_value - 0.5).
     """
     # Suggest a p_threshold value to test
     p_threshold = trial.suggest_float("p_threshold", 0.05, 0.5, log=True)
@@ -300,29 +320,53 @@ def objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test):
     # Step 4: Perform KS test against standard normal distribution
     _, ks_pvalue = kstest(ensembled_stats, 'norm', args=(0, 1))  # mean=0, std=1 for standard normal
 
+    # Calculate the deviation from 0.5 for KS p-value
+    deviation = abs(ks_pvalue - 0.5)
+
+    # Store trial attributes for later retrieval
     trial.set_user_attr("independent_keys_group", independent_keys_group)
+    trial.set_user_attr("num_independent_tests", num_independent_tests)
+    trial.set_user_attr("ks_p_value", ks_pvalue)
 
-    return ks_pvalue, num_independent_tests
+    return deviation  # Return deviation to minimize
 
 
-def finding_optimal_independent_subgroup(keys, chi2_p_matrix, pvals_matrix, ensemble_test, n_trials=50, criteria='KS'):
+def finding_optimal_independent_subgroup(keys, chi2_p_matrix, pvals_matrix, ensemble_test, n_trials=50):
     """
-    Multi-objective optimization of p_threshold using Optuna to maximize KS pvalue
-    and maximize the number of independent tests.
+    Single-objective optimization to minimize abs(ks_p_value - 0.5) and maximize the number of independent tests.
     """
-    # criteria selection
-    sorting_order = lambda trial: (trial.values[1], trial.values[0]) if criteria != 'KS' else (trial.values[0], trial.values[1]) 
+    # Create a study for single-objective optimization (minimize deviation)
+    study = optuna.create_study(direction="minimize")
+    study.optimize(lambda trial: objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test), n_trials=n_trials, show_progress_bar=True)
 
-    # Create a study for multi-objective optimization
-    study = optuna.create_study(directions=["maximize", "maximize"])
-    study.optimize(lambda trial: objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test),
-                   n_trials=n_trials, show_progress_bar=True)
+    # Filter trials based on deviation (|ks_p_value - 0.5| <= 0.25)
+    valid_trials = [
+        trial for trial in study.trials
+        if trial.value is not None and trial.value <= 0.25
+    ]
 
-    # Return the best trial based on your preference
-    best_trial = sorted(study.best_trials, key=lambda t: sorting_order(t), reverse=True)[0] # prioritize KS statistic minimization
+    if not valid_trials:
+        raise ValueError("No valid trials found with deviation <= 0.25")
+
+    # Among valid trials, find the one with the maximum N
+    best_trial = max(valid_trials, key=lambda t: t.user_attrs["num_independent_tests"])
+
+    # Extract the best independent group and results
     independent_keys_group = best_trial.user_attrs["independent_keys_group"]
-    print(f"Best State: p_threshold: {best_trial.params['p_threshold']}, KS Pvalue: {best_trial.values[0]}, Num Tests: {best_trial.values[1]}")
+    best_results = {
+        'best_KS': best_trial.user_attrs["ks_p_value"],
+        'best_N': best_trial.user_attrs["num_independent_tests"],
+        'best_alpha_threshold': best_trial.params['p_threshold']
+    }
+
+    # Extract optimization data using list comprehensions
+    optimization_data = {
+        'thresholds': [trial.params["p_threshold"] for trial in study.trials if trial.value is not None],
+        'ks_pvalues': [trial.user_attrs["ks_p_value"] for trial in study.trials if trial.value is not None],
+        'num_tests': [trial.user_attrs["num_independent_tests"] for trial in study.trials if trial.value is not None]
+    }
+
+    print(f"Best State: p_threshold: {best_trial.params['p_threshold']}, KS Pvalue: {best_trial.user_attrs['ks_p_value']}, Num Tests: {best_trial.user_attrs['num_independent_tests']}")
     print(f"Independent Keys Group: {independent_keys_group}")
 
-    results = {'best_KS': best_trial.values[0], 'best_N': best_trial.values[1], 'best_alpha_threshold': best_trial.params['p_threshold']}
-    return independent_keys_group, results
+    return independent_keys_group, best_results, optimization_data

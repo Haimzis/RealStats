@@ -6,3 +6,5 @@ data
 fake
 real
 vgg_clustering/
+mlruns/
+logs/

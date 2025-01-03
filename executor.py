@@ -9,7 +9,7 @@ import sys
 import mlflow
 
 sys.setrecursionlimit(2000)
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 # Define argument parser
 parser = argparse.ArgumentParser(description='Wavelet and Patch Testing Pipeline')
@@ -33,18 +33,18 @@ parser.add_argument('--seed', type=int, default=42, help='Random seed for reprod
 parser.add_argument('--waves', type=str, nargs='+', default=['haar', 'coif1', 'sym2', 'fourier', 'dct'], help='List of wavelet types.')
 parser.add_argument('--wavelet_levels', type=int, nargs='+', default=[0, 1, 2, 3, 4], help='List of wavelet levels.')
 parser.add_argument('--finetune_portion', type=float, default=0.05, help='Portion of the dataset used for finetuning.')
-parser.add_argument('--criteria', type=str, choices=['KS', 'N'], required=True, help='Criteria for optimization (KS or N).')
 parser.add_argument('--chi2_bins', type=int, default=201, help='Number of bins for chi-square calculations.')
 parser.add_argument('--n_trials', type=int, default=50, help='Number of trials for optimization.')
+parser.add_argument('--uniform_p_threshold', type=float, default=0.05, help='KS Threshold for uniform goodness of fit.')
 parser.add_argument('--run_id', type=str, required=True, help='Unique identifier for this MLflow run.')
-
 args = parser.parse_args()
+
 
 def main():
     # Set random seed
     set_seed(args.seed)
 
-    mlflow.set_experiment("independent_stouffer")
+    mlflow.set_experiment("uniform_filtering_no_flow_on_train")
     with mlflow.start_run(run_name=args.run_id):
         args.output_dir = urlparse(mlflow.get_artifact_uri()).path
         
@@ -83,15 +83,15 @@ def main():
             pkl_dir=args.pkls_dir,
             return_logits=True,
             portion=args.finetune_portion,
-            criteria=args.criteria,
+            uniform_p_threshold=args.uniform_p_threshold,
             chi2_bins=args.chi2_bins,
             n_trials=args.n_trials,
             logger=mlflow
         )
-
-        results['labels'] = labels
-        roc_auc = plot_roc_curve(results, args.run_id, args.output_dir)
-        mlflow.log_metric('AUC', roc_auc)
+        ## TODO: put that just for non_uniform check.
+        # results['labels'] = labels
+        # roc_auc = plot_roc_curve(results, args.run_id, args.output_dir)
+        # mlflow.log_metric('AUC', roc_auc)
 
 
 if __name__ == "__main__":

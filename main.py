@@ -3,7 +3,7 @@ import argparse
 from stat_test import main_multiple_patch_test
 from data_utils import ImageDataset, create_inference_dataset
 from torchvision import transforms
-from utils import plot_roc_curve, set_seed, plot_sensitivity_specificity_by_patch_size
+from utils import plot_roc_curve, set_seed
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
@@ -23,9 +23,9 @@ parser.add_argument('--data_dir_fake', type=str, default='data/stable-diffusion-
 parser.add_argument('--output_dir', type=str, default='logs', help='Path where to save artifacts')
 parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/pkls', help='Path where to save pkls')
 parser.add_argument('--num_samples_per_class', type=int, default=2957, help='Number of samples per class for inference dataset')
-parser.add_argument('--num_data_workers', type=int, default=4, help='Number of workers for data loading')
+parser.add_argument('--num_data_workers', type=int, default=1, help='Number of workers for data loading')
 parser.add_argument('--max_wave_level', type=int, default=4, help='Maximum number of levels in DWT')
-parser.add_argument('--max_workers', type=int, default=16, help='Maximum number of threads for parallel processing')
+parser.add_argument('--max_workers', type=int, default=1, help='Maximum number of threads for parallel processing')
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
 args = parser.parse_args()
 
@@ -44,8 +44,8 @@ def main():
     inference_dataset = ImageDataset(image_paths, labels, transform=transform)
 
     threshold = 0.05
-    waves = ['fourier', 'dct', 'bior6.8', 'rbio6.8'] #['haar', 'coif1', 'sym2', 'fourier', 'dct']
-    patch_sizes = [128, 32] #[args.sample_size // 2**i for i in range(3)]
+    waves = ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2'] #['haar', 'coif1', 'sym2', 'fourier', 'dct']
+    patch_sizes = [32] #[args.sample_size // 2**i for i in range(3)]
     wavelet_levels= [0, 1, 2, 3, 4] # range(3)
     
     test_id = f"num_waves_{len(waves)}-{min(patch_sizes)}_{max(patch_sizes)}-max_level_{wavelet_levels[-1]}"
@@ -67,7 +67,10 @@ def main():
             output_dir=args.output_dir,
             pkl_dir=args.pkls_dir,
             return_logits=True,
-            portion=0.1
+            portion=0.3,
+            chi2_bins=301,
+            n_trials=50,
+            uniform_p_threshold=0.25
         )
 
     results['labels'] = labels

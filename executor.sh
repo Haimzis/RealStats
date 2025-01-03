@@ -41,6 +41,6 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
             --run_id "run_$TIMESTAMP" \
             $CONFIG
 
-        echo "Run $((i + 1)) complete. Logs saved to $LOGS_DIR/logs.txt"
+        echo "Run $((i + 1)) complete."
     } &> "$LOGS_DIR/logs.txt"
 done
