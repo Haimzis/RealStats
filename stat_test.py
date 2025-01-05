@@ -15,10 +15,14 @@ from utils import (
     load_population_histograms,
     plot_ks_vs_pthreshold,
     plot_stouffer_analysis,
+    plot_uniform_and_nonuniform,
     save_population_histograms,
     plot_pvalue_histograms,
+    plot_binned_histogram,
     plot_histograms,
-    split_population_histogram
+    split_population_histogram,
+    plot_cdf,
+    compute_dist_cdf
 )
 from statsmodels.stats.multitest import multipletests
 from scipy.stats import combine_pvalues
@@ -168,10 +172,11 @@ def main_multiple_patch_test(
     output_dir='logs',
     pkl_dir='pkls',
     return_logits=False,
-    portion=0.05,
-    chi2_bins=201,
+    portion=0.2,
+    chi2_bins=10,
     n_trials=100,
     uniform_p_threshold=0.05,
+    uniform_sanity_check=False,
     logger=None,
 ):
     # TODO
@@ -194,37 +199,46 @@ def main_multiple_patch_test(
 
     # Spliting 
     tuning_histogram, training_histogram = split_population_histogram(real_population_histogram, portion)
-    tuning_histogram, _ = split_population_histogram(training_histogram, 0.2)
     
     # CDF creation
-    real_population_cdfs = {test_id: compute_cdf(values) for test_id, values in training_histogram.items()}    
+    real_population_cdfs = {test_id: compute_cdf(values, bins=500) for test_id, values in training_histogram.items()}    
     
     # Tuning Pvalues
     tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, tuning_histogram, "Tuning")
     tuning_real_population_pvals = np.clip(tuning_real_population_pvals, 0, 1)
-
-    # Ignore non uniform distributions
-    uniform_tests = [i for i, test_pvalues in tqdm(enumerate(tuning_real_population_pvals.T),
-                                                    desc=f"Filtering uniform pvalues distributions",
-                                                    total=len(real_population_cdfs.keys())) if kstest(test_pvalues, 'uniform')[1] > uniform_p_threshold]
+    
+    pvalue_distributions = np.array(tuning_real_population_pvals).T
     keys = list(real_population_histogram.keys())
-    uniform_keys = [keys[i] for i in uniform_tests]
-    uniform_dists = tuning_real_population_pvals[:, uniform_tests]
-    keys = uniform_keys
-    tuning_real_population_pvals = uniform_dists
 
-    if logger:
-        logger.log_param("num_tests", len(real_population_histogram.keys()))
-        logger.log_param("num_uniform_tests", len(uniform_keys))
-        logger.log_param("non_uniform_proportion", (len(real_population_histogram.keys()) - len(uniform_keys)) / len(real_population_histogram.keys()))
+    if uniform_sanity_check:
+        # Ignore non uniform distributions
 
-    return # TODO: put that just for non_uniform check.
+        uniform_tests = []
+        ks_pvalues = []
+
+        for i, test_pvalues in tqdm(enumerate(pvalue_distributions), desc="Filtering uniform pvalues distributions", total=len(real_population_cdfs.keys())):
+            p_value = kstest(test_pvalues, 'uniform')[1]
+            ks_pvalues.append(p_value)
+            if p_value > uniform_p_threshold:
+                uniform_tests.append(i)
+
+        uniform_keys = [keys[i] for i in uniform_tests]
+        uniform_dists = tuning_real_population_pvals[:, uniform_tests]
+        keys = uniform_keys
+        tuning_real_population_pvals = uniform_dists
+
+        # Plots
+        plot_uniform_and_nonuniform(pvalue_distributions, uniform_tests, output_dir)
+        plot_histograms(ks_pvalues, os.path.join(output_dir, 'ks_pvalues.png'), title='Kolmogorov-Smirnov', bins=20)
+     
+        if logger:
+            logger.log_param("num_uniform_tests", len(uniform_keys))
+            logger.log_param("non_uniform_proportion", (len(real_population_histogram.keys()) - len(uniform_keys)) / len(real_population_histogram.keys()))
+
 
     # Chi-Square and Correlation Matrix Computation
-    distributions = np.array(tuning_real_population_pvals).T
-
     chi2_p_matrix, _ = compute_chi2_and_corr_matrix(
-        keys, distributions, max_workers=max_workers,
+        keys, pvalue_distributions, max_workers=max_workers,
         plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir, bins=chi2_bins
     )
 
@@ -232,7 +246,7 @@ def main_multiple_patch_test(
     independent_keys_group, best_results, optimization_roc = finding_optimal_independent_subgroup(
         keys=keys,
         chi2_p_matrix=chi2_p_matrix,
-        pvals_matrix=distributions,
+        pvals_matrix=pvalue_distributions,
         ensemble_test=ensemble_test,
         n_trials=n_trials,
     )
@@ -240,11 +254,12 @@ def main_multiple_patch_test(
     plot_ks_vs_pthreshold(optimization_roc["thresholds"], optimization_roc["ks_pvalues"], output_dir=output_dir)
 
     if logger:
+        logger.log_param("num_tests", len(real_population_histogram.keys()))
         logger.log_param("Independent keys", independent_keys_group)
         logger.log_metrics(best_results)
 
     independent_keys_group_indices = [keys.index(value) for value in independent_keys_group]
-    tuning_independent_pvals = distributions[independent_keys_group_indices].T
+    tuning_independent_pvals = pvalue_distributions[independent_keys_group_indices].T
     perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)    
     
     # Convert independent keys to combinations
@@ -304,7 +319,7 @@ def objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test):
     Single-objective optimization: Minimize abs(ks_p_value - 0.5).
     """
     # Suggest a p_threshold value to test
-    p_threshold = trial.suggest_float("p_threshold", 0.05, 0.5, log=True)
+    p_threshold = trial.suggest_float("p_threshold", 0.05, 0.5)
     
     # Step 1: Find the largest independent group
     independent_keys_group = find_largest_independent_group(keys, chi2_p_matrix, p_threshold)
@@ -335,6 +350,10 @@ def finding_optimal_independent_subgroup(keys, chi2_p_matrix, pvals_matrix, ense
     """
     Single-objective optimization to minimize abs(ks_p_value - 0.5) and maximize the number of independent tests.
     """
+
+    independent_keys_group = find_largest_independent_group(keys, chi2_p_matrix, 0.05)
+    print(f'Relexation largest clique approximation: {len(independent_keys_group)}')
+
     # Create a study for single-objective optimization (minimize deviation)
     study = optuna.create_study(direction="minimize")
     study.optimize(lambda trial: objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test), n_trials=n_trials, show_progress_bar=True)

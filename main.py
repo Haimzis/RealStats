@@ -45,7 +45,7 @@ def main():
 
     threshold = 0.05
     waves = ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2'] #['haar', 'coif1', 'sym2', 'fourier', 'dct']
-    patch_sizes = [32] #[args.sample_size // 2**i for i in range(3)]
+    patch_sizes = [256, 128, 64] #[args.sample_size // 2**i for i in range(3)]
     wavelet_levels= [0, 1, 2, 3, 4] # range(3)
     
     test_id = f"num_waves_{len(waves)}-{min(patch_sizes)}_{max(patch_sizes)}-max_level_{wavelet_levels[-1]}"
@@ -67,10 +67,10 @@ def main():
             output_dir=args.output_dir,
             pkl_dir=args.pkls_dir,
             return_logits=True,
-            portion=0.3,
-            chi2_bins=301,
-            n_trials=50,
-            uniform_p_threshold=0.25
+            portion=0.2,
+            chi2_bins=10,
+            n_trials=100,
+            uniform_p_threshold=0.05
         )
 
     results['labels'] = labels

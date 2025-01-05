@@ -11,7 +11,7 @@ import os
 import seaborn as sns
 import networkx as nx
 import numpy as np
-from scipy.stats import chi2
+from scipy.stats import chi2, kstest
 from tqdm import tqdm
 
 
@@ -96,7 +96,7 @@ def calculate_chi2(i, j, dist_1, dist_2, bins):
         return i, j, -1
     
 
-def compute_chi2_and_corr_matrix(keys, distributions, max_workers=128, plot_independence_heatmap=False, output_dir='logs', bins=101):
+def compute_chi2_and_corr_matrix(keys, distributions, max_workers=128, plot_independence_heatmap=False, output_dir='logs', bins=10):
     """Compute Chi-Square p-value matrix and correlation matrix."""
     num_dists = len(distributions)
     chi2_p_matrix = np.zeros((num_dists, num_dists))
@@ -282,19 +282,41 @@ def calculate_p_value_for_sample(sample, population_cdf_info, alternative='less'
         raise ValueError("Invalid alternative hypothesis. Choose from 'less', 'greater', or 'both'.")
 
 
-def compute_cdfs(histogram_values, bins=10_000):
-    """Compute CDFs from histogram values for each wavelet descriptor."""
-    cdfs = {}
-    for descriptor, values in histogram_values.items():
-        hist, bin_edges = np.histogram(values, bins=bins, density=False)
-        pdf = hist / np.sum(hist)
-        cdf = np.cumsum(pdf)
-        # cdf = np.cumsum(hist) * np.diff(bin_edges) # Density=True
-        cdfs[descriptor] = (hist, bin_edges, cdf)  # Store both the histogram and the CDF
-    return cdfs
+def plot_cdf(cdf_data, title="Empirical CDF Plot", xlabel="Value", ylabel="CDF", output_file='plot.png'):
+    """
+    Plot the CDF in a discrete, binned style using the original bins and cumulative values.
+    """
+    _, bin_edges, cdf = cdf_data
+
+    # Plot the discrete CDF
+    plt.figure(figsize=(8, 6))
+    plt.bar(bin_edges[:-1], cdf, width=np.diff(bin_edges), align='edge', alpha=0.7, label="Empirical CDF")
+    plt.title(title)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.grid()
+    plt.legend()
+    plt.savefig(output_file)
 
 
-def compute_cdf(histogram_values, bins=10_000):
+def compute_dist_cdf(distribution="normal", size=10000, bins=1000):
+    """
+    Compute and return the histogram, bin edges, and CDF for a given distribution.
+    """
+    # Generate data based on the specified distribution
+    if distribution == "normal":
+        data = np.random.normal(loc=0, scale=1, size=size)  # Standard normal
+    elif distribution == "uniform":
+        data = np.random.uniform(low=0, high=1, size=size)  # Standard uniform
+
+    # Compute the histogram and CDF
+    hist, bin_edges = np.histogram(data, bins=bins, density=True)
+    cdf = np.cumsum(hist) * np.diff(bin_edges)
+    
+    return hist, bin_edges, cdf
+
+
+def compute_cdf(histogram_values, bins=1000):
     """Compute CDFs from histogram values for each wavelet descriptor."""
     hist, bin_edges = np.histogram(histogram_values, bins=bins, density=True)
     cdf = np.cumsum(hist) * np.diff(bin_edges)
@@ -371,16 +393,83 @@ def plot_pvalue_histograms(real_pvalues, fake_pvalues, figname, title):
     plt.savefig(figname)
 
 
-def plot_histograms(hist, figname='plot.png', title='histogram'):
+def plot_histograms(hist, figname='plot.png', title='histogram', density=True, bins=50):
     """Plot histograms for real and fake p-values with transparency and save to a file."""
     plt.figure(figsize=(12, 6))
-    plt.hist(hist, bins=100, alpha=0.5, color='blue', density=True, edgecolor='k')
+    plt.hist(hist, bins=bins, alpha=0.5, color='blue', density=density, edgecolor='k')
     plt.xlabel("p-values")
     plt.ylabel("Density")
     plt.title(title)
     plt.legend()
     plt.tight_layout()
     plt.savefig(figname)
+
+
+def plot_binned_histogram(hist, bin_edges, figname='plot.png'):
+    """Plot a histogram from precomputed bin counts and bin edges."""
+    widths = np.diff(bin_edges)
+    plt.bar(bin_edges[:-1], hist, width=widths, align='edge',
+            alpha=0.7, edgecolor='k')
+    plt.xlabel("Value")
+    plt.ylabel("Count")
+    plt.savefig(figname)
+
+
+def plot_uniform_and_nonuniform(pvalue_distributions, uniform_indices, output_dir, bins=50):
+    """
+    Plots 5 uniform and 5 non-uniform p-value distributions in a 2x5 grid.
+    Displays the p-value of the KS test for uniformity on each plot.
+    """
+    # Convert uniform_indices to a set for faster lookup
+    uniform_set = set(uniform_indices)
+    uniform_distributions = [pvalue_distributions[i] for i in uniform_indices[:5]]
+
+    # Select up to 5 non-uniform distributions
+    nonuniform_distributions = [
+        pvalue_distributions[i] for i in range(pvalue_distributions.shape[0]) if i not in uniform_set
+    ][:5]
+
+    # Create a 2x5 grid for plots
+    fig, axes = plt.subplots(2, 5, figsize=(40, 8))
+
+    # Add column titles
+    fig.suptitle("Uniform vs Non-Uniform P-Value Distributions", fontsize=16)
+
+    # Plot uniform distributions in the first row
+    for idx, ax in enumerate(axes[0, :]):
+        if idx < len(uniform_distributions):
+            dist = uniform_distributions[idx]
+            ax.hist(dist, bins=bins, alpha=0.5, color='blue', density=False, edgecolor='k')
+            pval = kstest(dist, 'uniform').pvalue
+            ax.text(0.05, 0.95, f"p-value: {pval:.3f}", transform=ax.transAxes, fontsize=10,
+                    verticalalignment='top', bbox=dict(boxstyle="round", facecolor="white", alpha=0.5))
+        else:
+            ax.axis('off')  # Leave the remaining cells blank
+
+        ax.set_xlabel("p-value")
+        ax.set_ylabel("Density")
+
+    # Plot non-uniform distributions in the second row
+    for idx, ax in enumerate(axes[1, :]):
+        if idx < len(nonuniform_distributions):
+            dist = nonuniform_distributions[idx]
+            ax.hist(dist, bins=bins, alpha=0.5, color='red', density=False, edgecolor='k')
+            pval = kstest(dist, 'uniform').pvalue
+            ax.text(0.05, 0.95, f"p-value: {pval:.3f}", transform=ax.transAxes, fontsize=10,
+                    verticalalignment='top', bbox=dict(boxstyle="round", facecolor="white", alpha=0.5))
+        else:
+            ax.axis('off')  # Leave the remaining cells blank
+
+        ax.set_xlabel("p-value")
+        ax.set_ylabel("Density")
+
+    plt.tight_layout(rect=[0, 0, 1, 0.95])  # Adjust layout to leave space for the title
+
+    # Save the figure
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, "uniform_vs_nonuniform_distributions_2x5.png")
+    plt.savefig(output_path)
+    plt.close()
 
 
 def plot_roc_curve(results, test_id, output_dir):
@@ -406,7 +495,7 @@ def plot_roc_curve(results, test_id, output_dir):
 
 def plot_stouffer_analysis(
     pvalues, inverse_z_scores, stouffer_statistic, stouffer_pvalues, 
-    plot_bins=100, output_folder='logs', num_plots_pvalues=10, num_plots_zscores=10
+    plot_bins=50, output_folder='logs', num_plots_pvalues=10, num_plots_zscores=10
 ):
     """
     Generate and save plots for the p-values, inverse z-scores, Stouffer's statistics, and Stouffer's p-values.
@@ -490,3 +579,4 @@ def plot_ks_vs_pthreshold(thresholds, ks_pvalues, output_dir):
     plt.grid(True, which="both", linestyle="--", linewidth=0.5)
     plt.legend()
     plt.savefig(os.path.join(output_dir, "ks_pvalue_wrt_p_threshold.png"))
+    
