@@ -6,6 +6,15 @@ import numpy as np
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from processing.histograms import DCTNormHistogram, FourierNormHistogram, WaveletNormHistogram
+from processing.blurness_histogram import BlurDetectionHistogram
+from processing.gabor_histogram import GaborFilterFeatureMapNorm
+from processing.histograms import DCTNormHistogram, FourierNormHistogram, WaveletNormHistogram
+from processing.hsv_histogram import HSVHistogram
+from processing.jpeg_histogram import JPEGCompressionRatioHistogram
+from processing.laplacian_histogram import LaplacianVarianceHistogram
+from processing.psnr_noise_histogram import PSNRBlurHistogram
+from processing.sift_histogram import SIFTHistogram
+from processing.ssim_noise_histogram import SSIMBlurHistogram
 from utils import (
     compute_cdf,
     calculate_metrics,
@@ -53,6 +62,40 @@ def preprocess_wave(dataset, batch_size, wavelet, wavelet_level, num_data_worker
         if wavelet_level > 4 or wavelet_level == 0: 
             return None
         histogram_generator = DCTNormHistogram(dct_type=wavelet_level)
+
+    # Non-waves 
+    elif wavelet == 'blurness':
+        if wavelet_level != 0:
+            return None
+        histogram_generator = BlurDetectionHistogram()
+    elif wavelet == 'gabor':
+        if wavelet_level != 0:
+            return None
+        histogram_generator = GaborFilterFeatureMapNorm()
+    elif wavelet == 'hsv':
+        if wavelet_level != 0:
+            return None
+        histogram_generator = HSVHistogram()
+    elif wavelet == 'jpeg':
+        if wavelet_level != 0:
+            return None
+        histogram_generator = JPEGCompressionRatioHistogram()
+    elif wavelet == 'laplacian':
+        if wavelet_level != 0:
+            return None
+        histogram_generator = LaplacianVarianceHistogram()
+    elif wavelet == 'psnr':
+        if wavelet_level != 0:
+            return None
+        histogram_generator = PSNRBlurHistogram()
+    elif wavelet == 'sift':
+        if wavelet_level != 0:
+            return None
+        histogram_generator = SIFTHistogram()
+    elif wavelet == 'ssim':
+        if wavelet_level != 0:
+            return None
+        histogram_generator = SSIMBlurHistogram()
     else:
         raise ValueError('Invalid wave type.')
 
