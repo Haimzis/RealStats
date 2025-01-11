@@ -225,7 +225,6 @@ def main_multiple_patch_test(
     # TODO
     # Action Items: 
     # 3. baselines and benchmarks- 2/3 datasets and papers. Faces / Natural domains
-    # 4. more independent tests 
     """Run test for number of patches and collect sensitivity and specificity results."""
     print(f"Running test with: \npatches sizes: {patch_sizes}\nwavelets: {waves}\nlevels: {wavelet_levels}")
 

@@ -27,15 +27,15 @@ parser.add_argument('--data_dir_fake', type=str, required=True, help='Path to th
 parser.add_argument('--output_dir', type=str, required=True, help='Directory to save logs and artifacts.')
 parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/pkls', help='Path where to save pkls.')
 parser.add_argument('--num_samples_per_class', type=int, default=2957, help='Number of samples per class for inference dataset.')
-parser.add_argument('--num_data_workers', type=int, default=4, help='Number of workers for data loading.')
+parser.add_argument('--num_data_workers', type=int, default=2, help='Number of workers for data loading.')
 parser.add_argument('--max_wave_level', type=int, default=4, help='Maximum number of levels in DWT.')
-parser.add_argument('--max_workers', type=int, default=16, help='Maximum number of threads for parallel processing.')
+parser.add_argument('--max_workers', type=int, default=32, help='Maximum number of threads for parallel processing.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility.')
 parser.add_argument('--waves', type=str, nargs='+', default=['haar', 'coif1', 'sym2', 'fourier', 'dct'], help='List of wavelet types.')
 parser.add_argument('--wavelet_levels', type=int, nargs='+', default=[0, 1, 2, 3, 4], help='List of wavelet levels.')
 parser.add_argument('--finetune_portion', type=float, default=0.2, help='Portion of the dataset used for finetuning.')
 parser.add_argument('--chi2_bins', type=int, default=10, help='Number of bins for chi-square calculations.')
-parser.add_argument('--n_trials', type=int, default=50, help='Number of trials for optimization.')
+parser.add_argument('--n_trials', type=int, default=75, help='Number of trials for optimization.')
 parser.add_argument('--uniform_p_threshold', type=float, default=0.05, help='KS Threshold for uniform goodness of fit.')
 parser.add_argument('--run_id', type=str, required=True, help='Unique identifier for this MLflow run.')
 args = parser.parse_args()
@@ -45,7 +45,7 @@ def main():
     # Set random seed
     set_seed(args.seed)
 
-    mlflow.set_experiment("stouffer test: after tuning")
+    mlflow.set_experiment("stouffer test: new transforms")
     with mlflow.start_run(run_name=args.run_id):
         args.output_dir = urlparse(mlflow.get_artifact_uri()).path
         

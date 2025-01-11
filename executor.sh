@@ -34,9 +34,9 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
             --output_dir "$LOGS_DIR" \
             --pkls_dir "/data/users/haimzis/pkls" \
             --num_samples_per_class 2957 \
-            --num_data_workers 4 \
+            --num_data_workers 2 \
             --max_wave_level 4 \
-            --max_workers 16 \
+            --max_workers 32 \
             --seed 42 \
             --run_id "run_$TIMESTAMP" \
             $CONFIG

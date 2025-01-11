@@ -90,7 +90,7 @@ def calculate_chi2(i, j, dist_1, dist_2, bins):
     """Compute chi-square p-value and correlation for two distributions."""
     try:
         contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(bins, bins))
-        chi2_stat, chi2_p, _, _ = chi2_contingency(contingency_table)
+        chi2_stat, chi2_p, df, expected = chi2_contingency(contingency_table)
         return i, j, chi2_p
     except ValueError:
         return i, j, -1
