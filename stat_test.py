@@ -21,10 +21,12 @@ from utils import (
     compute_chi2_and_corr_matrix,
     find_largest_independent_group,
     find_largest_independent_group_iterative,
+    find_largest_uncorrelated_group,
     load_population_histograms,
     plot_ks_vs_pthreshold,
     plot_stouffer_analysis,
     plot_uniform_and_nonuniform,
+    remove_nans_from_tests,
     save_population_histograms,
     plot_pvalue_histograms,
     plot_binned_histogram,
@@ -222,9 +224,6 @@ def main_multiple_patch_test(
     uniform_sanity_check=False,
     logger=None,
 ):
-    # TODO
-    # Action Items: 
-    # 3. baselines and benchmarks- 2/3 datasets and papers. Faces / Natural domains
     """Run test for number of patches and collect sensitivity and specificity results."""
     print(f"Running test with: \npatches sizes: {patch_sizes}\nwavelets: {waves}\nlevels: {wavelet_levels}")
 
@@ -238,6 +237,7 @@ def main_multiple_patch_test(
     real_population_histogram = patch_parallel_preprocess(
         real_population_dataset, batch_size, training_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, test=False
     )
+    real_population_histogram = remove_nans_from_tests(real_population_histogram)
 
     # Spliting 
     tuning_histogram, training_histogram = split_population_histogram(real_population_histogram, portion)
@@ -279,7 +279,7 @@ def main_multiple_patch_test(
 
 
     # Chi-Square and Correlation Matrix Computation
-    chi2_p_matrix, _ = compute_chi2_and_corr_matrix(
+    chi2_p_matrix, corr_matrix = compute_chi2_and_corr_matrix(
         keys, pvalue_distributions, max_workers=max_workers,
         plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir, bins=chi2_bins
     )
@@ -293,11 +293,15 @@ def main_multiple_patch_test(
         n_trials=n_trials,
     )
 
+    largest_independent_clique_size_approximation = len(find_largest_independent_group(keys, chi2_p_matrix, 0.05))
+    print(f'Relexation largest clique approximation: {largest_independent_clique_size_approximation}')
+
     plot_ks_vs_pthreshold(optimization_roc["thresholds"], optimization_roc["ks_pvalues"], output_dir=output_dir)
 
     if logger:
         logger.log_param("num_tests", len(real_population_histogram.keys()))
         logger.log_param("Independent keys", independent_keys_group)
+        logger.log_metric("largest_independent_clique_size_approximation", largest_independent_clique_size_approximation)
         logger.log_metrics(best_results)
 
     independent_keys_group_indices = [keys.index(value) for value in independent_keys_group]
@@ -392,13 +396,86 @@ def finding_optimal_independent_subgroup(keys, chi2_p_matrix, pvals_matrix, ense
     """
     Single-objective optimization to minimize abs(ks_p_value - 0.5) and maximize the number of independent tests.
     """
+    # Create a study for single-objective optimization (minimize deviation)
+    study = optuna.create_study(direction="minimize")
+    study.optimize(lambda trial: objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test), n_trials=n_trials, show_progress_bar=True)
 
-    independent_keys_group = find_largest_independent_group(keys, chi2_p_matrix, 0.05)
+    # Filter trials based on deviation (|ks_p_value - 0.5| <= 0.25)
+    valid_trials = [
+        trial for trial in study.trials
+        if trial.value is not None and trial.value <= 0.4
+    ]
+
+    if not valid_trials:
+        raise ValueError("No valid trials found with deviation <= 0.25")
+
+    # Among valid trials, find the one with the maximum N
+    best_trial = max(valid_trials, key=lambda t: t.user_attrs["num_independent_tests"])
+
+    # Extract the best independent group and results
+    independent_keys_group = best_trial.user_attrs["independent_keys_group"]
+    best_results = {
+        'best_KS': best_trial.user_attrs["ks_p_value"],
+        'best_N': best_trial.user_attrs["num_independent_tests"],
+        'best_alpha_threshold': best_trial.params['p_threshold']
+    }
+
+    # Extract optimization data using list comprehensions
+    optimization_data = {
+        'thresholds': [trial.params["p_threshold"] for trial in study.trials if trial.value is not None],
+        'ks_pvalues': [trial.user_attrs["ks_p_value"] for trial in study.trials if trial.value is not None],
+        'num_tests': [trial.user_attrs["num_independent_tests"] for trial in study.trials if trial.value is not None]
+    }
+
+    print(f"Best State: p_threshold: {best_trial.params['p_threshold']}, KS Pvalue: {best_trial.user_attrs['ks_p_value']}, Num Tests: {best_trial.user_attrs['num_independent_tests']}")
+    print(f"Independent Keys Group: {independent_keys_group}")
+
+    return independent_keys_group, best_results, optimization_data
+
+
+def uncorrelation_objective(trial, keys, corr_matrix, pvals_matrix, ensemble_test):
+    """
+    Single-objective optimization: Minimize abs(ks_p_value - 0.5).
+    """
+    # Suggest a p_threshold value to test
+    p_threshold = trial.suggest_float("p_threshold", 0.0, 0.05)
+
+    # Step 1: Find the largest independent group
+    independent_keys_group = find_largest_uncorrelated_group(keys, corr_matrix, p_threshold)
+    num_independent_tests = len(independent_keys_group)
+    independent_indices = [keys.index(key) for key in independent_keys_group]
+
+    # Step 2: Extract p-values for independent features
+    independent_pvals = pvals_matrix[independent_indices].T
+
+    # Step 3: Perform ensemble testing
+    ensembled_stats, _ = perform_ensemble_testing(independent_pvals, ensemble_test)
+
+    # Step 4: Perform KS test against standard normal distribution
+    _, ks_pvalue = kstest(ensembled_stats, 'norm', args=(0, 1))  # mean=0, std=1 for standard normal
+
+    # Calculate the deviation from 0.5 for KS p-value
+    deviation = abs(ks_pvalue - 0.5)
+
+    # Store trial attributes for later retrieval
+    trial.set_user_attr("independent_keys_group", independent_keys_group)
+    trial.set_user_attr("num_independent_tests", num_independent_tests)
+    trial.set_user_attr("ks_p_value", ks_pvalue)
+
+    return deviation  # Return deviation to minimize
+
+
+def finding_optimal_uncorrelated_subgroup(keys, corr_matrix, pvals_matrix, ensemble_test, n_trials=50):
+    """
+    Single-objective optimization to minimize abs(ks_p_value - 0.5) and maximize the number of independent tests.
+    """
+
+    independent_keys_group = find_largest_uncorrelated_group(keys, corr_matrix, 0.05)
     print(f'Relexation largest clique approximation: {len(independent_keys_group)}')
 
     # Create a study for single-objective optimization (minimize deviation)
     study = optuna.create_study(direction="minimize")
-    study.optimize(lambda trial: objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test), n_trials=n_trials, show_progress_bar=True)
+    study.optimize(lambda trial: uncorrelation_objective(trial, keys, corr_matrix, pvals_matrix, ensemble_test), n_trials=n_trials, show_progress_bar=True)
 
     # Filter trials based on deviation (|ks_p_value - 0.5| <= 0.25)
     valid_trials = [

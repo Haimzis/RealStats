@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import pickle
 import random
 from matplotlib import pyplot as plt
+from scipy.stats import spearmanr
 import torch
 import numpy as np
 from pytorch_wavelets import DTCWTForward, DTCWTInverse
@@ -13,6 +14,8 @@ import networkx as nx
 import numpy as np
 from scipy.stats import chi2, kstest
 from tqdm import tqdm
+
+
 
 
 def view_subgraph(subgraph, title="Subgraph Visualization", save_path='subgraph.png'):
@@ -78,13 +81,46 @@ def chi_square_independence_test(observed):
 def calculate_chi2_and_corr(i, j, dist_1, dist_2, bins):
     """Compute chi-square p-value and correlation for two distributions."""
     try:
+        corr, p_value = spearmanr(dist_1, dist_2)
+        # correlation = abs(np.corrcoef(dist_1, dist_2)[0, 1])
+        correlation = abs(corr)
         contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(bins, bins))
         chi2_stat, chi2_p, _, _ = chi2_contingency(contingency_table)
-        correlation = np.corrcoef(dist_1, dist_2)[0, 1]
         return i, j, chi2_p, correlation
     except ValueError:
-        return i, j, -1, None
+        return i, j, -1, correlation
 
+
+def plot_contingency_table(contingency_table, save_path=None):
+    """
+    Plots a contingency table as a heatmap with cell values displayed.
+
+    Args:
+        contingency_table (numpy.ndarray): The contingency table to plot.
+        save_path (str, optional): Path to save the plot. If None, the plot is not saved.
+
+    Returns:
+        None
+    """
+    plt.figure(figsize=(10, 10))
+    plt.imshow(contingency_table, cmap='viridis', interpolation='nearest')
+    
+    # Add cell values
+    for i in range(contingency_table.shape[0]):
+        for j in range(contingency_table.shape[1]):
+            plt.text(j, i, str(np.round(contingency_table[i, j], 2)), ha='center', va='center', color='white', fontsize=10)
+    
+    # Add labels, title, and colorbar
+    plt.colorbar(label='Value')
+    plt.title("Contingency Table")
+    plt.xlabel("Column")
+    plt.ylabel("Row")
+    
+    # Save the plot if a path is provided
+    if save_path:
+        plt.savefig(save_path)
+        print(f"Plot saved to {save_path}")
+    
 
 def calculate_chi2(i, j, dist_1, dist_2, bins):
     """Compute chi-square p-value and correlation for two distributions."""
@@ -96,11 +132,10 @@ def calculate_chi2(i, j, dist_1, dist_2, bins):
         return i, j, -1
     
 
-def compute_chi2_and_corr_matrix(keys, distributions, max_workers=128, plot_independence_heatmap=False, output_dir='logs', bins=10):
+def compute_chi2_matrix(keys, distributions, max_workers=128, plot_independence_heatmap=False, output_dir='logs', bins=10):
     """Compute Chi-Square p-value matrix and correlation matrix."""
     num_dists = len(distributions)
     chi2_p_matrix = np.zeros((num_dists, num_dists))
-    # corr_matrix = np.zeros((num_dists, num_dists))
 
     tasks = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -120,9 +155,41 @@ def compute_chi2_and_corr_matrix(keys, distributions, max_workers=128, plot_inde
 
     if plot_independence_heatmap:
         create_heatmap(chi2_p_matrix, keys, 'Chi-Square Test (P-values)', output_dir, 'chi2_heatmap.png', annot=len(keys) < 64)
-        # create_heatmap(corr_matrix, keys, 'Correlation Matrix', output_dir, 'corr_heatmap.png')
 
     return chi2_p_matrix, None
+
+
+def compute_chi2_and_corr_matrix(keys, distributions, max_workers=128, plot_independence_heatmap=False, output_dir='logs', bins=10):
+    """Compute Chi-Square p-value matrix and correlation matrix."""
+    num_dists = len(distributions)
+    chi2_p_matrix = np.zeros((num_dists, num_dists))
+    corr_matrix = np.zeros((num_dists, num_dists))
+
+    tasks = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for i, key1 in enumerate(keys):
+            dist_1 = distributions[i]
+            for j, key2 in enumerate(keys):
+                if i <= j:  # Skip duplicates and diagonal
+                    continue
+                dist_2 = distributions[j]
+                tasks.append(executor.submit(calculate_chi2_and_corr, i, j, dist_1, dist_2, bins))
+
+        for future in tqdm(as_completed(tasks), total=len(tasks), desc="Processing Chi2 and Correlation tests..."):
+            i, j, chi2_p, corr = future.result()
+            if chi2_p is not None:
+                chi2_p_matrix[i, j] = chi2_p
+                chi2_p_matrix[j, i] = chi2_p  # Symmetry
+
+            if chi2_p is not None:
+                corr_matrix[i, j] = corr
+                corr_matrix[j, i] = corr  # Symmetry
+
+    if plot_independence_heatmap:
+        create_heatmap(chi2_p_matrix, keys, 'Chi-Square Test (P-values)', output_dir, 'chi2_heatmap.png', annot=len(keys) < 64)
+        create_heatmap(corr_matrix, keys, 'Correlation Matrix', output_dir, 'corr_heatmap.png', annot=len(keys) < 64)
+
+    return chi2_p_matrix, corr_matrix
 
 
 def find_largest_independent_group(keys, chi2_p_matrix, p_threshold=0.05):
@@ -132,6 +199,25 @@ def find_largest_independent_group(keys, chi2_p_matrix, p_threshold=0.05):
     
     # Add edges where p-values are above the threshold
     indices = np.triu(chi2_p_matrix, k=1) > p_threshold
+    rows, cols = np.where(indices)
+    edges = np.column_stack((np.array(keys)[rows], np.array(keys)[cols]))
+    G.add_edges_from(edges)
+
+    # Subgraph of nodes with edges (dependencies)
+    subgraph = G.subgraph([node for node, degree in G.degree() if degree > 0])
+    
+    # Find the largest independent set (nodes not connected to others)
+    independent_set = nx.algorithms.approximation.clique.max_clique(subgraph)
+    return list(independent_set) if independent_set else [keys[0]]
+
+
+def find_largest_uncorrelated_group(keys, corr_matrix, p_threshold=0.05):
+    """Find the largest independent group using the Chi-Square p-value matrix."""
+    G = nx.Graph()
+    G.add_nodes_from(keys)
+    
+    # Add edges where p-values are below the threshold
+    indices = np.triu(corr_matrix, k=1) < p_threshold
     rows, cols = np.where(indices)
     edges = np.column_stack((np.array(keys)[rows], np.array(keys)[cols]))
     G.add_edges_from(edges)
@@ -297,6 +383,27 @@ def plot_cdf(cdf_data, title="Empirical CDF Plot", xlabel="Value", ylabel="CDF",
     plt.grid()
     plt.legend()
     plt.savefig(output_file)
+
+
+def remove_nans_from_tests(tests_dict):
+    """
+    Filters out tests from a dictionary where any test contains NaN values.
+
+    Args:
+        tests_dict (dict): A dictionary where keys are test names and values are NumPy arrays.
+
+    Returns:
+        dict: A new dictionary with tests that do not contain NaN values.
+    """
+    cleaned_tests = {}
+
+    for test_name, values in tests_dict.items():
+        if np.isnan(values).any():
+            print(f"Warning: Test '{test_name}' contains NaN values and will be excluded.")
+        else:
+            cleaned_tests[test_name] = values
+
+    return cleaned_tests
 
 
 def compute_dist_cdf(distribution="normal", size=10000, bins=1000):
@@ -579,4 +686,3 @@ def plot_ks_vs_pthreshold(thresholds, ks_pvalues, output_dir):
     plt.grid(True, which="both", linestyle="--", linewidth=0.5)
     plt.legend()
     plt.savefig(os.path.join(output_dir, "ks_pvalue_wrt_p_threshold.png"))
-    
