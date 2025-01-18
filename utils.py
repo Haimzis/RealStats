@@ -16,8 +16,6 @@ from scipy.stats import chi2, kstest
 from tqdm import tqdm
 
 
-
-
 def view_subgraph(subgraph, title="Subgraph Visualization", save_path='subgraph.png'):
     """
     Visualize the subgraph using networkx and matplotlib.
@@ -85,7 +83,7 @@ def calculate_chi2_and_corr(i, j, dist_1, dist_2, bins):
         # correlation = abs(np.corrcoef(dist_1, dist_2)[0, 1])
         correlation = abs(corr)
         contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(bins, bins))
-        chi2_stat, chi2_p, _, _ = chi2_contingency(contingency_table)
+        chi2_stat, chi2_p, df, expected = chi2_contingency(contingency_table)
         return i, j, chi2_p, correlation
     except ValueError:
         return i, j, -1, correlation
@@ -487,13 +485,13 @@ def plot_sensitivity_specificity_by_patch_size(results, wavelet, threshold, outp
     plt.close()
 
         
-def plot_pvalue_histograms(real_pvalues, fake_pvalues, figname, title):
+def plot_pvalue_histograms(real_pvalues, fake_pvalues, figname, title, xlabel="p-values", ylabel="Density"):
     """Plot histograms for real and fake p-values with transparency and save to a file."""
     plt.figure(figsize=(12, 6))
     plt.hist(real_pvalues, bins=100, alpha=0.5, label="Real", color='blue', density=True, edgecolor='k')
     plt.hist(fake_pvalues, bins=100, alpha=0.5, label="Fake", color='orange', density=True,  edgecolor='k')
-    plt.xlabel("p-values")
-    plt.ylabel("Density")
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
     plt.title(title)
     plt.legend()
     plt.tight_layout()

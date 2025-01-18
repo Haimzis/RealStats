@@ -1,3 +1,4 @@
+from enum import Enum
 import os
 import random
 from PIL import Image
@@ -213,11 +214,43 @@ class DatasetFactory:
         Returns:
             Dataset: Instance of the appropriate dataset class.
         """
-        if dataset_type == 'CelebA':
+        if dataset_type.upper() == 'CELEBA' or dataset_type.upper() == 'COCO_ALL' or dataset_type.upper() == 'PROGAN_FACES_BUT_CELEBA_AS_TRAIN':
             return ImageDataset(image_input=root_dir, labels=0, transform=transform)
-        elif dataset_type == 'ProGan':
+        elif dataset_type.upper() == 'PROGAN':
             return ProGanDataset(root_dir=root_dir, transform=transform)
-        elif dataset_type == 'COCO':
+        elif dataset_type.upper() == 'COCO':
             return CocoDataset(root_dir=root_dir, label=0, transform=transform)
         else:
             raise ValueError(f"Unsupported dataset type: {dataset_type}")
+
+
+# DatasetType Enum
+class DatasetType(Enum):
+    CELEBA = {
+        "data_dir_real": "data/CelebaHQMaskDataset/train/images_faces",
+        "data_dir_fake_real": "data/CelebaHQMaskDataset/test/images_faces",
+        "data_dir_fake": "data/stable-diffusion-face-dataset/1024/both_faces"
+    }
+    PROGAN = {
+        "data_dir_real": "data/CNNDetector/trainset",
+        "data_dir_fake_real": "data/CNNDetector/testset/whichfaceisreal/0_real",
+        "data_dir_fake": "data/CNNDetector/testset/whichfaceisreal/1_fake"
+    }
+    COCO = {
+        "data_dir_real": "data/CLIPDetector/train_set/",
+        "data_dir_fake_real": "data/CLIPDetector/test_set/real/real_coco_valid",
+        "data_dir_fake": "data/CLIPDetector/test_set/fake/sdxl_cocoval"
+    }
+    COCO_ALL = {
+        "data_dir_real": "data/CLIPDetector/train_set/coco2017/train2017",
+        "data_dir_fake_real": "data/CLIPDetector/test_set/real/real_coco_valid",
+        "data_dir_fake": "data/CLIPDetector/test_set/fake/sdxl_cocoval"
+    }
+    PROGAN_FACES_BUT_CELEBA_AS_TRAIN = {
+        "data_dir_real": "data/CelebaHQMaskDataset/train/images_faces",
+        "data_dir_fake_real": "data/CNNDetector/testset/whichfaceisreal/0_real",
+        "data_dir_fake": "data/CNNDetector/testset/whichfaceisreal/1_fake"
+    }
+
+    def get_paths(self):
+        return self.value

@@ -284,6 +284,9 @@ def main_multiple_patch_test(
         plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir, bins=chi2_bins
     )
 
+    largest_independent_clique_size_approximation = len(find_largest_independent_group(keys, chi2_p_matrix, 0.05))
+    print(f'Relexation largest clique approximation: {largest_independent_clique_size_approximation}')
+
     # Find the Largest Optimal Independent Group using the best p_threshold Fine-tune
     independent_keys_group, best_results, optimization_roc = finding_optimal_independent_subgroup(
         keys=keys,
@@ -292,9 +295,6 @@ def main_multiple_patch_test(
         ensemble_test=ensemble_test,
         n_trials=n_trials,
     )
-
-    largest_independent_clique_size_approximation = len(find_largest_independent_group(keys, chi2_p_matrix, 0.05))
-    print(f'Relexation largest clique approximation: {largest_independent_clique_size_approximation}')
 
     plot_ks_vs_pthreshold(optimization_roc["thresholds"], optimization_roc["ks_pvalues"], output_dir=output_dir)
 
@@ -403,7 +403,7 @@ def finding_optimal_independent_subgroup(keys, chi2_p_matrix, pvals_matrix, ense
     # Filter trials based on deviation (|ks_p_value - 0.5| <= 0.25)
     valid_trials = [
         trial for trial in study.trials
-        if trial.value is not None and trial.value <= 0.4
+        if trial.value is not None and trial.value <= 0.25
     ]
 
     if not valid_trials:
