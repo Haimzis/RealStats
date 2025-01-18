@@ -2,10 +2,6 @@ import os
 import argparse
 from data_utils import DatasetFactory, DatasetType, ImageDataset, create_inference_dataset
 from torchvision import transforms
-from processing.histograms import DCTNormHistogram, FourierNormHistogram
-from processing.laplacian_histogram import LaplacianVarianceHistogram
-from processing.psnr_noise_histogram import PSNRBlurHistogram
-from processing.sift_histogram import SIFTHistogram
 from stat_test import get_unique_id, preprocess_wave
 from utils import load_population_histograms, plot_pvalue_histograms, set_seed, save_population_histograms
 from torch.utils.data import DataLoader
