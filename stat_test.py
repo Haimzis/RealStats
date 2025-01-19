@@ -40,17 +40,25 @@ from scipy.stats import combine_pvalues
 from data_utils import PatchDataset
 from scipy.stats import norm, kstest
 import optuna
+from enum import Enum
 
 
-def get_unique_id(patch_size, patch_idx, level, wave, test):
-    return f"PatchProcessing_wavelet={wave}_level={level}_patch_size={patch_size}_patch_index={patch_idx}{'_test' if test else ''}"
+class DataType(Enum):
+    TRAIN = "train"
+    CALIB = "calib"
+    TEST = "test"
 
 
-def preprocess_wave(dataset, batch_size, wavelet, wavelet_level, num_data_workers, patch_size, patch_index, pkl_dir, save_pkl, test=False):
+def get_unique_id(patch_size, patch_idx, level, wave, data_type: DataType):
+    """Generate a unique ID for processing."""
+    return f"PatchProcessing_wavelet={wave}_level={level}_patch_size={patch_size}_patch_index={patch_idx}_{data_type.value}"
+
+
+def preprocess_wave(dataset, batch_size, wavelet, wavelet_level, num_data_workers, patch_size, patch_index, pkl_dir, save_pkl, data_type: DataType):
     """Preprocess the dataset for a single wave level and wavelet type using NormHistogram."""
-    pkl_filename = os.path.join(pkl_dir, f"{get_unique_id(patch_size, patch_index, wavelet_level, wavelet, test)}.pkl")
+    pkl_filename = os.path.join(pkl_dir, f"{get_unique_id(patch_size, patch_index, wavelet_level, wavelet, data_type)}.pkl")
 
-    if not test and os.path.exists(pkl_filename):
+    if data_type != DataType.TEST and os.path.exists(pkl_filename):
         return load_population_histograms(pkl_filename)
 
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_data_workers)
@@ -65,7 +73,7 @@ def preprocess_wave(dataset, batch_size, wavelet, wavelet_level, num_data_worker
             return None
         histogram_generator = DCTNormHistogram(dct_type=wavelet_level)
 
-    # Non-waves 
+    # Non-wavelets
     elif wavelet == 'blurness':
         if wavelet_level != 0:
             return None
@@ -171,37 +179,38 @@ def interpret_keys_to_combinations(independent_keys_group):
     return combinations
 
 
-def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_workers, num_data_workers, pkl_dir='pkls', save_pkl=False, test=False, sort=True):
+
+def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_workers, num_data_workers, pkl_dir='pkls', save_pkl=False, data_type: DataType = DataType.TRAIN, sort=True):
     """Preprocess the dataset for specific combinations in parallel."""
     results = {}
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_combination = {
             executor.submit(preprocess_wave, PatchDataset(original_dataset, comb['patch_size'], comb['patch_index']),
-                            batch_size, comb['wavelet'], comb['level'], num_data_workers, comb['patch_size'], comb['patch_index'], pkl_dir, save_pkl, test): comb
+                            batch_size, comb['wavelet'], comb['level'], num_data_workers, comb['patch_size'], comb['patch_index'], pkl_dir, save_pkl, data_type): comb
             for comb in combinations
         }
 
         for future in tqdm(as_completed(future_to_combination), total=len(future_to_combination), desc="Processing..."):
             combination = future_to_combination[future]
-            unique_id = get_unique_id(combination['patch_size'], combination['patch_index'], combination['level'], combination['wavelet'], test)
+            unique_id = get_unique_id(combination['patch_size'], combination['patch_index'], combination['level'], combination['wavelet'], data_type)
             try:
                 results[unique_id] = future.result()
             except Exception as exc:
                 print(f"Combination {combination}, generated an exception: {exc}")
 
         results = {k: v for k, v in results.items() if v is not None}
-
-        if test:
-            results = {k.replace('_test', ''): v for k, v in results.items() if v is not None}
+        results = {k.replace(f"_{data_type.value}", ""): v for k, v in results.items()}
 
         if sort:
             results = {k: results[k] for k in sorted(results)}
+
     return results
 
 
 def main_multiple_patch_test(
     real_population_dataset,
+    fake_population_dataset,
     inference_dataset,
     waves,
     wavelet_levels,
@@ -235,52 +244,49 @@ def main_multiple_patch_test(
 
     # Load or compute real population histograms
     real_population_histogram = patch_parallel_preprocess(
-        real_population_dataset, batch_size, training_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, test=False
+        real_population_dataset, batch_size, training_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, data_type=DataType.TRAIN
     )
-    real_population_histogram = remove_nans_from_tests(real_population_histogram)
 
+    fake_population_histogram = patch_parallel_preprocess(
+        fake_population_dataset, batch_size, training_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, data_type=DataType.CALIB
+    )
+
+    real_population_histogram = remove_nans_from_tests(real_population_histogram)
+    # fake_population_histogram = remove_nans_from_tests(fake_population_histogram)
+
+    # real_population_histogram = {k: real_population_histogram[k] for k in real_population_histogram.keys() & fake_population_histogram.keys()}
+    # fake_population_histogram = {k: fake_population_histogram[k] for k in real_population_histogram.keys() & fake_population_histogram.keys()}
+    
     # Spliting 
     tuning_histogram, training_histogram = split_population_histogram(real_population_histogram, portion)
+    tuning_num_samples = len(tuning_histogram[next(iter(tuning_histogram))])
+    fake_calibration_histogram, _ = split_population_histogram(fake_population_histogram, tuning_num_samples)
     
     # CDF creation
-    real_population_cdfs = {test_id: compute_cdf(values, bins=500) for test_id, values in training_histogram.items()}    
+    real_population_cdfs = {test_id: compute_cdf(values, bins=500, test_id) for test_id, values in training_histogram.items()}    
     
+    # Fake Calibration Pvalues
+    fake_calibration_pvalues = calculate_pvals_from_cdf(real_population_cdfs, fake_calibration_histogram, "Calibration")
+    fake_calibration_pvalues = np.clip(fake_calibration_pvalues, 0, 1)
+
     # Tuning Pvalues
     tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, tuning_histogram, "Tuning")
     tuning_real_population_pvals = np.clip(tuning_real_population_pvals, 0, 1)
     
-    pvalue_distributions = np.array(tuning_real_population_pvals).T
+    tuning_pvalue_distributions = np.array(tuning_real_population_pvals).T
+    fake_calibration_pvalue_distributions = np.array(fake_calibration_pvalues).T
+
     keys = list(real_population_histogram.keys())
 
     if uniform_sanity_check:
         # Ignore non uniform distributions
-
-        uniform_tests = []
-        ks_pvalues = []
-
-        for i, test_pvalues in tqdm(enumerate(pvalue_distributions), desc="Filtering uniform pvalues distributions", total=len(real_population_cdfs.keys())):
-            p_value = kstest(test_pvalues, 'uniform')[1]
-            ks_pvalues.append(p_value)
-            if p_value > uniform_p_threshold:
-                uniform_tests.append(i)
-
-        uniform_keys = [keys[i] for i in uniform_tests]
-        uniform_dists = tuning_real_population_pvals[:, uniform_tests]
-        keys = uniform_keys
-        tuning_real_population_pvals = uniform_dists
-
-        # Plots
-        plot_uniform_and_nonuniform(pvalue_distributions, uniform_tests, output_dir)
-        plot_histograms(ks_pvalues, os.path.join(output_dir, 'ks_pvalues.png'), title='Kolmogorov-Smirnov', bins=20)
-     
-        if logger:
-            logger.log_param("num_uniform_tests", len(uniform_keys))
-            logger.log_param("non_uniform_proportion", (len(real_population_histogram.keys()) - len(uniform_keys)) / len(real_population_histogram.keys()))
-
+        keys, tuning_real_population_pvals = ks_uniform_sanity_check(
+            output_dir, uniform_p_threshold, logger, tuning_real_population_pvals, tuning_pvalue_distributions, keys
+        )
 
     # Chi-Square and Correlation Matrix Computation
     chi2_p_matrix, corr_matrix = compute_chi2_and_corr_matrix(
-        keys, pvalue_distributions, max_workers=max_workers,
+        keys, tuning_pvalue_distributions, max_workers=max_workers,
         plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir, bins=chi2_bins
     )
 
@@ -291,7 +297,7 @@ def main_multiple_patch_test(
     independent_keys_group, best_results, optimization_roc = finding_optimal_independent_subgroup(
         keys=keys,
         chi2_p_matrix=chi2_p_matrix,
-        pvals_matrix=pvalue_distributions,
+        pvals_matrix=tuning_pvalue_distributions,
         ensemble_test=ensemble_test,
         n_trials=n_trials,
     )
@@ -305,7 +311,7 @@ def main_multiple_patch_test(
         logger.log_metrics(best_results)
 
     independent_keys_group_indices = [keys.index(value) for value in independent_keys_group]
-    tuning_independent_pvals = pvalue_distributions[independent_keys_group_indices].T
+    tuning_independent_pvals = tuning_pvalue_distributions[independent_keys_group_indices].T
     perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)    
     
     # Convert independent keys to combinations
@@ -313,7 +319,7 @@ def main_multiple_patch_test(
 
     # Inference
     inference_histogram = patch_parallel_preprocess(
-        inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=False, test=True
+        inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=False, data_type=DataType.TEST
     )
 
     input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, "Test")
@@ -342,6 +348,28 @@ def main_multiple_patch_test(
     if test_labels:
         metrics = calculate_metrics(test_labels, predictions)
         return metrics
+
+def ks_uniform_sanity_check(output_dir, uniform_p_threshold, logger, tuning_real_population_pvals, pvalue_distributions, keys):
+    uniform_tests = []
+    ks_pvalues = []
+
+    for i, test_pvalues in tqdm(enumerate(pvalue_distributions), desc="Filtering uniform pvalues distributions", total=len(keys)):
+        p_value = kstest(test_pvalues, 'uniform')[1]
+        ks_pvalues.append(p_value)
+        if p_value > uniform_p_threshold:
+            uniform_tests.append(i)
+
+    uniform_keys = [keys[i] for i in uniform_tests]
+    uniform_dists = tuning_real_population_pvals[:, uniform_tests]
+
+    # Plots
+    plot_uniform_and_nonuniform(pvalue_distributions, uniform_tests, output_dir)
+    plot_histograms(ks_pvalues, os.path.join(output_dir, 'ks_pvalues.png'), title='Kolmogorov-Smirnov', bins=20)
+     
+    if logger:
+        logger.log_param("num_uniform_tests", len(uniform_keys))
+        logger.log_param("non_uniform_proportion", (len(keys) - len(uniform_keys)) / len(keys))
+    return uniform_keys, uniform_dists 
 
 
 def perform_ensemble_testing(pvalues, ensemble_test, output_dir='logs', plot=False):

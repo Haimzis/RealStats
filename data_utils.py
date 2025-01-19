@@ -60,7 +60,7 @@ class ProGanDataset(Dataset):
     """
     Dataset for ProGAN with nested directory structure. Loads all images from '0_real' subdirectories.
     """
-    def __init__(self, root_dir, transform=None):
+    def __init__(self, root_dir, label=0, transform=None):
         """
         Args:
             root_dir (str): Root directory containing class subdirectories with '0_real' and '1_fake'.
@@ -74,12 +74,12 @@ class ProGanDataset(Dataset):
         for class_dir in os.listdir(root_dir):
             class_path = os.path.join(root_dir, class_dir)
             if os.path.isdir(class_path):  # Check if it's a directory
-                real_dir = os.path.join(class_path, '0_real')  # Only look for '0_real' subdirectory
-                if os.path.isdir(real_dir):  # If '0_real' exists
-                    for image_name in os.listdir(real_dir):
+                data_dir = os.path.join(class_path, f'{label}_real')  # Only look for relevant subdirectory
+                if os.path.isdir(data_dir): 
+                    for image_name in os.listdir(data_dir):
                         if image_name.endswith(('.jpeg', '.jpg', '.png')):  # Filter image files
-                            self.image_paths.append(os.path.join(real_dir, image_name))
-                            self.labels.append(0)  # Assign label 0 for real samples
+                            self.image_paths.append(os.path.join(data_dir, image_name))
+                            self.labels.append(label)  # Assign label for samples
 
     def __len__(self):
         return len(self.image_paths)
@@ -112,7 +112,7 @@ class CocoDataset(Dataset):
         self.label = label                # Fixed label for all samples
 
         # Extract the file paths for the images
-        self.image_paths = self.data['filename0'].tolist()
+        self.image_paths = self.data['filename0' if label==0 else 'filename1'].tolist()
 
     def __len__(self):
         return len(self.image_paths)
@@ -202,7 +202,7 @@ def create_inference_dataset(real_dir, fake_dir, num_samples_per_class, classes=
 class DatasetFactory:
     """Factory class for creating datasets based on dataset type."""
     @staticmethod
-    def create_dataset(dataset_type, root_dir, transform=None):
+    def create_dataset(dataset_type, root_dir, calib_root_dir, transform=None):
         """
         Create the appropriate dataset based on the dataset type.
 
@@ -215,11 +215,11 @@ class DatasetFactory:
             Dataset: Instance of the appropriate dataset class.
         """
         if dataset_type.upper() == 'CELEBA' or dataset_type.upper() == 'COCO_ALL' or dataset_type.upper() == 'PROGAN_FACES_BUT_CELEBA_AS_TRAIN':
-            return ImageDataset(image_input=root_dir, labels=0, transform=transform)
+            return ImageDataset(image_input=root_dir, labels=0, transform=transform), ImageDataset(image_input=calib_root_dir, labels=1, transform=transform), 
         elif dataset_type.upper() == 'PROGAN':
-            return ProGanDataset(root_dir=root_dir, transform=transform)
+            return ProGanDataset(root_dir=root_dir, label=0, transform=transform), ProGanDataset(root_dir=calib_root_dir, label=1, transform=transform)
         elif dataset_type.upper() == 'COCO':
-            return CocoDataset(root_dir=root_dir, label=0, transform=transform)
+            return CocoDataset(root_dir=root_dir, label=0, transform=transform), CocoDataset(root_dir=root_dir, label=1, transform=transform)
         else:
             raise ValueError(f"Unsupported dataset type: {dataset_type}")
 
@@ -227,29 +227,38 @@ class DatasetFactory:
 # DatasetType Enum
 class DatasetType(Enum):
     CELEBA = {
-        "data_dir_real": "data/CelebaHQMaskDataset/train/images_faces",
-        "data_dir_fake_real": "data/CelebaHQMaskDataset/test/images_faces",
-        "data_dir_fake": "data/stable-diffusion-face-dataset/1024/both_faces"
+        "train_real": "data/CelebaHQMaskDataset/train/images_faces",
+        "test_real": "data/CelebaHQMaskDataset/test/images_faces",
+        "train_fake": "data/stable-diffusion-face-dataset/1024/both_faces",
+        "test_fake": "data/stable-diffusion-face-dataset/1024/both_faces"
     }
+
     PROGAN = {
-        "data_dir_real": "data/CNNDetector/trainset",
-        "data_dir_fake_real": "data/CNNDetector/testset/whichfaceisreal/0_real",
-        "data_dir_fake": "data/CNNDetector/testset/whichfaceisreal/1_fake"
+        "train_real": "data/CNNDetector/trainset",
+        "test_real": "data/CNNDetector/testset/whichfaceisreal/0_real",
+        "train_fake": "data/CNNDetector/trainset",
+        "test_fake": "data/CNNDetector/testset/whichfaceisreal/1_fake"
     }
+
     COCO = {
-        "data_dir_real": "data/CLIPDetector/train_set/",
-        "data_dir_fake_real": "data/CLIPDetector/test_set/real/real_coco_valid",
-        "data_dir_fake": "data/CLIPDetector/test_set/fake/sdxl_cocoval"
+        "train_real": "data/CLIPDetector/train_set/",
+        "test_real": "data/CLIPDetector/test_set/real/real_coco_valid",
+        "train_fake": "data/CLIPDetector/train_set/",
+        "test_fake": "data/CLIPDetector/test_set/fake/sdxl_cocoval"
     }
+
     COCO_ALL = {
-        "data_dir_real": "data/CLIPDetector/train_set/coco2017/train2017",
-        "data_dir_fake_real": "data/CLIPDetector/test_set/real/real_coco_valid",
-        "data_dir_fake": "data/CLIPDetector/test_set/fake/sdxl_cocoval"
+        "train_real": "data/CLIPDetector/train_set/coco2017/train2017",
+        "test_real": "data/CLIPDetector/test_set/real/real_coco_valid",
+        "train_fake": "data/CLIPDetector/train_set/coco_latent_t2i/train2017",
+        "test_fake": "data/CLIPDetector/test_set/fake/sdxl_cocoval"
     }
+
     PROGAN_FACES_BUT_CELEBA_AS_TRAIN = {
-        "data_dir_real": "data/CelebaHQMaskDataset/train/images_faces",
-        "data_dir_fake_real": "data/CNNDetector/testset/whichfaceisreal/0_real",
-        "data_dir_fake": "data/CNNDetector/testset/whichfaceisreal/1_fake"
+        "train_real": "data/CelebaHQMaskDataset/train/images_faces",
+        "test_real": "data/CNNDetector/testset/whichfaceisreal/0_real",
+        "train_fake": "data/stable-diffusion-face-dataset/1024/both_faces",
+        "test_fake": "data/CNNDetector/testset/whichfaceisreal/1_fake"
     }
 
     def get_paths(self):

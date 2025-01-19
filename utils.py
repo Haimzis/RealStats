@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import pickle
 import random
+import warnings
 from matplotlib import pyplot as plt
 from scipy.stats import spearmanr
 import torch
@@ -280,19 +281,35 @@ def set_seed(seed=42):
 
 def split_population_histogram(real_population_histogram, portion):
     """
-    Split the population histogram into tuning and training portions in a uniform way using a seed.
+    Split the population histogram into tuning and training portions.
+    - If portion <= 1.0: Use it as a fraction of the total population.
+    - If portion > 1.0: Split into two histograms of sizes `portion` and `N - portion`.
+    - If the population size is smaller than the portion, return a single split and None with a warning.
     """
-    
+
     # Get the population length
     population_length = len(list(real_population_histogram.values())[0])
-    
+
+    # Ensure portion is valid
+    if portion <= 0:
+        raise ValueError(f"Invalid portion: {portion}. Must be greater than 0.")
+
+    # Handle case where portion is larger than population size
+    if (portion <= 1.0 and population_length * portion > population_length) or (portion > 1.0 and portion > population_length):
+        warnings.warn(f"Portion {portion} is larger than the population size {population_length}. Returning a single split.")
+        return real_population_histogram, None
+
     # Generate shuffled indices
     indices = list(range(population_length))
     random.shuffle(indices)
-    
-    # Determine the split point
-    split_point = int(population_length * portion)
-    
+
+    if portion <= 1.0:
+        # Portion as a fraction
+        split_point = int(population_length * portion)
+    else:
+        # Portion as an absolute size
+        split_point = int(portion)
+
     # Create the tuning and training histograms based on shuffled indices
     tuning_histogram = {
         k: [v[i] for i in indices[:split_point]] for k, v in real_population_histogram.items()
@@ -300,7 +317,7 @@ def split_population_histogram(real_population_histogram, portion):
     training_histogram = {
         k: [v[i] for i in indices[split_point:]] for k, v in real_population_histogram.items()
     }
-    
+
     return tuning_histogram, training_histogram
 
 
@@ -397,7 +414,7 @@ def remove_nans_from_tests(tests_dict):
 
     for test_name, values in tests_dict.items():
         if np.isnan(values).any():
-            print(f"Warning: Test '{test_name}' contains NaN values and will be excluded.")
+            warnings.warn(f"Test '{test_name}' contains NaN values and will be excluded.")
         else:
             cleaned_tests[test_name] = values
 
@@ -421,7 +438,7 @@ def compute_dist_cdf(distribution="normal", size=10000, bins=1000):
     return hist, bin_edges, cdf
 
 
-def compute_cdf(histogram_values, bins=1000):
+def compute_cdf(histogram_values, bins=1000, test_id=None):
     """Compute CDFs from histogram values for each wavelet descriptor."""
     hist, bin_edges = np.histogram(histogram_values, bins=bins, density=True)
     cdf = np.cumsum(hist) * np.diff(bin_edges)

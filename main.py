@@ -41,8 +41,8 @@ def main():
 
     # Load datasets
     transform = transforms.Compose([transforms.Resize((args.sample_size, args.sample_size)), transforms.ToTensor()])
-    real_population_dataset = DatasetFactory.create_dataset(dataset_type=args.dataset_type, root_dir=paths['data_dir_real'], transform=transform)
-    inference_data = create_inference_dataset(paths['data_dir_fake_real'], paths['data_dir_fake'], args.num_samples_per_class, classes='both')
+    real_population_dataset, fake_population_dataset = DatasetFactory.create_dataset(dataset_type=args.dataset_type, root_dir=paths['train_real'], calib_root_dir=paths['train_fake'], transform=transform)
+    inference_data = create_inference_dataset(paths['test_real'], paths['test_fake'], args.num_samples_per_class, classes='both')
 
     # Prepare inference dataset
     image_paths = [x[0] for x in inference_data]
@@ -59,6 +59,7 @@ def main():
 
     results = main_multiple_patch_test(
             real_population_dataset=real_population_dataset,
+            fake_population_dataset=fake_population_dataset,
             inference_dataset=inference_dataset,
             test_labels=labels,
             batch_size=args.batch_size,
