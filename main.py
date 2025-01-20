@@ -1,6 +1,6 @@
 import os
 import argparse
-from stat_test import main_multiple_patch_test
+from stat_test import TestType, main_multiple_patch_test
 from data_utils import DatasetFactory, DatasetType, ImageDataset, create_inference_dataset
 from torchvision import transforms
 from utils import plot_roc_curve, set_seed
@@ -50,9 +50,9 @@ def main():
     inference_dataset = ImageDataset(image_paths, labels, transform=transform)
 
     threshold = args.threshold
-    waves = ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier', 'dct', 'blurness', 'gabor', 'hsv', 'jpeg', 'laplacian', 'sift', 'ssim', 'psnr']
+    waves = ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier', 'dct', 'blurness', 'gabor', 'hsv', 'jpeg', 'sift', 'ssim', 'psnr']
 
-    patch_sizes = [256, 128]
+    patch_sizes = [256]
     wavelet_levels = [0, 1, 2, 3, 4]
     
     test_id = f"num_waves_{len(waves)}-{min(patch_sizes)}_{max(patch_sizes)}-max_level_{wavelet_levels[-1]}"
@@ -75,10 +75,12 @@ def main():
             output_dir=args.output_dir,
             pkl_dir=dataset_pkls_dir,
             return_logits=True,
-            portion=0.1,
-            chi2_bins=10,
+            portion=0.05,
+            chi2_bins=75,
+            cdf_bins=1000,
             n_trials=75,
-            uniform_p_threshold=0.05
+            uniform_p_threshold=0.05,
+            test_type=TestType.RIGHT
         )
 
     results['labels'] = labels

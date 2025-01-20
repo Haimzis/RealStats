@@ -16,6 +16,7 @@ from processing.psnr_noise_histogram import PSNRBlurHistogram
 from processing.sift_histogram import SIFTHistogram
 from processing.ssim_noise_histogram import SSIMBlurHistogram
 from utils import (
+    AUC_tests_filter,
     compute_cdf,
     calculate_metrics,
     compute_chi2_and_corr_matrix,
@@ -47,7 +48,14 @@ class DataType(Enum):
     TRAIN = "train"
     CALIB = "calib"
     TEST = "test"
+    TUNING = "tuning"
 
+
+class TestType(Enum):
+    LEFT = "left"
+    RIGHT = "right"
+    BOTH = "both"
+    
 
 def get_unique_id(patch_size, patch_idx, level, wave, data_type: DataType):
     """Generate a unique ID for processing."""
@@ -121,13 +129,35 @@ def fdr_classification(pvalues, threshold=0.05):
     return int(np.any(pvals_corrected < threshold))
 
 
-def calculate_cdfs_pvalues(real_population_cdfs, input_samples_values):
-    """Calculate p-values for input samples against real population CDFs."""
+def calculate_cdfs_pvalues(real_population_cdfs, input_samples_values, test_type=TestType.LEFT):
+    """
+    Calculate p-values for input samples against real population CDFs.
+    """
     p_values_per_test = []
     for descriptor, sample in input_samples_values.items():
         _, bin_edges, population_cdf = real_population_cdfs[descriptor]
+        
+        # Determine the bin index for each sample
         bin_index = np.clip(np.digitize(sample, bin_edges) - 1, 0, len(population_cdf) - 1)
-        p_values_per_test.append(population_cdf[bin_index])        
+        pvalue = None 
+
+        if test_type == TestType.LEFT:
+            # Only compute left-tailed p-values
+            pvalue = population_cdf[bin_index]
+
+        elif test_type == TestType.RIGHT:
+            # Only compute right-tailed p-values
+            left_p_values = population_cdf[bin_index]
+            pvalue = 1 - left_p_values
+
+        elif test_type == TestType.BOTH:
+            # Compute two-tailed p-values
+            left_p_values = population_cdf[bin_index]
+            right_p_values = 1 - left_p_values
+            pvalue = np.minimum(left_p_values, right_p_values) * 2
+
+        p_values_per_test.append(pvalue)
+
     return p_values_per_test
 
 
@@ -141,10 +171,10 @@ def validate_real_population_cdfs(real_population_cdfs, input_samples):
         raise KeyError(f"Descriptors missing in real_population_cdfs: {missing_descriptors}")
 
 
-def calculate_pvals_from_cdf(real_population_cdfs, samples_histogram, split="Input's"):
+def calculate_pvals_from_cdf(real_population_cdfs, samples_histogram, split="Input's", test_type=TestType.LEFT):
     input_samples = [dict(zip(samples_histogram.keys(), values)) for values in zip(*samples_histogram.values())]
     validate_real_population_cdfs(real_population_cdfs, input_samples)
-    input_samples_pvalues = [calculate_cdfs_pvalues(real_population_cdfs, sample) for sample in tqdm(input_samples, desc=f"Calculating {split} P-values")]
+    input_samples_pvalues = [calculate_cdfs_pvalues(real_population_cdfs, sample, test_type) for sample in tqdm(input_samples, desc=f"Calculating {split} P-values")]
     return input_samples_pvalues
 
 
@@ -228,9 +258,11 @@ def main_multiple_patch_test(
     return_logits=False,
     portion=0.2,
     chi2_bins=10,
+    cdf_bins=500,
     n_trials=100,
     uniform_p_threshold=0.05,
     uniform_sanity_check=False,
+    test_type=TestType.LEFT,
     logger=None,
 ):
     """Run test for number of patches and collect sensitivity and specificity results."""
@@ -252,10 +284,10 @@ def main_multiple_patch_test(
     )
 
     real_population_histogram = remove_nans_from_tests(real_population_histogram)
-    # fake_population_histogram = remove_nans_from_tests(fake_population_histogram)
+    fake_population_histogram = remove_nans_from_tests(fake_population_histogram)
 
-    # real_population_histogram = {k: real_population_histogram[k] for k in real_population_histogram.keys() & fake_population_histogram.keys()}
-    # fake_population_histogram = {k: fake_population_histogram[k] for k in real_population_histogram.keys() & fake_population_histogram.keys()}
+    real_population_histogram = {k: real_population_histogram[k] for k in real_population_histogram.keys() & fake_population_histogram.keys()}
+    fake_population_histogram = {k: fake_population_histogram[k] for k in real_population_histogram.keys() & fake_population_histogram.keys()}
     
     # Spliting 
     tuning_histogram, training_histogram = split_population_histogram(real_population_histogram, portion)
@@ -263,20 +295,23 @@ def main_multiple_patch_test(
     fake_calibration_histogram, _ = split_population_histogram(fake_population_histogram, tuning_num_samples)
     
     # CDF creation
-    real_population_cdfs = {test_id: compute_cdf(values, bins=500, test_id) for test_id, values in training_histogram.items()}    
+    real_population_cdfs = {test_id: compute_cdf(values, bins=cdf_bins, test_id=test_id) for test_id, values in training_histogram.items()}    
     
     # Fake Calibration Pvalues
-    fake_calibration_pvalues = calculate_pvals_from_cdf(real_population_cdfs, fake_calibration_histogram, "Calibration")
+    fake_calibration_pvalues = calculate_pvals_from_cdf(real_population_cdfs, fake_calibration_histogram, DataType.CALIB.name, test_type)
     fake_calibration_pvalues = np.clip(fake_calibration_pvalues, 0, 1)
 
     # Tuning Pvalues
-    tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, tuning_histogram, "Tuning")
+    tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, tuning_histogram, DataType.TUNING.name, test_type)
     tuning_real_population_pvals = np.clip(tuning_real_population_pvals, 0, 1)
     
     tuning_pvalue_distributions = np.array(tuning_real_population_pvals).T
     fake_calibration_pvalue_distributions = np.array(fake_calibration_pvalues).T
 
+    auc_scores, best_keys = AUC_tests_filter(tuning_pvalue_distributions, fake_calibration_pvalue_distributions, 0.3)
+
     keys = list(real_population_histogram.keys())
+    keys = [keys[i] for i in best_keys]
 
     if uniform_sanity_check:
         # Ignore non uniform distributions
@@ -322,7 +357,7 @@ def main_multiple_patch_test(
         inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=False, data_type=DataType.TEST
     )
 
-    input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, "Test")
+    input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, DataType.TEST.name, test_type)
     independent_tests_pvalues = np.array(input_samples_pvalues)
     independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
 
@@ -373,7 +408,7 @@ def ks_uniform_sanity_check(output_dir, uniform_p_threshold, logger, tuning_real
 
 
 def perform_ensemble_testing(pvalues, ensemble_test, output_dir='logs', plot=False):
-    """Perform ensemble testing (Stouffer or RBM)."""
+    """Perform ensemble testing (Stouffer)."""
     if ensemble_test == 'stouffer':
         return [combine_pvalues(p, method='stouffer')[1] for p in pvalues]
     elif ensemble_test == 'manual-stouffer':

@@ -15,6 +15,7 @@ import networkx as nx
 import numpy as np
 from scipy.stats import chi2, kstest
 from tqdm import tqdm
+from sklearn.metrics import roc_auc_score
 
 
 def view_subgraph(subgraph, title="Subgraph Visualization", save_path='subgraph.png'):
@@ -249,15 +250,20 @@ def find_largest_independent_group_iterative(keys, chi2_p_matrix, p_threshold=0.
 
 
 def create_heatmap(data, keys, title, output_dir, filename, figsize=(50, 25), annot=True):
-    mask = np.zeros_like(data, dtype=bool)
+    sorted_indices = np.argsort(keys)
+    sorted_keys = [keys[i] for i in sorted_indices]
+    sorted_data = data[sorted_indices][:, sorted_indices]
+
+
+    mask = np.zeros_like(sorted_data, dtype=bool)
     mask[np.triu_indices_from(mask)] = True
 
     # Apply mask to zero-out the unwanted part
-    data = np.ma.masked_where(mask, data)
+    sorted_data = np.ma.masked_where(mask, sorted_data)
     
     plt.figure(figsize=figsize)
-    sns.heatmap(data, annot=annot, fmt=".2f", cmap=sns.color_palette("YlOrBr", as_cmap=True), 
-                xticklabels=keys, yticklabels=keys, mask=mask, 
+    sns.heatmap(sorted_data, annot=annot, fmt=".2f", cmap=sns.color_palette("YlOrBr", as_cmap=True), 
+                xticklabels=sorted_keys, yticklabels=sorted_keys, mask=mask, 
                 cbar_kws={'label': 'Percentage (%)'}, annot_kws={"size": 10})
     plt.xticks(rotation=90, fontsize=10)
     plt.yticks(rotation=0, fontsize=10)
@@ -356,31 +362,6 @@ def plot_pvalues_vs_bh_threshold(p_values_per_test, alpha=0.05, figname='k_m_plo
 
     # Display the plot
     plt.savefig(figname)
-
-
-def calculate_p_value_for_sample(sample, population_cdf_info, alternative='less'):
-    """
-    Calculate the p-value for a sample using the precomputed CDF from the population.
-    """
-    hist, bin_edges, population_cdf = population_cdf_info
-
-    # Find the corresponding bin of the sample
-    sample_bin_index = np.digitize(sample, bin_edges) - 1
-    sample_bin_index = np.clip(sample_bin_index, 0, len(population_cdf) - 1)  # Ensure index stays within bounds
-
-    # Get CDF value for the sample
-    sample_cdf = population_cdf[sample_bin_index]
-
-    if alternative == 'less':
-        return sample_cdf
-    elif alternative == 'greater':
-        return 1 - sample_cdf
-    elif alternative == 'both':
-        less_p_value = sample_cdf
-        greater_p_value = 1 - sample_cdf
-        return 2 * min(less_p_value, greater_p_value)
-    else:
-        raise ValueError("Invalid alternative hypothesis. Choose from 'less', 'greater', or 'both'.")
 
 
 def plot_cdf(cdf_data, title="Empirical CDF Plot", xlabel="Value", ylabel="CDF", output_file='plot.png'):
@@ -701,3 +682,37 @@ def plot_ks_vs_pthreshold(thresholds, ks_pvalues, output_dir):
     plt.grid(True, which="both", linestyle="--", linewidth=0.5)
     plt.legend()
     plt.savefig(os.path.join(output_dir, "ks_pvalue_wrt_p_threshold.png"))
+
+
+def AUC_tests_filter(tuning_pvalue_distributions, fake_calibration_pvalue_distributions, auc_threshold=0.6):
+    """
+    Calculates AUC scores for each test and selects indices with AUC > threshold.
+    Adjusts for the relationship where smaller p-values indicate outliers.
+    
+    Parameters:
+    - tuning_pvalue_distributions (np.ndarray): P-value distributions for real data (shape: tests x samples).
+    - fake_calibration_pvalue_distributions (np.ndarray): P-value distributions for fake data (shape: tests x samples).
+    - auc_threshold (float): Threshold for selecting the best keys based on AUC (default: 0.6).
+    
+    Returns:
+    - auc_scores (np.ndarray): AUC scores for each test.
+    - best_keys (np.ndarray): Indices of tests with AUC > auc_threshold.
+    """
+    # Reverse the p-values
+    real_scores = 1 - tuning_pvalue_distributions
+    fake_scores = 1 - fake_calibration_pvalue_distributions
+    
+    # Combine distributions and labels
+    combined_pvalues = np.concatenate([real_scores, fake_scores], axis=1)
+    combined_labels = np.concatenate([
+        np.zeros_like(tuning_pvalue_distributions),
+        np.ones_like(fake_calibration_pvalue_distributions)
+    ], axis=1)
+    
+    # Calculate AUC scores using list comprehension
+    auc_scores = np.array([roc_auc_score(combined_labels[i], combined_pvalues[i]) for i in range(combined_pvalues.shape[0])])
+    
+    # Select best keys with AUC > threshold
+    best_keys = np.where(auc_scores > auc_threshold)[0]
+    
+    return auc_scores, best_keys
