@@ -261,6 +261,7 @@ def main_multiple_patch_test(
     cdf_bins=500,
     n_trials=100,
     uniform_p_threshold=0.05,
+    calibration_auc_threshold=0.3,
     uniform_sanity_check=False,
     test_type=TestType.LEFT,
     logger=None,
@@ -304,14 +305,22 @@ def main_multiple_patch_test(
     # Tuning Pvalues
     tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, tuning_histogram, DataType.TUNING.name, test_type)
     tuning_real_population_pvals = np.clip(tuning_real_population_pvals, 0, 1)
-    
-    tuning_pvalue_distributions = np.array(tuning_real_population_pvals).T
-    fake_calibration_pvalue_distributions = np.array(fake_calibration_pvalues).T
 
-    auc_scores, best_keys = AUC_tests_filter(tuning_pvalue_distributions, fake_calibration_pvalue_distributions, 0.3)
+    if test_type == TestType.BOTH:
+        tuning_real_population_pvals /= 2
+        fake_calibration_pvalues /= 2
 
-    keys = list(real_population_histogram.keys())
-    keys = [keys[i] for i in best_keys]
+    auc_scores, best_keys = AUC_tests_filter(tuning_real_population_pvals.T, fake_calibration_pvalues.T, calibration_auc_threshold)
+
+    all_keys = list(real_population_histogram.keys())
+    fake_calibration_pvalues = fake_calibration_pvalues[:, best_keys]
+    tuning_real_population_pvals = tuning_real_population_pvals[:, best_keys]
+    tuning_pvalue_distributions = tuning_real_population_pvals.T
+    fake_calibration_pvalue_distributions = fake_calibration_pvalues.T
+    keys = [all_keys[i] for i in best_keys]
+
+    if not best_keys.any():
+        raise ValueError(f"Fake Calibration Step Error: No individual statistics found with AUC above {calibration_auc_threshold}")
 
     if uniform_sanity_check:
         # Ignore non uniform distributions
@@ -324,20 +333,29 @@ def main_multiple_patch_test(
         keys, tuning_pvalue_distributions, max_workers=max_workers,
         plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir, bins=chi2_bins
     )
-
+    
     largest_independent_clique_size_approximation = len(find_largest_independent_group(keys, chi2_p_matrix, 0.05))
-    print(f'Relexation largest clique approximation: {largest_independent_clique_size_approximation}')
 
-    # Find the Largest Optimal Independent Group using the best p_threshold Fine-tune
-    independent_keys_group, best_results, optimization_roc = finding_optimal_independent_subgroup(
+    independent_keys_group, best_results, optimization_roc = finding_optimal_independent_subgroup_deterministic(
         keys=keys,
         chi2_p_matrix=chi2_p_matrix,
         pvals_matrix=tuning_pvalue_distributions,
         ensemble_test=ensemble_test,
-        n_trials=n_trials,
+        fake_pvals_matrix=fake_calibration_pvalue_distributions
     )
+    
+    print(f'Relexation largest clique approximation: {largest_independent_clique_size_approximation}')
 
-    plot_ks_vs_pthreshold(optimization_roc["thresholds"], optimization_roc["ks_pvalues"], output_dir=output_dir)
+    # # Find the Largest Optimal Independent Group using the best p_threshold Fine-tune
+    # independent_keys_group, best_results, optimization_roc = finding_optimal_independent_subgroup(
+    #     keys=keys,
+    #     chi2_p_matrix=chi2_p_matrix,
+    #     pvals_matrix=tuning_pvalue_distributions,
+    #     ensemble_test=ensemble_test,
+    #     n_trials=n_trials,
+    # )
+
+    # plot_ks_vs_pthreshold(optimization_roc["thresholds"], optimization_roc["ks_pvalues"], output_dir=output_dir)
 
     if logger:
         logger.log_param("num_tests", len(real_population_histogram.keys()))
@@ -362,6 +380,9 @@ def main_multiple_patch_test(
     independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
 
     # Perform ensemble testing
+    if test_type == TestType.BOTH:
+        independent_tests_pvalues /= 2
+        
     ensembled_stats, ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
     predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
 
@@ -383,6 +404,7 @@ def main_multiple_patch_test(
     if test_labels:
         metrics = calculate_metrics(test_labels, predictions)
         return metrics
+
 
 def ks_uniform_sanity_check(output_dir, uniform_p_threshold, logger, tuning_real_population_pvals, pvalue_distributions, keys):
     uniform_tests = []
@@ -571,3 +593,69 @@ def finding_optimal_uncorrelated_subgroup(keys, corr_matrix, pvals_matrix, ensem
     print(f"Independent Keys Group: {independent_keys_group}")
 
     return independent_keys_group, best_results, optimization_data
+
+
+def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pvals_matrix, ensemble_test, fake_pvals_matrix):
+    """
+    Deterministic optimization to find the largest independent subgroup
+    by iterating over p_threshold values and selecting cliques based on KS p-value range and maximum AUC.
+    """
+    # Define the p_threshold range to iterate over
+    p_thresholds = np.arange(0.05, min(chi2_p_matrix.max() + 0.05, 0.5), 0.05)
+
+    best_group = None
+    best_results = None
+    optimization_data = {
+        'thresholds': [],
+        'ks_pvalues': [],
+        'num_tests': [],
+        'auc_scores': []
+    }
+
+    for p_threshold in p_thresholds:
+        # Find all cliques at the current threshold
+        cliques = find_largest_independent_group_iterative(keys, chi2_p_matrix, p_threshold=p_threshold)
+        
+        for clique in cliques:
+            # Evaluate each clique
+            independent_keys_group = list(clique)
+            num_independent_tests = len(independent_keys_group)
+            independent_indices = [keys.index(key) for key in independent_keys_group]
+
+            independent_pvals = pvals_matrix[independent_indices].T
+            fake_pvals = fake_pvals_matrix[independent_indices].T
+
+            # Perform ensemble testing
+            ensembled_stats, ensembled_pvals = perform_ensemble_testing(independent_pvals, ensemble_test)
+            fake_ensembled_stats, fake_ensembled_pvals = perform_ensemble_testing(fake_pvals, ensemble_test)
+
+            # Calculate AUC scores
+            auc_scores, _ = AUC_tests_filter(ensembled_pvals[np.newaxis, :], fake_ensembled_pvals[np.newaxis, :], auc_threshold=0.0)
+            aux = auc_scores.squeeze()
+
+            # Perform KS test
+            _, ks_pvalue = kstest(ensembled_stats, 'norm', args=(0, 1))  # mean=0, std=1
+
+            # Filter cliques based on KS p-value range
+            if abs(ks_pvalue - 0.5) <= 0.25:
+                optimization_data['thresholds'].append(p_threshold)
+                optimization_data['ks_pvalues'].append(ks_pvalue)
+                optimization_data['num_tests'].append(num_independent_tests)
+                optimization_data['auc_scores'].append(aux)
+
+                if not best_group or aux > best_results['best_AUC']:
+                    best_group = independent_keys_group
+                    best_results = {
+                        'best_KS': ks_pvalue,
+                        'best_N': num_independent_tests,
+                        'best_alpha_threshold': p_threshold,
+                        'best_AUC': aux
+                    }
+
+    if not best_group:
+        raise ValueError("No valid groups found within the KS p-value range of 0.25 to 0.75")
+
+    print(f"Best State: p_threshold: {best_results['best_alpha_threshold']}, KS Pvalue: {best_results['best_KS']}, Num Tests: {best_results['best_N']}, Max AUC: {best_results['best_AUC']}")
+    print(f"Independent Keys Group: {best_group}")
+
+    return best_group, best_results, optimization_data

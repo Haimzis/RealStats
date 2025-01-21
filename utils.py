@@ -245,8 +245,7 @@ def find_largest_independent_group_iterative(keys, chi2_p_matrix, p_threshold=0.
     
     # All maximal cliques for node
     cliques = list(nx.find_cliques(subgraph))
-    maximal_clique = max(cliques, key=len)
-    return list(maximal_clique) if maximal_clique else [keys[0]]
+    return cliques
 
 
 def create_heatmap(data, keys, title, output_dir, filename, figsize=(50, 25), annot=True):
