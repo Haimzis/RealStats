@@ -214,7 +214,8 @@ class DatasetFactory:
         Returns:
             Dataset: Instance of the appropriate dataset class.
         """
-        if dataset_type.upper() == 'CELEBA' or dataset_type.upper() == 'COCO_ALL' or dataset_type.upper() == 'PROGAN_FACES_BUT_CELEBA_AS_TRAIN':
+        if dataset_type.upper() == 'CELEBA' or dataset_type.upper() == 'COCO_ALL' or \
+            dataset_type.upper() == 'PROGAN_FACES_BUT_CELEBA_AS_TRAIN' or dataset_type.upper() == 'COCO_LEAKAGE':
             return ImageDataset(image_input=root_dir, labels=0, transform=transform), ImageDataset(image_input=calib_root_dir, labels=1, transform=transform), 
         elif dataset_type.upper() == 'PROGAN':
             return ProGanDataset(root_dir=root_dir, label=0, transform=transform), ProGanDataset(root_dir=calib_root_dir, label=1, transform=transform)
@@ -252,6 +253,13 @@ class DatasetType(Enum):
         "test_real": "data/CLIPDetector/test_set/real/real_coco_valid",
         "train_fake": "data/CLIPDetector/train_set/coco_latent_t2i/train2017",
         "test_fake": "data/CLIPDetector/test_set/fake/sdxl_cocoval"
+    }
+
+    COCO_LEAKAGE = {
+        "train_real": "data/COCO_LEAKAGE/train/real",
+        "test_real": "data/COCO_LEAKAGE/test/real",
+        "train_fake": "data/COCO_LEAKAGE/train/fake",
+        "test_fake": "data/COCO_LEAKAGE/test/fake"
     }
 
     PROGAN_FACES_BUT_CELEBA_AS_TRAIN = {

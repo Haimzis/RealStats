@@ -5,7 +5,7 @@ from data_utils import DatasetFactory, DatasetType, ImageDataset, create_inferen
 from torchvision import transforms
 from utils import plot_roc_curve, set_seed
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 # Argument parser
 parser = argparse.ArgumentParser(description='Wavelet and Patch Testing Pipeline')
@@ -17,7 +17,7 @@ parser.add_argument('--histograms_file', type=str, default='patch_population_his
 parser.add_argument('--save_histograms', type=int, choices=[0, 1], default=1, help='Flag to save KDE plots for real and fake p-values (1 for True, 0 for False)')
 parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm'], default='manual-stouffer', help='Type of ensemble test to perform')
 parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=1, help='Flag to save independence test heatmaps (1 for True, 0 for False)')
-parser.add_argument('--dataset_type', type=str, default='COCO', choices=[e.name for e in DatasetType], help='Type of dataset to use (CelebA, ProGan, COCO, COCO_ALL, PROGAN_FACES_BUT_CELEBA_AS_TRAIN)')
+parser.add_argument('--dataset_type', type=str, default='COCO_LEAKAGE', choices=[e.name for e in DatasetType], help='Type of dataset to use (CelebA, ProGan, COCO_LEAKAGE, COCO, COCO_ALL, PROGAN_FACES_BUT_CELEBA_AS_TRAIN)')
 parser.add_argument('--output_dir', type=str, default='logs', help='Path where to save artifacts')
 parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/pkls', help='Path where to save pkls')
 parser.add_argument('--num_samples_per_class', type=int, default=-1, help='Number of samples per class for inference dataset')
@@ -76,12 +76,13 @@ def main():
             pkl_dir=dataset_pkls_dir,
             return_logits=True,
             portion=0.05,
-            chi2_bins=100,
+            chi2_bins=200,
             cdf_bins=2000,
             n_trials=75,
             uniform_p_threshold=0.05,
             calibration_auc_threshold=0.0,
-            test_type=TestType.LEFT
+            ks_pvalue_abs_threshold=0.5,
+            test_type=TestType.BOTH
         )
 
     results['labels'] = labels

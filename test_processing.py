@@ -2,7 +2,7 @@ import os
 import argparse
 from data_utils import DatasetFactory, DatasetType, ImageDataset, create_inference_dataset
 from torchvision import transforms
-from stat_test import get_unique_id, preprocess_wave
+from stat_test import DataType, get_unique_id, preprocess_wave
 from utils import load_population_histograms, plot_pvalue_histograms, set_seed, save_population_histograms
 from torch.utils.data import DataLoader
 
@@ -27,7 +27,7 @@ def preprocess_and_plot():
     patch_index = 0
     level = 0
 
-    for dataset in ['PROGAN_FACES_BUT_CELEBA_AS_TRAIN']:#, 'COCO_ALL', 'COCO', 'CelebA', 'ProGan']:
+    for dataset in ['COCO_LEAKAGE']:#, 'COCO_ALL', 'COCO', 'CelebA', 'ProGan']:
         for wavelet in ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier', 'dct'] + ['blurness', 'gabor', 'hsv', 'jpeg', 'laplacian', 'sift', 'ssim']:
             
             artifact_path = os.path.join('histograms_stats', dataset, f"{dataset}_{wavelet}_statistic.png")
@@ -44,8 +44,8 @@ def preprocess_and_plot():
             transform = transforms.Compose([transforms.Resize((args.sample_size, args.sample_size)), transforms.ToTensor()])
 
             # Load datasets
-            real_population_dataset = DatasetFactory.create_dataset(dataset_type=dataset, root_dir=paths['data_dir_real'], transform=transform)
-            inference_data = create_inference_dataset(paths['data_dir_fake_real'], paths['data_dir_fake'], args.num_samples_per_class, classes='fake')
+            real_population_dataset, _ = DatasetFactory.create_dataset(dataset_type=dataset, root_dir=paths['train_real'], calib_root_dir=paths['train_fake'], transform=transform)
+            inference_data = create_inference_dataset(paths['test_real'], paths['test_fake'], args.num_samples_per_class, classes='fake')
 
             # Prepare inference dataset
             image_paths = [x[0] for x in inference_data]
@@ -55,10 +55,11 @@ def preprocess_and_plot():
             print("Using custom histogram object...")
 
             # Preprocess the real population dataset
-            real_histograms = preprocess_wave(real_population_dataset, args.batch_size, wavelet, level, 0, patch_size, patch_index, dataset_pkls_dir, False, False)
+            real_histograms = preprocess_wave(
+                real_population_dataset, args.batch_size, wavelet, level, 0, patch_size, patch_index, dataset_pkls_dir, False, DataType.TRAIN)
 
             # Preprocess the inference dataset
-            inference_histograms = preprocess_wave(inference_dataset, args.batch_size, wavelet, level, 0, patch_size, patch_index, dataset_pkls_dir, False, True)
+            inference_histograms = preprocess_wave(inference_dataset, args.batch_size, wavelet, level, 0, patch_size, patch_index, dataset_pkls_dir, False, DataType.TEST)
 
             if real_histograms is None or inference_histograms is None: 
                 continue

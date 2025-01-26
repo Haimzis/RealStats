@@ -263,6 +263,7 @@ def main_multiple_patch_test(
     uniform_p_threshold=0.05,
     calibration_auc_threshold=0.3,
     uniform_sanity_check=False,
+    ks_pvalue_abs_threshold=0.25,
     test_type=TestType.LEFT,
     logger=None,
 ):
@@ -341,7 +342,8 @@ def main_multiple_patch_test(
         chi2_p_matrix=chi2_p_matrix,
         pvals_matrix=tuning_pvalue_distributions,
         ensemble_test=ensemble_test,
-        fake_pvals_matrix=fake_calibration_pvalue_distributions
+        fake_pvals_matrix=fake_calibration_pvalue_distributions,
+        ks_pvalue_abs_threshold=ks_pvalue_abs_threshold
     )
     
     print(f'Relexation largest clique approximation: {largest_independent_clique_size_approximation}')
@@ -595,7 +597,7 @@ def finding_optimal_uncorrelated_subgroup(keys, corr_matrix, pvals_matrix, ensem
     return independent_keys_group, best_results, optimization_data
 
 
-def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pvals_matrix, ensemble_test, fake_pvals_matrix):
+def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pvals_matrix, ensemble_test, fake_pvals_matrix, ks_pvalue_abs_threshold=0.25):
     """
     Deterministic optimization to find the largest independent subgroup
     by iterating over p_threshold values and selecting cliques based on KS p-value range and maximum AUC.
@@ -637,7 +639,7 @@ def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pval
             _, ks_pvalue = kstest(ensembled_stats, 'norm', args=(0, 1))  # mean=0, std=1
 
             # Filter cliques based on KS p-value range
-            if abs(ks_pvalue - 0.5) <= 0.25:
+            if abs(ks_pvalue - 0.5) <= ks_pvalue_abs_threshold:
                 optimization_data['thresholds'].append(p_threshold)
                 optimization_data['ks_pvalues'].append(ks_pvalue)
                 optimization_data['num_tests'].append(num_independent_tests)
@@ -653,7 +655,7 @@ def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pval
                     }
 
     if not best_group:
-        raise ValueError("No valid groups found within the KS p-value range of 0.25 to 0.75")
+        raise ValueError(f"No valid groups found within the KS p-value range of {0.5 - ks_pvalue_abs_threshold} to {0.5 + ks_pvalue_abs_threshold}")
 
     print(f"Best State: p_threshold: {best_results['best_alpha_threshold']}, KS Pvalue: {best_results['best_KS']}, Num Tests: {best_results['best_N']}, Max AUC: {best_results['best_AUC']}")
     print(f"Independent Keys Group: {best_group}")
