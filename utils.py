@@ -3,6 +3,7 @@ import pickle
 import random
 import warnings
 from matplotlib import pyplot as plt
+import pandas as pd
 from scipy.stats import spearmanr
 import torch
 import numpy as np
@@ -715,3 +716,13 @@ def AUC_tests_filter(tuning_pvalue_distributions, fake_calibration_pvalue_distri
     best_keys = np.where(auc_scores > auc_threshold)[0]
     
     return auc_scores, best_keys
+
+
+def save_to_csv(keys, auc_scores, filename="auc_scores.csv"):
+    # Create a DataFrame from the arrays
+    df = pd.DataFrame({"Keys": keys, "AUC Scores": auc_scores})
+    
+    # Save DataFrame to a CSV file
+    df.to_csv(filename, index=False)
+    
+    print(f"File saved as {filename}")

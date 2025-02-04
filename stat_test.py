@@ -32,6 +32,7 @@ from utils import (
     plot_pvalue_histograms,
     plot_binned_histogram,
     plot_histograms,
+    save_to_csv,
     split_population_histogram,
     plot_cdf,
     compute_dist_cdf
@@ -307,13 +308,11 @@ def main_multiple_patch_test(
     tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, tuning_histogram, DataType.TUNING.name, test_type)
     tuning_real_population_pvals = np.clip(tuning_real_population_pvals, 0, 1)
 
-    if test_type == TestType.BOTH:
-        tuning_real_population_pvals /= 2
-        fake_calibration_pvalues /= 2
+    all_keys = list(real_population_histogram.keys())
 
     auc_scores, best_keys = AUC_tests_filter(tuning_real_population_pvals.T, fake_calibration_pvalues.T, calibration_auc_threshold)
+    save_to_csv(np.array(all_keys)[best_keys], auc_scores, os.path.join(output_dir, 'individual_auc_scores.csv'))
 
-    all_keys = list(real_population_histogram.keys())
     fake_calibration_pvalues = fake_calibration_pvalues[:, best_keys]
     tuning_real_population_pvals = tuning_real_population_pvals[:, best_keys]
     tuning_pvalue_distributions = tuning_real_population_pvals.T
@@ -380,10 +379,6 @@ def main_multiple_patch_test(
     input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, DataType.TEST.name, test_type)
     independent_tests_pvalues = np.array(input_samples_pvalues)
     independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
-
-    # Perform ensemble testing
-    if test_type == TestType.BOTH:
-        independent_tests_pvalues /= 2
         
     ensembled_stats, ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
     predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
@@ -645,7 +640,9 @@ def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pval
                 optimization_data['num_tests'].append(num_independent_tests)
                 optimization_data['auc_scores'].append(aux)
 
-                if not best_group or aux > best_results['best_AUC']:
+                # if not best_group or aux > best_results['best_AUC']:
+                if not best_group or num_independent_tests > best_results['best_N']:
+
                     best_group = independent_keys_group
                     best_results = {
                         'best_KS': ks_pvalue,

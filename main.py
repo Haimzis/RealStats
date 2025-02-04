@@ -75,13 +75,13 @@ def main():
             output_dir=args.output_dir,
             pkl_dir=dataset_pkls_dir,
             return_logits=True,
-            portion=0.05,
-            chi2_bins=200,
-            cdf_bins=2000,
+            portion=0.01,
+            chi2_bins=50,
+            cdf_bins=1000,
             n_trials=75,
             uniform_p_threshold=0.05,
             calibration_auc_threshold=0.0,
-            ks_pvalue_abs_threshold=0.5,
+            ks_pvalue_abs_threshold=0.25,
             test_type=TestType.BOTH
         )
 
