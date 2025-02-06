@@ -28,6 +28,8 @@ def preprocess_and_plot():
     level = 0
 
     for dataset in ['COCO_LEAKAGE']:#, 'COCO_ALL', 'COCO', 'CelebA', 'ProGan']:
+        os.makedirs(os.path.join('histograms_stats', dataset), exist_ok=True)  
+
         for wavelet in ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier', 'dct'] + ['blurness', 'gabor', 'hsv', 'jpeg', 'laplacian', 'sift', 'ssim']:
             
             artifact_path = os.path.join('histograms_stats', dataset, f"{dataset}_{wavelet}_statistic.png")
