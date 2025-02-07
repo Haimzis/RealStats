@@ -22,8 +22,11 @@ class BaseHistogram:
         """Generate histograms for all images in the dataset."""
         all_histograms = []
         for images, _ in tqdm(data_loader, desc="Generating histograms", leave=False):
+            B, P = images.shape[:2]
+            images = images.view(B * P, *images.shape[2:]) # Cross batches
             images = images.to('cuda')
             histograms = self.preprocess(images)
+            histograms = histograms.reshape(B, P)
             all_histograms.append(histograms)
         return np.concatenate(all_histograms, axis=0)
 

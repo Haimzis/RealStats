@@ -3,6 +3,7 @@ import os
 import random
 from PIL import Image
 import pandas as pd
+import torch
 from torch.utils.data import Dataset
 
 
@@ -131,7 +132,7 @@ class CocoDataset(Dataset):
         return image, self.label
     
 
-class PatchDataset(Dataset):
+class GlobalPatchDataset(Dataset):
     """Dataset that extracts a specific patch from each image in the original dataset."""
     def __init__(self, original_dataset, patch_size, patch_index):
         self.original_dataset = original_dataset
@@ -160,6 +161,45 @@ class PatchDataset(Dataset):
         ]
 
         return patch, label  # Return the patch and label
+    
+
+class SelfPatchDataset(Dataset):
+    """Extract all patches from each image in the dataset."""
+    def __init__(self, original_dataset, patch_size):
+        """
+        Args:
+            original_dataset (Dataset): The original dataset providing full images.
+            patch_size (int): Size of the square patches.
+        """
+        self.original_dataset = original_dataset
+        self.patch_size = patch_size
+
+    def __len__(self):
+        return len(self.original_dataset)
+
+    def __getitem__(self, idx):
+        """
+        Returns:
+            patches (torch.Tensor): All patches from the image (shape: N x C x H x W).
+            label (int): Label corresponding to the image.
+        """
+        image, label = self.original_dataset[idx]  # Load full image and label
+
+        # Compute the number of patches along height and width
+        h_patches = image.shape[1] // self.patch_size
+        w_patches = image.shape[2] // self.patch_size
+
+        patches = []
+        for row_idx in range(h_patches):
+            for col_idx in range(w_patches):
+                patch = image[
+                    :,  # Keep all channels
+                    row_idx * self.patch_size:(row_idx + 1) * self.patch_size,
+                    col_idx * self.patch_size:(col_idx + 1) * self.patch_size
+                ]
+                patches.append(patch)
+
+        return torch.stack(patches), label  # Return all patches as a batch
 
 
 def create_inference_dataset(real_dir, fake_dir, num_samples_per_class, classes='both'):

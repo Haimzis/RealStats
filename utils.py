@@ -726,3 +726,31 @@ def save_to_csv(keys, auc_scores, filename="auc_scores.csv"):
     df.to_csv(filename, index=False)
     
     print(f"File saved as {filename}")
+
+
+def compute_mean_std_dict(input_dict):
+    """
+    Given a dictionary where each key maps to an array of shape (N, L),
+    compute the mean and std along axis=1 and store them in a new dictionary.
+    
+    Args:
+        input_dict (dict): Dictionary with arrays of shape (N, L) where L varies.
+    
+    Returns:
+        dict: Dictionary with mean and std stored as new keys with '_mean' and '_std' suffixes.
+    """
+    output_dict = {}
+
+    for key, array in input_dict.items():
+        # Ensure the array is a NumPy array
+        array = np.asarray(array)
+
+        # Compute mean and std along axis 1 (for each row)
+        mean_values = np.mean(array, axis=1)  # Shape: (N,)
+        std_values = np.std(array, axis=1)    # Shape: (N,)
+
+        # Store in dictionary with updated keys
+        output_dict[f"{key}_mean"] = mean_values
+        output_dict[f"{key}_std"] = std_values
+
+    return output_dict

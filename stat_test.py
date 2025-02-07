@@ -20,6 +20,7 @@ from utils import (
     compute_cdf,
     calculate_metrics,
     compute_chi2_and_corr_matrix,
+    compute_mean_std_dict,
     find_largest_independent_group,
     find_largest_independent_group_iterative,
     find_largest_uncorrelated_group,
@@ -39,7 +40,7 @@ from utils import (
 )
 from statsmodels.stats.multitest import multipletests
 from scipy.stats import combine_pvalues
-from data_utils import PatchDataset
+from data_utils import GlobalPatchDataset, SelfPatchDataset
 from scipy.stats import norm, kstest
 import optuna
 from enum import Enum
@@ -58,14 +59,14 @@ class TestType(Enum):
     BOTH = "both"
     
 
-def get_unique_id(patch_size, patch_idx, level, wave, data_type: DataType):
+def get_unique_id(patch_size, level, wave, data_type: DataType):
     """Generate a unique ID for processing."""
-    return f"PatchProcessing_wavelet={wave}_level={level}_patch_size={patch_size}_patch_index={patch_idx}_{data_type.value}"
+    return f"PatchProcessing_wavelet={wave}_level={level}_patch_size={patch_size}_{data_type.value}"
 
 
-def preprocess_wave(dataset, batch_size, wavelet, wavelet_level, num_data_workers, patch_size, patch_index, pkl_dir, save_pkl, data_type: DataType):
+def preprocess_wave(dataset, batch_size, wavelet, wavelet_level, num_data_workers, patch_size, pkl_dir, save_pkl, data_type: DataType):
     """Preprocess the dataset for a single wave level and wavelet type using NormHistogram."""
-    pkl_filename = os.path.join(pkl_dir, f"{get_unique_id(patch_size, patch_index, wavelet_level, wavelet, data_type)}.pkl")
+    pkl_filename = os.path.join(pkl_dir, f"{get_unique_id(patch_size, wavelet_level, wavelet, data_type)}.pkl")
 
     if data_type != DataType.TEST and os.path.exists(pkl_filename):
         return load_population_histograms(pkl_filename)
@@ -179,18 +180,15 @@ def calculate_pvals_from_cdf(real_population_cdfs, samples_histogram, split="Inp
     return input_samples_pvalues
 
 
-def generate_combinations(patch_sizes, waves, wavelet_levels, sample_size):
+def generate_combinations(patch_sizes, waves, wavelet_levels):
     """Generate all combinations for the training phase."""
     combinations = []
     for patch_size, wavelet, level in itertools.product(patch_sizes, waves, wavelet_levels):
-        num_patches = (sample_size[1] // patch_size) * (sample_size[2] // patch_size)
-        for patch_index in range(num_patches):
-            combinations.append({
-                'patch_size': patch_size,
-                'wavelet': wavelet,
-                'level': level,
-                'patch_index': patch_index
-            })
+        combinations.append({
+            'patch_size': patch_size,
+            'wavelet': wavelet,
+            'level': level,
+        })
     return combinations
 
 
@@ -198,17 +196,15 @@ def interpret_keys_to_combinations(independent_keys_group):
     """Convert independent keys to relevant test combinations."""
     combinations = []
     for key in independent_keys_group:
-        match = re.match(r"PatchProcessing_wavelet=([\w.]+)_level=(\d+)_patch_size=(\d+)_patch_index=(\d+)", key)
+        match = re.match(r"PatchProcessing_wavelet=([\w.]+)_level=(\d+)_patch_size=(\d+)", key)
         if match:
-            wavelet, level, patch_size, patch_index = match.groups()
+            wavelet, level, patch_size = match.groups()
             combinations.append({
                 'wavelet': wavelet,
                 'level': int(level),
                 'patch_size': int(patch_size),
-                'patch_index': int(patch_index)
             })
     return combinations
-
 
 
 def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_workers, num_data_workers, pkl_dir='pkls', save_pkl=False, data_type: DataType = DataType.TRAIN, sort=True):
@@ -217,14 +213,14 @@ def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_wo
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_combination = {
-            executor.submit(preprocess_wave, PatchDataset(original_dataset, comb['patch_size'], comb['patch_index']),
-                            batch_size, comb['wavelet'], comb['level'], num_data_workers, comb['patch_size'], comb['patch_index'], pkl_dir, save_pkl, data_type): comb
+            executor.submit(preprocess_wave, SelfPatchDataset(original_dataset, comb['patch_size']),
+                            batch_size, comb['wavelet'], comb['level'], num_data_workers, comb['patch_size'], pkl_dir, save_pkl, data_type): comb
             for comb in combinations
         }
 
         for future in tqdm(as_completed(future_to_combination), total=len(future_to_combination), desc="Processing..."):
             combination = future_to_combination[future]
-            unique_id = get_unique_id(combination['patch_size'], combination['patch_index'], combination['level'], combination['wavelet'], data_type)
+            unique_id = get_unique_id(combination['patch_size'], combination['level'], combination['wavelet'], data_type)
             try:
                 results[unique_id] = future.result()
             except Exception as exc:
@@ -266,16 +262,14 @@ def main_multiple_patch_test(
     uniform_sanity_check=False,
     ks_pvalue_abs_threshold=0.25,
     test_type=TestType.LEFT,
+    minimal_p_threshold=0.05,
     logger=None,
 ):
     """Run test for number of patches and collect sensitivity and specificity results."""
     print(f"Running test with: \npatches sizes: {patch_sizes}\nwavelets: {waves}\nlevels: {wavelet_levels}")
 
-    # Determine number of patches
-    example_image, _ = real_population_dataset[0]
-
     # Generate all combinations for training
-    training_combinations = generate_combinations(patch_sizes, waves, wavelet_levels, example_image.shape)
+    training_combinations = generate_combinations(patch_sizes, waves, wavelet_levels)
 
     # Load or compute real population histograms
     real_population_histogram = patch_parallel_preprocess(
@@ -285,6 +279,9 @@ def main_multiple_patch_test(
     fake_population_histogram = patch_parallel_preprocess(
         fake_population_dataset, batch_size, training_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, data_type=DataType.CALIB
     )
+
+    real_population_histogram = compute_mean_std_dict(real_population_histogram)
+    fake_population_histogram = compute_mean_std_dict(fake_population_histogram)
 
     real_population_histogram = remove_nans_from_tests(real_population_histogram)
     fake_population_histogram = remove_nans_from_tests(fake_population_histogram)
@@ -311,7 +308,7 @@ def main_multiple_patch_test(
     all_keys = list(real_population_histogram.keys())
 
     auc_scores, best_keys = AUC_tests_filter(tuning_real_population_pvals.T, fake_calibration_pvalues.T, calibration_auc_threshold)
-    save_to_csv(np.array(all_keys)[best_keys], auc_scores, os.path.join(output_dir, 'individual_auc_scores.csv'))
+    save_to_csv(np.array(all_keys)[best_keys], auc_scores[best_keys], os.path.join(output_dir, 'individual_auc_scores.csv'))
 
     fake_calibration_pvalues = fake_calibration_pvalues[:, best_keys]
     tuning_real_population_pvals = tuning_real_population_pvals[:, best_keys]
@@ -342,7 +339,8 @@ def main_multiple_patch_test(
         pvals_matrix=tuning_pvalue_distributions,
         ensemble_test=ensemble_test,
         fake_pvals_matrix=fake_calibration_pvalue_distributions,
-        ks_pvalue_abs_threshold=ks_pvalue_abs_threshold
+        ks_pvalue_abs_threshold=ks_pvalue_abs_threshold,
+        minimal_p_threshold=minimal_p_threshold
     )
     
     print(f'Relexation largest clique approximation: {largest_independent_clique_size_approximation}')
@@ -369,12 +367,14 @@ def main_multiple_patch_test(
     perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)    
     
     # Convert independent keys to combinations
-    independent_combinations = interpret_keys_to_combinations(independent_keys_group)
+    independent_combinations = list(set(interpret_keys_to_combinations(independent_keys_group)))
 
     # Inference
     inference_histogram = patch_parallel_preprocess(
         inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=False, data_type=DataType.TEST
     )
+
+    inference_histogram = compute_mean_std_dict(inference_histogram)
 
     input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, DataType.TEST.name, test_type)
     independent_tests_pvalues = np.array(input_samples_pvalues)
@@ -592,13 +592,11 @@ def finding_optimal_uncorrelated_subgroup(keys, corr_matrix, pvals_matrix, ensem
     return independent_keys_group, best_results, optimization_data
 
 
-def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pvals_matrix, ensemble_test, fake_pvals_matrix, ks_pvalue_abs_threshold=0.25):
+def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pvals_matrix, ensemble_test, fake_pvals_matrix, ks_pvalue_abs_threshold=0.25, minimal_p_threshold=0.05):
     """
     Deterministic optimization to find the largest independent subgroup
-    by iterating over p_threshold values and selecting cliques based on KS p-value range and maximum AUC.
+    by iterating over all possible cliques based on KS p-value range and maximum AUC.
     """
-    # Define the p_threshold range to iterate over
-    p_thresholds = np.arange(0.05, min(chi2_p_matrix.max() + 0.05, 0.5), 0.05)
 
     best_group = None
     best_results = None
@@ -609,47 +607,46 @@ def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pval
         'auc_scores': []
     }
 
-    for p_threshold in p_thresholds:
-        # Find all cliques at the current threshold
-        cliques = find_largest_independent_group_iterative(keys, chi2_p_matrix, p_threshold=p_threshold)
-        
-        for clique in cliques:
-            # Evaluate each clique
-            independent_keys_group = list(clique)
-            num_independent_tests = len(independent_keys_group)
-            independent_indices = [keys.index(key) for key in independent_keys_group]
+    # Find all cliques at the current threshold
+    cliques = find_largest_independent_group_iterative(keys, chi2_p_matrix, p_threshold=minimal_p_threshold)
+    
+    for clique in tqdm(cliques, total=len(cliques), desc="Searching for optimial clique..."):
+        # Evaluate each clique
+        independent_keys_group = list(clique)
+        num_independent_tests = len(independent_keys_group)
+        independent_indices = [keys.index(key) for key in independent_keys_group]
 
-            independent_pvals = pvals_matrix[independent_indices].T
-            fake_pvals = fake_pvals_matrix[independent_indices].T
+        independent_pvals = pvals_matrix[independent_indices].T
+        fake_pvals = fake_pvals_matrix[independent_indices].T
 
-            # Perform ensemble testing
-            ensembled_stats, ensembled_pvals = perform_ensemble_testing(independent_pvals, ensemble_test)
-            fake_ensembled_stats, fake_ensembled_pvals = perform_ensemble_testing(fake_pvals, ensemble_test)
+        # Perform ensemble testing
+        ensembled_stats, ensembled_pvals = perform_ensemble_testing(independent_pvals, ensemble_test)
+        fake_ensembled_stats, fake_ensembled_pvals = perform_ensemble_testing(fake_pvals, ensemble_test)
 
-            # Calculate AUC scores
-            auc_scores, _ = AUC_tests_filter(ensembled_pvals[np.newaxis, :], fake_ensembled_pvals[np.newaxis, :], auc_threshold=0.0)
-            aux = auc_scores.squeeze()
+        # Calculate AUC scores
+        auc_scores, _ = AUC_tests_filter(ensembled_pvals[np.newaxis, :], fake_ensembled_pvals[np.newaxis, :], auc_threshold=0.0)
+        aux = auc_scores.squeeze()
 
-            # Perform KS test
-            _, ks_pvalue = kstest(ensembled_stats, 'norm', args=(0, 1))  # mean=0, std=1
+        # Perform KS test
+        _, ks_pvalue = kstest(ensembled_stats, 'norm', args=(0, 1))  # mean=0, std=1
 
-            # Filter cliques based on KS p-value range
-            if abs(ks_pvalue - 0.5) <= ks_pvalue_abs_threshold:
-                optimization_data['thresholds'].append(p_threshold)
-                optimization_data['ks_pvalues'].append(ks_pvalue)
-                optimization_data['num_tests'].append(num_independent_tests)
-                optimization_data['auc_scores'].append(aux)
+        # Filter cliques based on KS p-value range
+        if abs(ks_pvalue - 0.5) <= ks_pvalue_abs_threshold:
+            optimization_data['thresholds'].append(minimal_p_threshold)
+            optimization_data['ks_pvalues'].append(ks_pvalue)
+            optimization_data['num_tests'].append(num_independent_tests)
+            optimization_data['auc_scores'].append(aux)
 
-                # if not best_group or aux > best_results['best_AUC']:
-                if not best_group or num_independent_tests > best_results['best_N']:
+            if not best_group or aux > best_results['best_AUC']:
+            # if not best_group or num_independent_tests > best_results['best_N']:
 
-                    best_group = independent_keys_group
-                    best_results = {
-                        'best_KS': ks_pvalue,
-                        'best_N': num_independent_tests,
-                        'best_alpha_threshold': p_threshold,
-                        'best_AUC': aux
-                    }
+                best_group = independent_keys_group
+                best_results = {
+                    'best_KS': ks_pvalue,
+                    'best_N': num_independent_tests,
+                    'best_alpha_threshold': minimal_p_threshold,
+                    'best_AUC': aux
+                }
 
     if not best_group:
         raise ValueError(f"No valid groups found within the KS p-value range of {0.5 - ks_pvalue_abs_threshold} to {0.5 + ks_pvalue_abs_threshold}")
