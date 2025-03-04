@@ -193,17 +193,22 @@ def generate_combinations(patch_sizes, waves, wavelet_levels):
 
 
 def interpret_keys_to_combinations(independent_keys_group):
-    """Convert independent keys to relevant test combinations."""
-    combinations = []
+    """Convert independent keys to relevant test combinations and prevent duplicates."""
+    combinations_set = set()
     for key in independent_keys_group:
         match = re.match(r"PatchProcessing_wavelet=([\w.]+)_level=(\d+)_patch_size=(\d+)", key)
         if match:
             wavelet, level, patch_size = match.groups()
-            combinations.append({
+            combination = {
                 'wavelet': wavelet,
                 'level': int(level),
                 'patch_size': int(patch_size),
-            })
+            }
+            # Convert the dictionary to a frozenset to use as a hashable type
+            combinations_set.add(frozenset(combination.items()))
+    
+    # Convert the frozensets back to dictionaries
+    combinations = [dict(comb) for comb in combinations_set]
     return combinations
 
 
@@ -288,7 +293,7 @@ def main_multiple_patch_test(
 
     real_population_histogram = {k: real_population_histogram[k] for k in real_population_histogram.keys() & fake_population_histogram.keys()}
     fake_population_histogram = {k: fake_population_histogram[k] for k in real_population_histogram.keys() & fake_population_histogram.keys()}
-    
+
     # Spliting 
     tuning_histogram, training_histogram = split_population_histogram(real_population_histogram, portion)
     tuning_num_samples = len(tuning_histogram[next(iter(tuning_histogram))])
@@ -316,6 +321,17 @@ def main_multiple_patch_test(
     fake_calibration_pvalue_distributions = fake_calibration_pvalues.T
     keys = [all_keys[i] for i in best_keys]
 
+    # for key in keys:
+    #     real_histogram = real_population_histogram[key]
+    #     fake_histogram = fake_population_histogram[key]
+    #     plot_pvalue_histograms(
+    #         real_histogram,
+    #         fake_histogram,
+    #         f'histograms_stats/self_patch/COCO_LEAKAGE_BEST/{key}.png',
+    #         title=f"Real and Fake Histogram - {key}",
+    #         xlabel='statistic values'
+    #     )
+    
     if not best_keys.any():
         raise ValueError(f"Fake Calibration Step Error: No individual statistics found with AUC above {calibration_auc_threshold}")
 
@@ -367,7 +383,7 @@ def main_multiple_patch_test(
     perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)    
     
     # Convert independent keys to combinations
-    independent_combinations = list(set(interpret_keys_to_combinations(independent_keys_group)))
+    independent_combinations = interpret_keys_to_combinations(independent_keys_group)
 
     # Inference
     inference_histogram = patch_parallel_preprocess(

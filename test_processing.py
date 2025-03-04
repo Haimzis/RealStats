@@ -20,19 +20,19 @@ parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/pkls', 
 
 args = parser.parse_args()
 
+histograms_stats_dir = os.path.join('histograms_stats', 'self_patch')
 
 def preprocess_and_plot():
     set_seed(args.seed)
     patch_size = 256
-    patch_index = 0
     level = 0
 
     for dataset in ['COCO_LEAKAGE']:#, 'COCO_ALL', 'COCO', 'CelebA', 'ProGan']:
-        os.makedirs(os.path.join('histograms_stats', dataset), exist_ok=True)  
+        os.makedirs(os.path.join(histograms_stats_dir, dataset), exist_ok=True)  
 
         for wavelet in ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier', 'dct'] + ['blurness', 'gabor', 'hsv', 'jpeg', 'laplacian', 'sift', 'ssim']:
             
-            artifact_path = os.path.join('histograms_stats', dataset, f"{dataset}_{wavelet}_statistic.png")
+            artifact_path = os.path.join(histograms_stats_dir, dataset, f"{dataset}_{wavelet}_statistic.png")
             if os.path.exists(artifact_path):
                 continue
 
@@ -58,10 +58,10 @@ def preprocess_and_plot():
 
             # Preprocess the real population dataset
             real_histograms = preprocess_wave(
-                real_population_dataset, args.batch_size, wavelet, level, 0, patch_size, patch_index, dataset_pkls_dir, False, DataType.TRAIN)
+                real_population_dataset, args.batch_size, wavelet, level, 0, patch_size, dataset_pkls_dir, False, DataType.TRAIN)
 
             # Preprocess the inference dataset
-            inference_histograms = preprocess_wave(inference_dataset, args.batch_size, wavelet, level, 0, patch_size, patch_index, dataset_pkls_dir, False, DataType.TEST)
+            inference_histograms = preprocess_wave(inference_dataset, args.batch_size, wavelet, level, 0, patch_size, dataset_pkls_dir, False, DataType.TEST)
 
             if real_histograms is None or inference_histograms is None: 
                 continue
