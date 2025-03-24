@@ -1,4 +1,3 @@
-from enum import Enum
 import os
 import random
 from PIL import Image
@@ -99,7 +98,7 @@ class CocoDataset(Dataset):
     Dataset class for loading COCO samples listed in the CSV file.
     """
 
-    def __init__(self, root_dir, csv_file="list_train.csv", label=0, transform=None):
+    def __init__(self, root_dir, label=0, transform=None, csv_file="list_train.csv"):
         """
         Args:
             root_dir (str): Root directory containing the COCO images (e.g., coco2017/train2017).
@@ -237,77 +236,3 @@ def create_inference_dataset(real_dir, fake_dir, num_samples_per_class, classes=
 
     random.shuffle(inference_data)  # Shuffle the dataset
     return inference_data
-
-
-class DatasetFactory:
-    """Factory class for creating datasets based on dataset type."""
-    @staticmethod
-    def create_dataset(dataset_type, root_dir, calib_root_dir, transform=None):
-        """
-        Create the appropriate dataset based on the dataset type.
-
-        Args:
-            dataset_type (str): Type of the dataset ('CelebA', 'ProGan', 'COCO').
-            root_dir (str): Root directory of the dataset.
-            transform (callable, optional): Transform to apply to the images.
-
-        Returns:
-            Dataset: Instance of the appropriate dataset class.
-        """
-        if dataset_type.upper() == 'CELEBA' or dataset_type.upper() == 'COCO_ALL' or \
-            dataset_type.upper() == 'PROGAN_FACES_BUT_CELEBA_AS_TRAIN' or dataset_type.upper() == 'COCO_LEAKAGE':
-            return ImageDataset(image_input=root_dir, labels=0, transform=transform), ImageDataset(image_input=calib_root_dir, labels=1, transform=transform), 
-        elif dataset_type.upper() == 'PROGAN':
-            return ProGanDataset(root_dir=root_dir, label=0, transform=transform), ProGanDataset(root_dir=calib_root_dir, label=1, transform=transform)
-        elif dataset_type.upper() == 'COCO':
-            return CocoDataset(root_dir=root_dir, label=0, transform=transform), CocoDataset(root_dir=root_dir, label=1, transform=transform)
-        else:
-            raise ValueError(f"Unsupported dataset type: {dataset_type}")
-
-
-# DatasetType Enum
-class DatasetType(Enum):
-    CELEBA = {
-        "train_real": "data/CelebaHQMaskDataset/train/images_faces",
-        "test_real": "data/CelebaHQMaskDataset/test/images_faces",
-        "train_fake": "data/stable-diffusion-face-dataset/1024/both_faces",
-        "test_fake": "data/stable-diffusion-face-dataset/1024/both_faces"
-    }
-
-    PROGAN = {
-        "train_real": "data/CNNDetector/trainset",
-        "test_real": "data/CNNDetector/testset/whichfaceisreal/0_real",
-        "train_fake": "data/CNNDetector/trainset",
-        "test_fake": "data/CNNDetector/testset/whichfaceisreal/1_fake"
-    }
-
-    COCO = {
-        "train_real": "data/CLIPDetector/train_set/",
-        "test_real": "data/CLIPDetector/test_set/real/real_coco_valid",
-        "train_fake": "data/CLIPDetector/train_set/",
-        "test_fake": "data/CLIPDetector/test_set/fake/sdxl_cocoval"
-    }
-
-    COCO_ALL = {
-        "train_real": "data/CLIPDetector/train_set/coco2017/train2017",
-        "test_real": "data/CLIPDetector/test_set/real/real_coco_valid",
-        "train_fake": "data/CLIPDetector/train_set/coco_latent_t2i/train2017",
-        "test_fake": "data/CLIPDetector/test_set/fake/sdxl_cocoval"
-    }
-
-    COCO_LEAKAGE = {
-        "train_real": "data/COCO_LEAKAGE/train/real",
-        "test_real": "data/COCO_LEAKAGE/test/real",
-        "train_fake": "data/COCO_LEAKAGE/train/fake",
-        "test_fake": "data/COCO_LEAKAGE/test/fake"
-    }
-
-    PROGAN_FACES_BUT_CELEBA_AS_TRAIN = {
-        "train_real": "data/CelebaHQMaskDataset/train/images_faces",
-        "test_real": "data/CNNDetector/testset/whichfaceisreal/0_real",
-        "train_fake": "data/stable-diffusion-face-dataset/1024/both_faces",
-        "test_fake": "data/CNNDetector/testset/whichfaceisreal/1_fake"
-    }
-
-    def get_paths(self):
-        return self.value

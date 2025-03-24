@@ -494,6 +494,7 @@ def plot_pvalue_histograms(real_pvalues, fake_pvalues, figname, title, xlabel="p
     plt.legend()
     plt.tight_layout()
     plt.savefig(figname)
+    plt.close()
 
 
 def plot_histograms(hist, figname='plot.png', title='histogram', density=True, bins=50):

@@ -5,16 +5,7 @@ import re
 import numpy as np
 from tqdm import tqdm
 from torch.utils.data import DataLoader
-from processing.histograms import DCTNormHistogram, FourierNormHistogram, WaveletNormHistogram
-from processing.blurness_histogram import BlurDetectionHistogram
-from processing.gabor_histogram import GaborFilterFeatureMapNorm
-from processing.histograms import DCTNormHistogram, FourierNormHistogram, WaveletNormHistogram
-from processing.hsv_histogram import HSVHistogram
-from processing.jpeg_histogram import JPEGCompressionRatioHistogram
-from processing.laplacian_histogram import LaplacianVarianceHistogram
-from processing.psnr_noise_histogram import PSNRBlurHistogram
-from processing.sift_histogram import SIFTHistogram
-from processing.ssim_noise_histogram import SSIMBlurHistogram
+from statistics_factory import get_histogram_generator
 from utils import (
     AUC_tests_filter,
     compute_cdf,
@@ -65,63 +56,32 @@ def get_unique_id(patch_size, level, wave, data_type: DataType):
 
 
 def preprocess_wave(dataset, batch_size, wavelet, wavelet_level, num_data_workers, patch_size, pkl_dir, save_pkl, data_type: DataType):
-    """Preprocess the dataset for a single wave level and wavelet type using NormHistogram."""
+    """Preprocess the dataset for a single wave level and wavelet type using various histogram statistics."""
+    
+    # Generate unique filename for saving results
     pkl_filename = os.path.join(pkl_dir, f"{get_unique_id(patch_size, wavelet_level, wavelet, data_type)}.pkl")
 
+    # If not test data and file already exists, load cached histograms
     if data_type != DataType.TEST and os.path.exists(pkl_filename):
         return load_population_histograms(pkl_filename)
 
+    # Create DataLoader for dataset
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_data_workers)
-    if wavelet in ['bior1.1', 'bior3.1', 'bior6.8', 'coif1', 'coif10', 'db1', 'db38', 'haar', 'rbio6.8', 'sym2']:
-        histogram_generator = WaveletNormHistogram(selected_indices=[wavelet_level], wave=wavelet)
-    elif wavelet == 'fourier':
-        if wavelet_level != 0:
-            return None
-        histogram_generator = FourierNormHistogram()
-    elif wavelet == 'dct':
-        if wavelet_level > 4 or wavelet_level == 0: 
-            return None
-        histogram_generator = DCTNormHistogram(dct_type=wavelet_level)
 
-    # Non-wavelets
-    elif wavelet == 'blurness':
-        if wavelet_level != 0:
-            return None
-        histogram_generator = BlurDetectionHistogram()
-    elif wavelet == 'gabor':
-        if wavelet_level != 0:
-            return None
-        histogram_generator = GaborFilterFeatureMapNorm()
-    elif wavelet == 'hsv':
-        if wavelet_level != 0:
-            return None
-        histogram_generator = HSVHistogram()
-    elif wavelet == 'jpeg':
-        if wavelet_level != 0:
-            return None
-        histogram_generator = JPEGCompressionRatioHistogram()
-    elif wavelet == 'laplacian':
-        if wavelet_level != 0:
-            return None
-        histogram_generator = LaplacianVarianceHistogram()
-    elif wavelet == 'psnr':
-        if wavelet_level != 0:
-            return None
-        histogram_generator = PSNRBlurHistogram()
-    elif wavelet == 'sift':
-        if wavelet_level != 0:
-            return None
-        histogram_generator = SIFTHistogram()
-    elif wavelet == 'ssim':
-        if wavelet_level != 0:
-            return None
-        histogram_generator = SSIMBlurHistogram()
-    else:
-        raise ValueError('Invalid wave type.')
+    # Use the factory function to get the histogram generator
+    histogram_generator = get_histogram_generator(wavelet, wavelet_level)
 
+    # If wavelet_level is not valid, return None
+    if histogram_generator is None:
+        return None
+
+    # Generate histogram
     result = histogram_generator.create_histogram(data_loader)
+
+    # Save results if needed
     if save_pkl:
         save_population_histograms(result, pkl_filename)
+
     return result
 
 

@@ -17,7 +17,7 @@ parser.add_argument('--histograms_file', type=str, default='patch_population_his
 parser.add_argument('--save_histograms', type=int, choices=[0, 1], default=1, help='Flag to save KDE plots for real and fake p-values (1 for True, 0 for False)')
 parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm'], default='manual-stouffer', help='Type of ensemble test to perform')
 parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=1, help='Flag to save independence test heatmaps (1 for True, 0 for False)')
-parser.add_argument('--dataset_type', type=str, default='COCO', choices=[e.name for e in DatasetType], help='Type of dataset to use (CelebA, ProGan, COCO_LEAKAGE, COCO, COCO_ALL, PROGAN_FACES_BUT_CELEBA_AS_TRAIN)')
+parser.add_argument('--dataset_type', type=str, default='COCO_ALL', choices=[e.name for e in DatasetType], help='Type of dataset to use (CelebA, ProGan, COCO_LEAKAGE, COCO, COCO_ALL, PROGAN_FACES_BUT_CELEBA_AS_TRAIN)')
 parser.add_argument('--output_dir', type=str, default='logs', help='Path where to save artifacts')
 parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/pkls_self_histogram', help='Path where to save pkls')
 parser.add_argument('--num_samples_per_class', type=int, default=-1, help='Number of samples per class for inference dataset')
@@ -59,10 +59,11 @@ def main():
     inference_dataset = ImageDataset(image_paths, labels, transform=transform)
 
     threshold = args.threshold
-    waves = ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier']#, 'dct', 'blurness', 'gabor', 'hsv', 'jpeg']#, 'sift', 'ssim', 'psnr']
+    waves = ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier', 'dct', 'blurness', 'gabor', 'hsv', 'jpeg', 'sift', 'ssim', 'psnr']
+    # waves = ['edge5x5', 'smoothing', 'noise', 'sharpness', 'emboss', 'highpass', 'sobel', 'gauss_diff']
 
-    patch_sizes = [256, 128, 64, 32, 16, 8]
-    wavelet_levels = [0, 1, 2]
+    patch_sizes = [256, 128, 64]
+    wavelet_levels = [0]
     
     test_id = f"num_waves_{len(waves)}-{min(patch_sizes)}_{max(patch_sizes)}-max_level_{wavelet_levels[-1]}"
 
