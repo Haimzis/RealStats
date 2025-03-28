@@ -53,11 +53,11 @@ class DatasetType(Enum):
         "test_fake": {"path": "data/CLIPDetector/test_set/fake/biggan_256", "class": ImageDataset}
     }
 
-    COCO_STABLE_DIFFUSION_256 = {
+    COCO_STABLE_DIFFUSION_XL = {
         "train_real": {"path": "data/CLIPDetector/train_set/", "class": CocoDataset},
         "test_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
         "train_fake": {"path": "data/CLIPDetector/train_set/", "class": CocoDataset},
-        "test_fake": {"path": "data/CLIPDetector/test_set/fake/stable_diffusion_256", "class": ImageDataset}
+        "test_fake": {"path": "data/CLIPDetector/synthbuster/stable-diffusion-xl", "class": ImageDataset}
     }
 
     COCO_DALLE3_COCOVAL = {
@@ -72,6 +72,20 @@ class DatasetType(Enum):
         "test_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
         "train_fake": {"path": "data/CLIPDetector/train_set/", "class": CocoDataset},
         "test_fake": {"path": "data/CLIPDetector/synthbuster/midjourney-v5", "class": ImageDataset}
+    }
+
+    COCO_STABLE_DIFFUSION_2 = {
+        "train_real": {"path": "data/CLIPDetector/train_set/", "class": CocoDataset},
+        "test_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+        "train_fake": {"path": "data/CLIPDetector/train_set/", "class": CocoDataset},
+        "test_fake": {"path": "data/CLIPDetector/synthbuster/stable-diffusion-2", "class": ImageDataset}
+    }
+
+    COCO_STABLE_DIFFUSION_2_768_TEST_ONLY = {
+        "train_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+        "test_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+        "train_fake": {"path": "data/CLIPDetector/test_set/fake/stable_diffusion_2_1_768", "class": ImageDataset},
+        "test_fake": {"path": "data/CLIPDetector/test_set/fake/stable_diffusion_2_1_768", "class": ImageDataset}
     }
 
     PROGAN = {
@@ -102,6 +116,90 @@ class DatasetType(Enum):
         "test_fake": {"path": "data/CNNDetector/diffusion_datasets/dalle/1_fake", "class": ImageDataset}
     }
     
+    BIGGAN_TEST_ONLY = {
+        "train_real": {"path": "data/CNNDetector/testset/biggan/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/testset/biggan/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/testset/biggan/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/testset/biggan/1_fake", "class": ImageDataset}
+    }
+
+    CYCLEGAN_TEST_ONLY = {
+        "train_real": {"path": "data/CNNDetector/testset/cyclegan/apple/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/testset/cyclegan/apple/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/testset/cyclegan/apple/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/testset/cyclegan/apple/1_fake", "class": ImageDataset}
+    }
+
+    GAUGAN_TEST_ONLY = {
+        "train_real": {"path": "data/CNNDetector/testset/gaugan/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/testset/gaugan/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/testset/gaugan/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/testset/gaugan/1_fake", "class": ImageDataset}
+    }
+
+    PROGAN_TEST_ONLY = {
+        "train_real": {"path": "data/CNNDetector/testset/progan/airplane/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/testset/progan/airplane/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/testset/progan/airplane/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/testset/progan/airplane/1_fake", "class": ImageDataset}
+    }
+
+    SEEINGDARK_TEST_ONLY = {
+        "train_real": {"path": "data/CNNDetector/testset/seeingdark/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/testset/seeingdark/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/testset/seeingdark/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/testset/seeingdark/1_fake", "class": ImageDataset}
+    }
+
+    STYLEGAN_TEST_ONLY = {
+        "train_real": {"path": "data/CNNDetector/testset/stylegan/car/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/testset/stylegan/car/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/testset/stylegan/car/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/testset/stylegan/car/1_fake", "class": ImageDataset}
+    }
+
+    CRN_TEST_ONLY = {
+        "train_real": {"path": "data/CNNDetector/testset/crn/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/testset/crn/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/testset/crn/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/testset/crn/1_fake", "class": ImageDataset}
+    }
+
+    DEEPFAKE_TEST_ONLY = {
+        "train_real": {"path": "data/CNNDetector/testset/deepfake/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/testset/deepfake/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/testset/deepfake/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/testset/deepfake/1_fake", "class": ImageDataset}
+    }
+
+    IMLE_TEST_ONLY = {
+        "train_real": {"path": "data/CNNDetector/testset/imle/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/testset/imle/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/testset/imle/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/testset/imle/1_fake", "class": ImageDataset}
+    }
+
+    SAN_TEST_ONLY = {
+        "train_real": {"path": "data/CNNDetector/testset/san/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/testset/san/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/testset/san/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/testset/san/1_fake", "class": ImageDataset}
+    }
+
+    STARGAN_TEST_ONLY = {
+        "train_real": {"path": "data/CNNDetector/testset/stargan/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/testset/stargan/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/testset/stargan/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/testset/stargan/1_fake", "class": ImageDataset}
+    }
+
+    STYLEGAN2_TEST_ONLY = {
+        "train_real": {"path": "data/CNNDetector/testset/stylegan2/car/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/testset/stylegan2/car/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/testset/stylegan2/car/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/testset/stylegan2/car/1_fake", "class": ImageDataset}
+    }
+
     def get_paths(self):
         return self.value
 

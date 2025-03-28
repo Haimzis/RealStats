@@ -7,7 +7,7 @@ from datasets_factory import DatasetFactory, DatasetType
 from stat_test import DataType, generate_combinations, patch_parallel_preprocess
 from utils import plot_pvalue_histograms, set_seed
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 parser = argparse.ArgumentParser(description='Custom Histogram and Testing Pipeline')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size for data loading')
@@ -22,7 +22,7 @@ parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/pkls_se
 
 args = parser.parse_args()
 
-histograms_stats_dir = os.path.join('histograms_stats', '25.3')
+histograms_stats_dir = os.path.join('histograms_stats', '28.3_CLS_Multi_Perm_10')
 
 
 def extract_patch_processing_args(key: str):
@@ -39,7 +39,7 @@ def extract_patch_processing_args(key: str):
 
 def preprocess_and_plot():
     set_seed(args.seed)
-    patch_sizes = [256]
+    patch_sizes = [args.sample_size]
     levels = [0]
     # waves = ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier', 'dct'] + ['blurness', 'hsv', 'jpeg']
     waves = [
@@ -52,9 +52,6 @@ def preprocess_and_plot():
         # OpenCLIP
         'RIGID.CLIP.05', 'RIGID.CLIP.10', 'RIGID.CLIP.20', 'RIGID.CLIP.30', 'RIGID.CLIP.50',
 
-        # ConvNeXt
-        'RIGID.CONVNEXT.05', 'RIGID.CONVNEXT.10', 'RIGID.CONVNEXT.20', 'RIGID.CONVNEXT.30', 'RIGID.CONVNEXT.50',
-
         # DeiT
         'RIGID.DEIT.05', 'RIGID.DEIT.10', 'RIGID.DEIT.20', 'RIGID.DEIT.30', 'RIGID.DEIT.50',
 
@@ -64,10 +61,36 @@ def preprocess_and_plot():
 
 
     for dataset in tqdm([
-        'PROGAN_FACES', 'COCO', 'PROGAN_FACES_BUT_CELEBA_AS_TRAIN',
-        'COCO_BIGGAN_256', 'COCO_STABLE_DIFFUSION_256', 'COCO_DALLE3_COCOVAL',
-        'COCO_SYNTH_MIDJOURNEY_V5', 'PROGAN', 'PROGAN_BIGGAN', 'PROGAN_LDM', 'PROGAN_DALLE'
-    ], desc="Datasets", unit="dataset"):
+        'PROGAN_FACES', 
+        'COCO', 
+        'COCO_BIGGAN_256', 
+        'COCO_STABLE_DIFFUSION_XL', 
+        'COCO_DALLE3_COCOVAL',
+        'COCO_SYNTH_MIDJOURNEY_V5',
+        'COCO_STABLE_DIFFUSION_2',
+        
+        # Added TEST_ONLY dataset names
+        'BIGGAN_TEST_ONLY',
+        'CYCLEGAN_TEST_ONLY',
+        'GAUGAN_TEST_ONLY',
+        'PROGAN_TEST_ONLY',
+        'SEEINGDARK_TEST_ONLY',
+        'STYLEGAN_TEST_ONLY',
+        'CRN_TEST_ONLY',
+        'DEEPFAKE_TEST_ONLY',
+        'IMLE_TEST_ONLY',
+        'SAN_TEST_ONLY',
+        'STARGAN_TEST_ONLY',
+        'STYLEGAN2_TEST_ONLY',
+        'PROGAN_FACES_TEST_ONLY',
+        'COCO_TEST_ONLY',
+        'COCO_BIGGAN_256_TEST_ONLY',
+        'COCO_STABLE_DIFFUSION_XL_TEST_ONLY',
+        'COCO_DALLE3_COCOVAL_TEST_ONLY',
+        'COCO_SYNTH_MIDJOURNEY_V5_TEST_ONLY',
+        'COCO_STABLE_DIFFUSION_2_768_TEST_ONLY',
+
+        ], desc="Datasets", unit="dataset"):
         os.makedirs(os.path.join(histograms_stats_dir, dataset), exist_ok=True)  
 
         dataset_pkls_dir = os.path.join(args.pkls_dir, dataset)
