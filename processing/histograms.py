@@ -1,3 +1,4 @@
+import random
 from pytorch_wavelets import DWTForward
 import torch
 import numpy as np
@@ -11,8 +12,23 @@ from scipy.fft import dct
 class BaseHistogram:
     """Abstract base class for generating histograms from transformed images."""
 
-    def __init__(self):
-        pass
+    def __init__(self, max_memory_gb=20):
+        self.device = self._pick_free_gpu(max_memory_gb)
+
+    def _pick_free_gpu(self, max_memory_gb):
+        if not torch.cuda.is_available():
+            return torch.device("cpu")
+
+        max_bytes = max_memory_gb * 1024 ** 3
+        free_gpus = []
+        for i in range(torch.cuda.device_count()):
+            free_mem, _ = torch.cuda.mem_get_info(i)
+            if free_mem > (torch.cuda.get_device_properties(i).total_memory - max_bytes):
+                free_gpus.append(i)
+        
+        if free_gpus:
+            return torch.device(f"cuda:{random.choice(free_gpus)}")
+        return torch.device("cpu")
 
     def preprocess(self, image_batch):
         """Abstract method to apply the desired transformation and calculate the metric."""
@@ -24,7 +40,7 @@ class BaseHistogram:
         for images, _ in tqdm(data_loader, desc="Generating histograms", leave=False):
             B, P = images.shape[:2]
             images = images.view(B * P, *images.shape[2:]) # Cross batches
-            images = images.to('cuda')
+            images = images.to(self.device)
             histograms = self.preprocess(images)
             histograms = histograms.reshape(B, P)
             all_histograms.append(histograms)

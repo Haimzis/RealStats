@@ -10,7 +10,6 @@ class RIGIDNormHistogram(BaseHistogram):
         super().__init__()
         self.model_name = model_name
         self.noise_level = noise_level
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.processor = self.load_processor()
         self.model = self.load_model().to(self.device).eval()
@@ -52,7 +51,6 @@ class RIGIDCLSHistogram(BaseHistogram):
         super().__init__()
         self.model_name = model_name
         self.noise_level = noise_level
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.processor = self.load_processor()
         self.model = self.load_model().to(self.device).eval()
@@ -90,7 +88,7 @@ class RIGIDCLSHistogram(BaseHistogram):
 
 
 class RIGIDCLSMultiplePermutationsHistogram(BaseHistogram):
-    def __init__(self, model_name, noise_level=0.05, num_noises=10, weights=None):
+    def __init__(self, model_name, noise_level=0.05, num_noises=5, weights=None):
         """
         Args:
             model_name (str): Model identifier.
@@ -102,13 +100,12 @@ class RIGIDCLSMultiplePermutationsHistogram(BaseHistogram):
         self.model_name = model_name
         self.noise_level = noise_level
         self.num_noises = num_noises
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         self.weights = (
             torch.tensor(weights, dtype=torch.float32)
             if weights is not None
             else torch.ones(num_noises) / num_noises
-        )
+        ).to(self.device)
 
         self.processor = self.load_processor()
         self.model = self.load_model().to(self.device).eval()
@@ -133,13 +130,24 @@ class RIGIDCLSMultiplePermutationsHistogram(BaseHistogram):
             return self.get_embedding(outputs)[:, 0, :]  # (B, D)
 
     def add_noise_variants(self, image_batch):
-        """Generates multiple noisy versions of image_batch."""
-        noisy_variants = []
-        for _ in range(self.num_noises):
-            noise = torch.randn_like(image_batch) * self.noise_level
-            noisy = torch.clamp(image_batch + noise, 0, 1)
-            noisy_variants.append(noisy)
-        return noisy_variants  # list of tensors, each (B, C, H, W)
+        """
+        Efficiently generate multiple noisy variants of image_batch.
+
+        Args:
+            image_batch (torch.Tensor): (B, C, H, W)
+        Returns:
+            torch.Tensor: Noisy variants of shape (N * B, C, H, W)
+        """
+        B, C, H, W = image_batch.shape
+
+        # Repeat images N times
+        repeated = image_batch.unsqueeze(0).repeat(self.num_noises, 1, 1, 1, 1)
+
+        # Generate and add noise
+        noise = torch.randn_like(repeated) * self.noise_level
+        noisy_images = torch.clamp(repeated + noise, 0, 1)
+
+        return noisy_images.view(-1, C, H, W)  # Shape: (N * B, C, H, W)
 
     def preprocess(self, image_batch):
         """
@@ -147,21 +155,33 @@ class RIGIDCLSMultiplePermutationsHistogram(BaseHistogram):
         and return cosine similarity.
         """
         with torch.no_grad():
-            original = self.extract_features(image_batch)  # (B, D)
+            B = image_batch.size(0)
 
-            noisy_variants = self.add_noise_variants(image_batch)  # list of (B, C, H, W)
-            noisy_embeddings = [self.extract_features(variant) for variant in noisy_variants]  # list of (B, D)
+            # Original embeddings: (B, D)
+            original = self.extract_features(image_batch)
 
-            # Stack and apply weights
-            stacked = torch.stack(noisy_embeddings, dim=0)  # (N, B, D)
-            norm_weights = F.softmax(self.weights.to(self.device), dim=0)  # (N,)
-            combined = torch.sum(stacked * norm_weights.view(-1, 1, 1), dim=0)  # (B, D)
+            # Generate all noisy variants at once: (N * B, C, H, W)
+            noisy_batch = self.add_noise_variants(image_batch)
 
-            similarity = F.cosine_similarity(original, combined, dim=-1).cpu().numpy()
-            return similarity
+            # Extract embeddings for all noisy variants: (N * B, D)
+            all_embeddings = self.extract_features(noisy_batch)
+
+            # Reshape to (N, B, D)
+            noisy_embeddings = all_embeddings.view(self.num_noises, B, -1)
+
+            # Apply weights: (N, 1, 1) * (N, B, D) → (N, B, D)
+            weighted = noisy_embeddings * self.weights.view(-1, 1, 1)
+
+            # Weighted sum over noise dimension: (B, D)
+            combined = torch.sum(weighted, dim=0)
+
+            # Cosine similarity between original and combined: (B,)
+            similarity = F.cosine_similarity(original, combined, dim=-1)
+
+            return similarity.cpu().numpy()
 
 
-class RIGIDDinoV2Histogram(RIGIDCLSMultiplePermutationsHistogram):
+class RIGIDDinoV2Histogram(RIGIDCLSHistogram):
     def __init__(self, noise_level=0.05):
         super().__init__(model_name="facebook/dinov2-large", noise_level=noise_level)
 
@@ -174,7 +194,7 @@ class RIGIDDinoV2Histogram(RIGIDCLSMultiplePermutationsHistogram):
     def get_embedding(self, outputs):
         return outputs.last_hidden_state  # shape: [B, seq_len, dim]
     
-class RIGIDEVAHistogram(RIGIDCLSMultiplePermutationsHistogram):
+class RIGIDEVAHistogram(RIGIDCLSHistogram):
     def __init__(self, noise_level=0.05):
         super().__init__(model_name="eva_clip_g/eva02-large-336", noise_level=noise_level)
 
@@ -187,7 +207,7 @@ class RIGIDEVAHistogram(RIGIDCLSMultiplePermutationsHistogram):
     def get_embedding(self, outputs):
         return outputs.last_hidden_state  # [B, tokens, dim]
 
-class RIGIDBEiTHistogram(RIGIDCLSMultiplePermutationsHistogram):
+class RIGIDBEiTHistogram(RIGIDCLSHistogram):
     def __init__(self, noise_level=0.05):
         super().__init__(model_name="microsoft/beit-large-patch16-224", noise_level=noise_level)
 
@@ -201,7 +221,7 @@ class RIGIDBEiTHistogram(RIGIDCLSMultiplePermutationsHistogram):
         return outputs.last_hidden_state
 
 
-class RIGIDOpenCLIPHistogram(RIGIDCLSMultiplePermutationsHistogram):
+class RIGIDOpenCLIPHistogram(RIGIDCLSHistogram):
     def __init__(self, noise_level=0.05):
         super().__init__(model_name="laion/CLIP-ViT-H-14-laion2B-s32B-b79K", noise_level=noise_level)
 
@@ -216,7 +236,7 @@ class RIGIDOpenCLIPHistogram(RIGIDCLSMultiplePermutationsHistogram):
         return outputs.last_hidden_state  # [B, seq_len, dim]
 
     
-class RIGIDConvNeXtHistogram(RIGIDCLSMultiplePermutationsHistogram):
+class RIGIDConvNeXtHistogram(RIGIDCLSHistogram):
     def __init__(self, noise_level=0.05):
         super().__init__(model_name="facebook/convnext-base-224", noise_level=noise_level)
 
@@ -234,7 +254,7 @@ class RIGIDConvNeXtHistogram(RIGIDCLSMultiplePermutationsHistogram):
         return x
 
 
-class RIGIDResNet50Histogram(RIGIDCLSMultiplePermutationsHistogram):
+class RIGIDResNet50Histogram(RIGIDCLSHistogram):
     def __init__(self, noise_level=0.05):
         super().__init__(model_name="microsoft/resnet-50", noise_level=noise_level)
 

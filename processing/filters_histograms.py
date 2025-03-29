@@ -19,7 +19,6 @@ class EdgeNormHistogram(BaseHistogram):
         ).view(1, 1, 5, 5)  
 
     def preprocess(self, image_batch):
-        image_batch = image_batch.to('cuda')
         channels = image_batch.shape[1]
         edge_filter = self.edge_filter.to(image_batch.device).repeat(channels, 1, 1, 1)
         edge_response = F.conv2d(image_batch, edge_filter, padding=2, groups=channels)
@@ -35,7 +34,6 @@ class SmoothingNormHistogram(BaseHistogram):
         self.smoothing_filter = torch.ones((1, 1, 5, 5), dtype=torch.float32) / 25  
 
     def preprocess(self, image_batch):
-        image_batch = image_batch.to('cuda')
         channels = image_batch.shape[1]
         smoothing_filter = self.smoothing_filter.to(image_batch.device).repeat(channels, 1, 1, 1)
         smooth_response = F.conv2d(image_batch, smoothing_filter, padding=2, groups=channels)
@@ -51,7 +49,6 @@ class NoiseNormHistogram(BaseHistogram):
         self.smoothing_filter = torch.ones((1, 1, 3, 3), dtype=torch.float32) / 9  
 
     def preprocess(self, image_batch):
-        image_batch = image_batch.to('cuda')
         channels = image_batch.shape[1]
         smoothing_filter = self.smoothing_filter.to(image_batch.device).repeat(channels, 1, 1, 1)
         smoothed = F.conv2d(image_batch, smoothing_filter, padding=1, groups=channels)
@@ -72,7 +69,6 @@ class SharpnessNormHistogram(BaseHistogram):
         ).view(1, 1, 3, 3)
 
     def preprocess(self, image_batch):
-        image_batch = image_batch.to('cuda')
         channels = image_batch.shape[1]
         laplacian_filter = self.laplacian_filter.to(image_batch.device).repeat(channels, 1, 1, 1)
         sharpness_response = F.conv2d(image_batch, laplacian_filter, padding=1, groups=channels)
@@ -92,7 +88,6 @@ class EmbossNormHistogram(BaseHistogram):
         ).view(1, 1, 3, 3)
 
     def preprocess(self, image_batch):
-        image_batch = image_batch.to('cuda')
         channels = image_batch.shape[1]
         emboss_filter = self.emboss_filter.to(image_batch.device).repeat(channels, 1, 1, 1)
         emboss_response = F.conv2d(image_batch, emboss_filter, padding=1, groups=channels)
@@ -112,7 +107,6 @@ class HighPassNormHistogram(BaseHistogram):
         ).view(1, 1, 3, 3)
 
     def preprocess(self, image_batch):
-        image_batch = image_batch.to('cuda')
         channels = image_batch.shape[1]
         highpass_filter = self.highpass_filter.to(image_batch.device).repeat(channels, 1, 1, 1)
         highpass_response = F.conv2d(image_batch, highpass_filter, padding=1, groups=channels)
@@ -134,7 +128,6 @@ class DirectionalEdgeNormHistogram(BaseHistogram):
         self.sobel_y = self.sobel_x.transpose(0, 1)
 
     def preprocess(self, image_batch):
-        image_batch = image_batch.to('cuda')
         channels = image_batch.shape[1]
         sobel_x = self.sobel_x.to(image_batch.device).repeat(channels, 1, 1, 1)
         sobel_y = self.sobel_y.to(image_batch.device).repeat(channels, 1, 1, 1)
@@ -152,7 +145,6 @@ class GaussianDifferenceNormHistogram(BaseHistogram):
         super().__init__()
 
     def preprocess(self, image_batch):
-        image_batch = image_batch.to('cuda')
         blur_1 = F.avg_pool2d(image_batch, 3, stride=1, padding=1)
         blur_2 = F.avg_pool2d(image_batch, 5, stride=1, padding=2)
         diff = blur_1 - blur_2
