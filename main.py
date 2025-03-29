@@ -41,7 +41,7 @@ for filename in os.listdir(args.output_dir):
         print(f"Deleted file: {filename}")
 
 
-# Define datasets to evaluate
+# Define datasets to evaluate: TODO: REMOVE
 DATASETS_TO_EVALUATE = [
     'PROGAN_FACES', 'COCO', 'COCO_BIGGAN_256', 'COCO_STABLE_DIFFUSION_XL', 
     'COCO_DALLE3_COCOVAL', 'COCO_SYNTH_MIDJOURNEY_V5', 'COCO_STABLE_DIFFUSION_2',
@@ -134,6 +134,7 @@ def main():
 
 if __name__ == "__main__":
     sys.setrecursionlimit(2000)
+    # TODO: REMOVE and leave only main()
     for dataset in tqdm(DATASETS_TO_EVALUATE, desc="Running evaluations"):
         try:
             args.dataset_type = dataset
