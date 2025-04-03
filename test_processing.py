@@ -22,7 +22,7 @@ parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/pkls_se
 
 args = parser.parse_args()
 
-histograms_stats_dir = os.path.join('histograms_stats', '28.3_CLS_Multi_Perm_10')
+histograms_stats_dir = os.path.join('histograms_stats', '27.3_CLS')
 
 
 def extract_patch_processing_args(key: str):
@@ -42,55 +42,38 @@ def preprocess_and_plot():
     patch_sizes = [args.sample_size]
     levels = [0]
     # waves = ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier', 'dct'] + ['blurness', 'hsv', 'jpeg']
+    # waves = [
+    #     # DINOv2
+    #     'RIGID.DINO.05', 'RIGID.DINO.10', 'RIGID.DINO.20', 'RIGID.DINO.30', 'RIGID.DINO.50',
+
+    #     # BEiT
+    #     'RIGID.BEIT.05', 'RIGID.BEIT.10', 'RIGID.BEIT.20', 'RIGID.BEIT.30', 'RIGID.BEIT.50',
+
+    #     # OpenCLIP
+    #     'RIGID.CLIP.05', 'RIGID.CLIP.10', 'RIGID.CLIP.20', 'RIGID.CLIP.30', 'RIGID.CLIP.50',
+
+    #     # DeiT
+    #     'RIGID.DEIT.05', 'RIGID.DEIT.10', 'RIGID.DEIT.20', 'RIGID.DEIT.30', 'RIGID.DEIT.50',
+
+    #     # ResNet-50 (HF)
+    #     'RIGID.RESNET.05', 'RIGID.RESNET.10', 'RIGID.RESNET.20', 'RIGID.RESNET.30', 'RIGID.RESNET.50'
+    #     ]
+
     waves = [
-        # DINOv2
-        'RIGID.DINO.05', 'RIGID.DINO.10', 'RIGID.DINO.20', 'RIGID.DINO.30', 'RIGID.DINO.50',
+        'RIGID.DINO.001',
+        'RIGID.DINO.01',
+        'RIGID.BEIT.001',
+        'RIGID.BEIT.01',
+        'RIGID.CLIP.001',
+        'RIGID.CLIP.01',
+        'RIGID.DEIT.001',
+        'RIGID.DEIT.01',
+        'RIGID.RESNET.001',
+        'RIGID.RESNET.01'
+    ]
 
-        # BEiT
-        'RIGID.BEIT.05', 'RIGID.BEIT.10', 'RIGID.BEIT.20', 'RIGID.BEIT.30', 'RIGID.BEIT.50',
-
-        # OpenCLIP
-        'RIGID.CLIP.05', 'RIGID.CLIP.10', 'RIGID.CLIP.20', 'RIGID.CLIP.30', 'RIGID.CLIP.50',
-
-        # DeiT
-        'RIGID.DEIT.05', 'RIGID.DEIT.10', 'RIGID.DEIT.20', 'RIGID.DEIT.30', 'RIGID.DEIT.50',
-
-        # ResNet-50 (HF)
-        'RIGID.RESNET.05', 'RIGID.RESNET.10', 'RIGID.RESNET.20', 'RIGID.RESNET.30', 'RIGID.RESNET.50'
-        ]
-
-
-    for dataset in tqdm([
-        'PROGAN_FACES', 
-        'COCO', 
-        'COCO_BIGGAN_256', 
-        'COCO_STABLE_DIFFUSION_XL', 
-        'COCO_DALLE3_COCOVAL',
-        'COCO_SYNTH_MIDJOURNEY_V5',
-        'COCO_STABLE_DIFFUSION_2',
-        
-        # Added TEST_ONLY dataset names
-        'BIGGAN_TEST_ONLY',
-        'CYCLEGAN_TEST_ONLY',
-        'GAUGAN_TEST_ONLY',
-        'PROGAN_TEST_ONLY',
-        'SEEINGDARK_TEST_ONLY',
-        'STYLEGAN_TEST_ONLY',
-        'CRN_TEST_ONLY',
-        'DEEPFAKE_TEST_ONLY',
-        'IMLE_TEST_ONLY',
-        'SAN_TEST_ONLY',
-        'STARGAN_TEST_ONLY',
-        'STYLEGAN2_TEST_ONLY',
-        'PROGAN_FACES_TEST_ONLY',
-        'COCO_TEST_ONLY',
-        'COCO_BIGGAN_256_TEST_ONLY',
-        'COCO_STABLE_DIFFUSION_XL_TEST_ONLY',
-        'COCO_DALLE3_COCOVAL_TEST_ONLY',
-        'COCO_SYNTH_MIDJOURNEY_V5_TEST_ONLY',
-        'COCO_STABLE_DIFFUSION_2_768_TEST_ONLY',
-
-        ], desc="Datasets", unit="dataset"):
+    
+    for dataset in tqdm([dataset.name for dataset in DatasetType], desc="Datasets", unit="dataset"):
         os.makedirs(os.path.join(histograms_stats_dir, dataset), exist_ok=True)  
 
         dataset_pkls_dir = os.path.join(args.pkls_dir, dataset)

@@ -7,9 +7,9 @@ from stat_test import TestType, main_multiple_patch_test
 from datasets_factory import DatasetFactory, DatasetType
 from data_utils import ImageDataset, create_inference_dataset
 from torchvision import transforms
-from utils import plot_roc_curve, set_seed
+from utils import build_backbones_statistics_list, plot_roc_curve, set_seed
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 # Argument parser
 parser = argparse.ArgumentParser(description='Wavelet and Patch Testing Pipeline')
@@ -37,7 +37,7 @@ for filename in os.listdir(args.output_dir):
     
     # Check if it is a file (not a subdirectory)
     if os.path.isfile(file_path):
-        os.remove(file_path)  # Remove the file
+        os.remove(file_path)  # Remove the file\
         print(f"Deleted file: {filename}")
 
 
@@ -47,10 +47,7 @@ DATASETS_TO_EVALUATE = [
     'COCO_DALLE3_COCOVAL', 'COCO_SYNTH_MIDJOURNEY_V5', 'COCO_STABLE_DIFFUSION_2',
     'BIGGAN_TEST_ONLY', 'CYCLEGAN_TEST_ONLY', 'GAUGAN_TEST_ONLY', 'PROGAN_TEST_ONLY',
     'SEEINGDARK_TEST_ONLY', 'STYLEGAN_TEST_ONLY', 'CRN_TEST_ONLY', 'DEEPFAKE_TEST_ONLY',
-    'IMLE_TEST_ONLY', 'SAN_TEST_ONLY', 'STARGAN_TEST_ONLY', 'STYLEGAN2_TEST_ONLY',
-    'PROGAN_FACES_TEST_ONLY', 'COCO_TEST_ONLY', 'COCO_BIGGAN_256_TEST_ONLY',
-    'COCO_STABLE_DIFFUSION_XL_TEST_ONLY', 'COCO_DALLE3_COCOVAL_TEST_ONLY',
-    'COCO_SYNTH_MIDJOURNEY_V5_TEST_ONLY', 'COCO_STABLE_DIFFUSION_2_768_TEST_ONLY'
+    'IMLE_TEST_ONLY', 'SAN_TEST_ONLY', 'STARGAN_TEST_ONLY', 'STYLEGAN2_TEST_ONLY', 'COCO_STABLE_DIFFUSION_2_768'
 ]
 
 def main():
@@ -82,18 +79,12 @@ def main():
     threshold = args.threshold
     # waves = ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier', 'dct', 'blurness', 'gabor', 'hsv', 'jpeg', 'sift', 'ssim', 'psnr']
     # waves = ['edge5x5', 'smoothing', 'noise', 'sharpness', 'emboss', 'highpass', 'sobel', 'gauss_diff']
-    waves = [
-        # DINOv2
-        'RIGID.DINO.05', 'RIGID.DINO.10', 'RIGID.DINO.20', 'RIGID.DINO.30', 'RIGID.DINO.50',
-        # BEiT
-        'RIGID.BEIT.05', 'RIGID.BEIT.10', 'RIGID.BEIT.20', 'RIGID.BEIT.30', 'RIGID.BEIT.50',
-        # OpenCLIP
-        'RIGID.CLIP.05', 'RIGID.CLIP.10', 'RIGID.CLIP.20', 'RIGID.CLIP.30', 'RIGID.CLIP.50',
-        # DeiT
-        'RIGID.DEIT.05', 'RIGID.DEIT.10', 'RIGID.DEIT.20', 'RIGID.DEIT.30', 'RIGID.DEIT.50',
-        # ResNet
-        'RIGID.RESNET.05', 'RIGID.RESNET.10', 'RIGID.RESNET.20', 'RIGID.RESNET.30', 'RIGID.RESNET.50'
-    ]
+
+    models = ['CONVNEXT', 'DINO', 'BEIT', 'CLIP', 'DEIT', 'RESNET']
+    noise_levels = ['01', '05', '10', '50', '75', '100']
+
+    waves = build_backbones_statistics_list(models, noise_levels)
+    
     patch_sizes = [256]
     wavelet_levels = [0]
     
@@ -119,12 +110,12 @@ def main():
             return_logits=True,
             portion=0.1,
             chi2_bins=10,
-            cdf_bins=1000,
+            cdf_bins=2000,
             n_trials=75,
             uniform_p_threshold=0.05,
-            calibration_auc_threshold=0.5,
-            ks_pvalue_abs_threshold=0.4,
-            minimal_p_threshold=0.3,
+            calibration_auc_threshold=0.4,
+            ks_pvalue_abs_threshold=0.3,
+            minimal_p_threshold=0.01,
             test_type=TestType.BOTH
         )
 
@@ -134,10 +125,11 @@ def main():
 
 if __name__ == "__main__":
     sys.setrecursionlimit(2000)
+    main()
     # TODO: REMOVE and leave only main()
-    for dataset in tqdm(DATASETS_TO_EVALUATE, desc="Running evaluations"):
-        try:
-            args.dataset_type = dataset
-            main()
-        except Exception as e:
-            print(f"Error with dataset {dataset}: {e}")
+    # for dataset in tqdm(DATASETS_TO_EVALUATE, desc="Running evaluations"):
+    #     try:
+    #         args.dataset_type = dataset
+    #         main()
+    #     except Exception as e:
+    #         print(f"Error with dataset {dataset}: {e}")

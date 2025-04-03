@@ -61,46 +61,72 @@ WAVELET_HISTOGRAMS = {
     # ==============================
     #    Hardcoded RIGID Statistics
     # ==============================
-    'RIGID.DINO.05': lambda level: RIGIDDinoV2Histogram(noise_level=0.05) if level == 0 else None,
-    'RIGID.DINO.10': lambda level: RIGIDDinoV2Histogram(noise_level=0.10) if level == 0 else None,
-    'RIGID.DINO.20': lambda level: RIGIDDinoV2Histogram(noise_level=0.20) if level == 0 else None,
-    'RIGID.DINO.30': lambda level: RIGIDDinoV2Histogram(noise_level=0.30) if level == 0 else None,
-    'RIGID.DINO.50': lambda level: RIGIDDinoV2Histogram(noise_level=0.50) if level == 0 else None,
+    
+    # ===== DINO =====
+    'RIGID.DINO.001': lambda level: RIGIDDinoV2Histogram(noise_level=0.001) if level == 0 else None,
+    'RIGID.DINO.01':  lambda level: RIGIDDinoV2Histogram(noise_level=0.01)  if level == 0 else None,
+    'RIGID.DINO.05':  lambda level: RIGIDDinoV2Histogram(noise_level=0.05)  if level == 0 else None,
+    'RIGID.DINO.10':  lambda level: RIGIDDinoV2Histogram(noise_level=0.10)  if level == 0 else None,
+    'RIGID.DINO.20':  lambda level: RIGIDDinoV2Histogram(noise_level=0.20)  if level == 0 else None,
+    'RIGID.DINO.30':  lambda level: RIGIDDinoV2Histogram(noise_level=0.30)  if level == 0 else None,
+    'RIGID.DINO.50':  lambda level: RIGIDDinoV2Histogram(noise_level=0.50)  if level == 0 else None,
+    'RIGID.DINO.75':  lambda level: RIGIDDinoV2Histogram(noise_level=0.75)  if level == 0 else None,
+    'RIGID.DINO.100': lambda level: RIGIDDinoV2Histogram(noise_level=1.0)   if level == 0 else None,
 
-        # ===== EVA (EVA-02 CLIP Visual) =====
-    'RIGID.EVA.05': lambda level: RIGIDEVAHistogram(noise_level=0.05) if level == 0 else None,
-    'RIGID.EVA.10': lambda level: RIGIDEVAHistogram(noise_level=0.10) if level == 0 else None,
-    'RIGID.EVA.20': lambda level: RIGIDEVAHistogram(noise_level=0.20) if level == 0 else None,
-    'RIGID.EVA.30': lambda level: RIGIDEVAHistogram(noise_level=0.30) if level == 0 else None,
-    'RIGID.EVA.50': lambda level: RIGIDEVAHistogram(noise_level=0.50) if level == 0 else None,
+    # ===== EVA =====
+    'RIGID.EVA.001': lambda level: RIGIDEVAHistogram(noise_level=0.001) if level == 0 else None,
+    'RIGID.EVA.01':  lambda level: RIGIDEVAHistogram(noise_level=0.01)  if level == 0 else None,
+    'RIGID.EVA.05':  lambda level: RIGIDEVAHistogram(noise_level=0.05)  if level == 0 else None,
+    'RIGID.EVA.10':  lambda level: RIGIDEVAHistogram(noise_level=0.10)  if level == 0 else None,
+    'RIGID.EVA.20':  lambda level: RIGIDEVAHistogram(noise_level=0.20)  if level == 0 else None,
+    'RIGID.EVA.30':  lambda level: RIGIDEVAHistogram(noise_level=0.30)  if level == 0 else None,
+    'RIGID.EVA.50':  lambda level: RIGIDEVAHistogram(noise_level=0.50)  if level == 0 else None,
+    'RIGID.EVA.75':  lambda level: RIGIDEVAHistogram(noise_level=0.75)  if level == 0 else None,
+    'RIGID.EVA.100': lambda level: RIGIDEVAHistogram(noise_level=1.0)   if level == 0 else None,
 
     # ===== BEiT =====
-    'RIGID.BEIT.05': lambda level: RIGIDBEiTHistogram(noise_level=0.05) if level == 0 else None,
-    'RIGID.BEIT.10': lambda level: RIGIDBEiTHistogram(noise_level=0.10) if level == 0 else None,
-    'RIGID.BEIT.20': lambda level: RIGIDBEiTHistogram(noise_level=0.20) if level == 0 else None,
-    'RIGID.BEIT.30': lambda level: RIGIDBEiTHistogram(noise_level=0.30) if level == 0 else None,
-    'RIGID.BEIT.50': lambda level: RIGIDBEiTHistogram(noise_level=0.50) if level == 0 else None,
+    'RIGID.BEIT.001': lambda level: RIGIDBEiTHistogram(noise_level=0.001) if level == 0 else None,
+    'RIGID.BEIT.01':  lambda level: RIGIDBEiTHistogram(noise_level=0.01)  if level == 0 else None,
+    'RIGID.BEIT.05':  lambda level: RIGIDBEiTHistogram(noise_level=0.05)  if level == 0 else None,
+    'RIGID.BEIT.10':  lambda level: RIGIDBEiTHistogram(noise_level=0.10)  if level == 0 else None,
+    'RIGID.BEIT.20':  lambda level: RIGIDBEiTHistogram(noise_level=0.20)  if level == 0 else None,
+    'RIGID.BEIT.30':  lambda level: RIGIDBEiTHistogram(noise_level=0.30)  if level == 0 else None,
+    'RIGID.BEIT.50':  lambda level: RIGIDBEiTHistogram(noise_level=0.50)  if level == 0 else None,
+    'RIGID.BEIT.75':  lambda level: RIGIDBEiTHistogram(noise_level=0.75)  if level == 0 else None,
+    'RIGID.BEIT.100': lambda level: RIGIDBEiTHistogram(noise_level=1.0)   if level == 0 else None,
 
     # ===== OpenCLIP ViT-H =====
-    'RIGID.CLIP.05': lambda level: RIGIDOpenCLIPHistogram(noise_level=0.05) if level == 0 else None,
-    'RIGID.CLIP.10': lambda level: RIGIDOpenCLIPHistogram(noise_level=0.10) if level == 0 else None,
-    'RIGID.CLIP.20': lambda level: RIGIDOpenCLIPHistogram(noise_level=0.20) if level == 0 else None,
-    'RIGID.CLIP.30': lambda level: RIGIDOpenCLIPHistogram(noise_level=0.30) if level == 0 else None,
-    'RIGID.CLIP.50': lambda level: RIGIDOpenCLIPHistogram(noise_level=0.50) if level == 0 else None,
+    'RIGID.CLIP.001': lambda level: RIGIDOpenCLIPHistogram(noise_level=0.001) if level == 0 else None,
+    'RIGID.CLIP.01':  lambda level: RIGIDOpenCLIPHistogram(noise_level=0.01)  if level == 0 else None,
+    'RIGID.CLIP.05':  lambda level: RIGIDOpenCLIPHistogram(noise_level=0.05)  if level == 0 else None,
+    'RIGID.CLIP.10':  lambda level: RIGIDOpenCLIPHistogram(noise_level=0.10)  if level == 0 else None,
+    'RIGID.CLIP.20':  lambda level: RIGIDOpenCLIPHistogram(noise_level=0.20)  if level == 0 else None,
+    'RIGID.CLIP.30':  lambda level: RIGIDOpenCLIPHistogram(noise_level=0.30)  if level == 0 else None,
+    'RIGID.CLIP.50':  lambda level: RIGIDOpenCLIPHistogram(noise_level=0.50)  if level == 0 else None,
+    'RIGID.CLIP.75':  lambda level: RIGIDOpenCLIPHistogram(noise_level=0.75)  if level == 0 else None,
+    'RIGID.CLIP.100': lambda level: RIGIDOpenCLIPHistogram(noise_level=1.0)   if level == 0 else None,
 
     # ===== ConvNeXt =====
-    'RIGID.CONVNEXT.05': lambda level: RIGIDConvNeXtHistogram(noise_level=0.05) if level == 0 else None,
-    'RIGID.CONVNEXT.10': lambda level: RIGIDConvNeXtHistogram(noise_level=0.10) if level == 0 else None,
-    'RIGID.CONVNEXT.20': lambda level: RIGIDConvNeXtHistogram(noise_level=0.20) if level == 0 else None,
-    'RIGID.CONVNEXT.30': lambda level: RIGIDConvNeXtHistogram(noise_level=0.30) if level == 0 else None,
-    'RIGID.CONVNEXT.50': lambda level: RIGIDConvNeXtHistogram(noise_level=0.50) if level == 0 else None,
+    'RIGID.CONVNEXT.001': lambda level: RIGIDConvNeXtHistogram(noise_level=0.001) if level == 0 else None,
+    'RIGID.CONVNEXT.01':  lambda level: RIGIDConvNeXtHistogram(noise_level=0.01)  if level == 0 else None,
+    'RIGID.CONVNEXT.05':  lambda level: RIGIDConvNeXtHistogram(noise_level=0.05)  if level == 0 else None,
+    'RIGID.CONVNEXT.10':  lambda level: RIGIDConvNeXtHistogram(noise_level=0.10)  if level == 0 else None,
+    'RIGID.CONVNEXT.20':  lambda level: RIGIDConvNeXtHistogram(noise_level=0.20)  if level == 0 else None,
+    'RIGID.CONVNEXT.30':  lambda level: RIGIDConvNeXtHistogram(noise_level=0.30)  if level == 0 else None,
+    'RIGID.CONVNEXT.50':  lambda level: RIGIDConvNeXtHistogram(noise_level=0.50)  if level == 0 else None,
+    'RIGID.CONVNEXT.75':  lambda level: RIGIDConvNeXtHistogram(noise_level=0.75)  if level == 0 else None,
+    'RIGID.CONVNEXT.100': lambda level: RIGIDConvNeXtHistogram(noise_level=1.0)   if level == 0 else None,
 
-    # ===== ResNet-50 (Feature extractor, no classification head) =====
-    'RIGID.RESNET.05': lambda level: RIGIDResNet50Histogram(noise_level=0.05) if level == 0 else None,
-    'RIGID.RESNET.10': lambda level: RIGIDResNet50Histogram(noise_level=0.10) if level == 0 else None,
-    'RIGID.RESNET.20': lambda level: RIGIDResNet50Histogram(noise_level=0.20) if level == 0 else None,
-    'RIGID.RESNET.30': lambda level: RIGIDResNet50Histogram(noise_level=0.30) if level == 0 else None,
-    'RIGID.RESNET.50': lambda level: RIGIDResNet50Histogram(noise_level=0.50) if level == 0 else None,
+    # ===== ResNet-50 =====
+    'RIGID.RESNET.001': lambda level: RIGIDResNet50Histogram(noise_level=0.001) if level == 0 else None,
+    'RIGID.RESNET.01':  lambda level: RIGIDResNet50Histogram(noise_level=0.01)  if level == 0 else None,
+    'RIGID.RESNET.05':  lambda level: RIGIDResNet50Histogram(noise_level=0.05)  if level == 0 else None,
+    'RIGID.RESNET.10':  lambda level: RIGIDResNet50Histogram(noise_level=0.10)  if level == 0 else None,
+    'RIGID.RESNET.20':  lambda level: RIGIDResNet50Histogram(noise_level=0.20)  if level == 0 else None,
+    'RIGID.RESNET.30':  lambda level: RIGIDResNet50Histogram(noise_level=0.30)  if level == 0 else None,
+    'RIGID.RESNET.50':  lambda level: RIGIDResNet50Histogram(noise_level=0.50)  if level == 0 else None,
+    'RIGID.RESNET.75':  lambda level: RIGIDResNet50Histogram(noise_level=0.75)  if level == 0 else None,
+    'RIGID.RESNET.100': lambda level: RIGIDResNet50Histogram(noise_level=1.0)   if level == 0 else None,
 }
 
 

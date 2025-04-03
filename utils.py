@@ -746,6 +746,10 @@ def compute_mean_std_dict(input_dict):
         # Ensure the array is a NumPy array
         array = np.asarray(array)
 
+        if array.shape[-1] == 1:
+            output_dict[key] = array.squeeze()
+            continue
+
         # Compute mean and std along axis 1 (for each row)
         mean_values = np.mean(array, axis=1)  # Shape: (N,)
         std_values = np.std(array, axis=1)    # Shape: (N,)
@@ -755,3 +759,43 @@ def compute_mean_std_dict(input_dict):
         output_dict[f"{key}_std"] = std_values
 
     return output_dict
+
+
+def plot_pvalue_histograms_from_arrays(
+    real_pvals_array, 
+    inference_pvals_array, 
+    artifact_path
+):
+    """
+    Plots p-value histograms for each test using plot_pvalue_histograms."
+    """
+
+    N, T = real_pvals_array.shape
+    assert inference_pvals_array.shape == (N, T), "Input arrays must have the same shape"
+
+    for t in range(T):
+        real_pvals = real_pvals_array[:, t]
+        inf_pvals = inference_pvals_array[:, t]
+
+        output_file = f"{artifact_path}_test_{t}"
+
+        plot_pvalue_histograms(
+            real_pvals,
+            inf_pvals,
+            output_file,
+            title=f"Histogram of P-values - Test {t}"
+        )
+
+def build_backbones_statistics_list(models, noise_levels, prefix="RIGID"):
+    """
+    Generates a list of wave names in the format RIGID.{MODEL}.{NOISE}.
+
+    Args:
+        models (list of str): Model names, e.g. ['DINO', 'CLIP']
+        noise_levels (list of str): Noise levels as strings, e.g. ['001', '01', '05']
+        prefix (str): Optional prefix, default is 'RIGID'
+
+    Returns:
+        list of str: All wave combinations like RIGID.DINO.01, RIGID.CLIP.05, ...
+    """
+    return [f"{prefix}.{model}.{noise}" for model in models for noise in noise_levels]

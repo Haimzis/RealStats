@@ -12,18 +12,18 @@ from scipy.fft import dct
 class BaseHistogram:
     """Abstract base class for generating histograms from transformed images."""
 
-    def __init__(self, max_memory_gb=20):
+    def __init__(self, max_memory_gb=-1):
         self.device = self._pick_free_gpu(max_memory_gb)
 
     def _pick_free_gpu(self, max_memory_gb):
         if not torch.cuda.is_available():
             return torch.device("cpu")
 
-        max_bytes = max_memory_gb * 1024 ** 3
+        max_bytes = max(max_memory_gb * 1024 ** 3, max_memory_gb)
         free_gpus = []
         for i in range(torch.cuda.device_count()):
             free_mem, _ = torch.cuda.mem_get_info(i)
-            if free_mem > (torch.cuda.get_device_properties(i).total_memory - max_bytes):
+            if max_memory_gb == -1 or free_mem > (torch.cuda.get_device_properties(i).total_memory - max_bytes):
                 free_gpus.append(i)
         
         if free_gpus:

@@ -27,7 +27,8 @@ from utils import (
     save_to_csv,
     split_population_histogram,
     plot_cdf,
-    compute_dist_cdf
+    compute_dist_cdf,
+    plot_pvalue_histograms_from_arrays
 )
 from statsmodels.stats.multitest import multipletests
 from scipy.stats import combine_pvalues
@@ -352,6 +353,10 @@ def main_multiple_patch_test(
 
     inference_histogram = compute_mean_std_dict(inference_histogram)
 
+    inference_histogram = {
+        k: inference_histogram[k] for k in independent_keys_group if k in inference_histogram
+    }
+
     input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, DataType.TEST.name, test_type)
     independent_tests_pvalues = np.array(input_samples_pvalues)
     independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
@@ -359,6 +364,12 @@ def main_multiple_patch_test(
     ensembled_stats, ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
     predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
 
+    plot_pvalue_histograms_from_arrays(
+        np.array([p for p, l in zip(independent_tests_pvalues, test_labels) if l == 0]),
+        np.array([p for p, l in zip(independent_tests_pvalues, test_labels) if l == 1]),
+        os.path.join(output_dir, "inference_stat")
+        )
+    
     if save_histograms and test_labels:
         plot_pvalue_histograms(
             [p for p, l in zip(ensembled_pvalues, test_labels) if l == 0],
@@ -601,7 +612,7 @@ def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pval
 
         # Calculate AUC scores
         auc_scores, _ = AUC_tests_filter(ensembled_pvals[np.newaxis, :], fake_ensembled_pvals[np.newaxis, :], auc_threshold=0.0)
-        aux = auc_scores.squeeze()
+        auc = auc_scores.squeeze()
 
         # Perform KS test
         _, ks_pvalue = kstest(ensembled_stats, 'norm', args=(0, 1))  # mean=0, std=1
@@ -611,17 +622,17 @@ def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pval
             optimization_data['thresholds'].append(minimal_p_threshold)
             optimization_data['ks_pvalues'].append(ks_pvalue)
             optimization_data['num_tests'].append(num_independent_tests)
-            optimization_data['auc_scores'].append(aux)
+            optimization_data['auc_scores'].append(auc)
 
-            if not best_group or aux > best_results['best_AUC']:
-            # if not best_group or num_independent_tests > best_results['best_N']:
+            # if not best_group or aux > best_results['best_AUC']:
+            if not best_group or num_independent_tests > best_results['best_N']:
 
                 best_group = independent_keys_group
                 best_results = {
                     'best_KS': ks_pvalue,
                     'best_N': num_independent_tests,
                     'best_alpha_threshold': minimal_p_threshold,
-                    'best_AUC': aux
+                    'best_AUC': auc
                 }
 
     if not best_group:

@@ -1,10 +1,5 @@
 #!/bin/bash
 
-# Define dataset paths
-DATA_DIR_REAL="data/CelebaHQMaskDataset/train/images_faces"
-DATA_DIR_FAKE_REAL="data/CelebaHQMaskDataset/test/images_faces"
-DATA_DIR_FAKE="data/stable-diffusion-face-dataset/1024/both_faces"
-
 # Base directory for logs
 LOGS_BASE_DIR="logs"
 
@@ -15,7 +10,7 @@ CONFIGS_LENGTH=$(echo "$CONFIGS" | jq '. | length')
 # Loop through configurations
 for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
     CONFIG=$(echo "$CONFIGS" | jq -r ".[$i]")
-    
+
     # Generate timestamped logs directory
     TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
     LOGS_DIR="$LOGS_BASE_DIR/run_$TIMESTAMP"
@@ -24,20 +19,31 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
     # Redirect all output to logs.txt
     {
         echo "Starting run $((i + 1))..."
-        echo "Command: python executor.py $CONFIG"
+        echo "Command: python executor_updated.py $CONFIG"
 
-        python executor.py \
+        python executor_updated.py \
+            --test_type multiple_patches \
             --batch_size 256 \
-            --data_dir_real "$DATA_DIR_REAL" \
-            --data_dir_fake_real "$DATA_DIR_FAKE_REAL" \
-            --data_dir_fake "$DATA_DIR_FAKE" \
+            --sample_size 256 \
+            --threshold 0.05 \
+            --save_histograms 1 \
+            --ensemble_test manual-stouffer \
+            --save_independence_heatmaps 1 \
+            --uniform_sanity_check 0 \
+            --dataset_type COCO \
             --output_dir "$LOGS_DIR" \
-            --pkls_dir "/data/users/haimzis/pkls" \
-            --num_samples_per_class 2957 \
-            --num_data_workers 2 \
-            --max_wave_level 4 \
-            --max_workers 32 \
+            --pkls_dir rigid_pkls \
+            --num_samples_per_class -1 \
+            --num_data_workers 4 \
+            --max_workers 1 \
             --seed 42 \
+            --wavelet_levels 0 \
+            --cdf_bins 1000 \
+            --n_trials 75 \
+            --uniform_p_threshold 0.05 \
+            --calibration_auc_threshold 0.5 \
+            --ks_pvalue_abs_threshold 0.4 \
+            --minimal_p_threshold 0.1 \
             --run_id "run_$TIMESTAMP" \
             $CONFIG
 

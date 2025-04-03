@@ -25,19 +25,19 @@ class DatasetType(Enum):
         "test_fake": {"path": "data/CLIPDetector/test_set/fake/sdxl_cocoval", "class": ImageDataset}
     }
 
-    COCO_ALL = {
-        "train_real": {"path": "data/CLIPDetector/train_set/coco2017/train2017", "class": ImageDataset},
-        "test_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
-        "train_fake": {"path": "data/CLIPDetector/train_set/coco_latent_t2i/train2017", "class": ImageDataset},
-        "test_fake": {"path": "data/CLIPDetector/test_set/fake/sdxl_cocoval", "class": ImageDataset}
-    }
+    # COCO_ALL = {
+    #     "train_real": {"path": "data/CLIPDetector/train_set/coco2017/train2017", "class": ImageDataset},
+    #     "test_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+    #     "train_fake": {"path": "data/CLIPDetector/train_set/coco_latent_t2i/train2017", "class": ImageDataset},
+    #     "test_fake": {"path": "data/CLIPDetector/test_set/fake/sdxl_cocoval", "class": ImageDataset}
+    # }
 
-    COCO_LEAKAGE = {
-        "train_real": {"path": "data/COCO_LEAKAGE/train/real", "class": ImageDataset},
-        "test_real": {"path": "data/COCO_LEAKAGE/test/real", "class": ImageDataset},
-        "train_fake": {"path": "data/COCO_LEAKAGE/train/fake", "class": ImageDataset},
-        "test_fake": {"path": "data/COCO_LEAKAGE/test/fake", "class": ImageDataset}
-    }
+    # COCO_LEAKAGE = {
+    #     "train_real": {"path": "data/COCO_LEAKAGE/train/real", "class": ImageDataset},
+    #     "test_real": {"path": "data/COCO_LEAKAGE/test/real", "class": ImageDataset},
+    #     "train_fake": {"path": "data/COCO_LEAKAGE/train/fake", "class": ImageDataset},
+    #     "test_fake": {"path": "data/COCO_LEAKAGE/test/fake", "class": ImageDataset}
+    # }
 
     PROGAN_FACES_BUT_CELEBA_AS_TRAIN = {
         "train_real": {"path": "data/CelebaHQMaskDataset/train/images_faces", "class": ImageDataset},
@@ -81,7 +81,7 @@ class DatasetType(Enum):
         "test_fake": {"path": "data/CLIPDetector/synthbuster/stable-diffusion-2", "class": ImageDataset}
     }
 
-    COCO_STABLE_DIFFUSION_2_768_TEST_ONLY = {
+    COCO_STABLE_DIFFUSION_2_768 = {
         "train_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
         "test_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
         "train_fake": {"path": "data/CLIPDetector/test_set/fake/stable_diffusion_2_1_768", "class": ImageDataset},
