@@ -1,6 +1,8 @@
 import random
 import json
 
+from utils import build_backbones_statistics_list
+
 # Define parameter ranges
 finetune_portion_range = [0.1, 0.15, 0.2, 0.25]
 dataset_types = [
@@ -10,19 +12,12 @@ dataset_types = [
     'SEEINGDARK_TEST_ONLY', 'STYLEGAN_TEST_ONLY', 'CRN_TEST_ONLY', 'DEEPFAKE_TEST_ONLY',
     'IMLE_TEST_ONLY', 'SAN_TEST_ONLY', 'STARGAN_TEST_ONLY', 'STYLEGAN2_TEST_ONLY', 'COCO_STABLE_DIFFUSION_2_768'
 ]
-waves_choices = \
-[
-            # DINOv2
-            'RIGID.DINO.001', 'RIGID.DINO.01', 'RIGID.DINO.05', 'RIGID.DINO.10', 'RIGID.DINO.20', 'RIGID.DINO.30', 'RIGID.DINO.50',
-            # BEiT
-            'RIGID.BEIT.01', 'RIGID.BEIT.05', 'RIGID.BEIT.10', 'RIGID.BEIT.20', 'RIGID.BEIT.30', 'RIGID.BEIT.50',
-            # OpenCLIP
-            'RIGID.CLIP.001', 'RIGID.CLIP.01', 'RIGID.CLIP.05', 'RIGID.CLIP.10', 'RIGID.CLIP.20', 'RIGID.CLIP.30', 'RIGID.CLIP.50',
-            # DeiT
-            'RIGID.DEIT.05', 'RIGID.DEIT.10', 'RIGID.DEIT.20', 'RIGID.DEIT.30', 'RIGID.DEIT.50',
-            # ResNet
-            'RIGID.RESNET.05', 'RIGID.RESNET.10', 'RIGID.RESNET.20', 'RIGID.RESNET.30', 'RIGID.RESNET.50'
-]
+
+models = ['CONVNEXT', 'DINO', 'BEIT', 'CLIP', 'DEIT', 'RESNET']
+noise_levels = ['01', '05', '10', '50', '75', '100']
+
+waves_choices = build_backbones_statistics_list(models, noise_levels)
+    
 patch_divisors_choices = ["0 1", "0 1", "0", "0", "0"]
 chi2_bins_choices = [5, 10]
 N = 200

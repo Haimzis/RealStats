@@ -710,6 +710,12 @@ def AUC_tests_filter(tuning_pvalue_distributions, fake_calibration_pvalue_distri
         np.ones_like(fake_calibration_pvalue_distributions)
     ], axis=1)
     
+    # Remove entries with NaN values
+    # TODO: why are there NaN values? - check the input data
+    valid_indices = ~np.isnan(combined_pvalues).any(axis=1)
+    combined_pvalues = combined_pvalues[valid_indices]
+    combined_labels = combined_labels[valid_indices]
+
     # Calculate AUC scores using list comprehension
     auc_scores = np.array([roc_auc_score(combined_labels[i], combined_pvalues[i]) for i in range(combined_pvalues.shape[0])])
     
@@ -770,8 +776,8 @@ def plot_pvalue_histograms_from_arrays(
     Plots p-value histograms for each test using plot_pvalue_histograms."
     """
 
-    N, T = real_pvals_array.shape
-    assert inference_pvals_array.shape == (N, T), "Input arrays must have the same shape"
+    _, T = real_pvals_array.shape
+    assert inference_pvals_array.shape[-1] ==  T, "Input arrays must have the same shape"
 
     for t in range(T):
         real_pvals = real_pvals_array[:, t]

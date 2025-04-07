@@ -30,7 +30,6 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
             --ensemble_test manual-stouffer \
             --save_independence_heatmaps 1 \
             --uniform_sanity_check 0 \
-            --dataset_type COCO \
             --output_dir "$LOGS_DIR" \
             --pkls_dir rigid_pkls \
             --num_samples_per_class -1 \
@@ -38,7 +37,7 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
             --max_workers 1 \
             --seed 42 \
             --wavelet_levels 0 \
-            --cdf_bins 1000 \
+            --cdf_bins 2000 \
             --n_trials 75 \
             --uniform_p_threshold 0.05 \
             --calibration_auc_threshold 0.5 \
