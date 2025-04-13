@@ -425,6 +425,14 @@ def perform_ensemble_testing(pvalues, ensemble_test, output_dir='logs', plot=Fal
         if plot:
             plot_stouffer_analysis(pvalues, inverse_z_scores, stouffer_z, stouffer_pvalues, num_plots_pvalues=5, num_plots_zscores=5, output_folder=output_dir)
         return stouffer_z, stouffer_pvalues
+    elif ensemble_test == 'minp':
+        # Ensure p-values are within (0,1) for numerical stability
+        pvalues = np.clip(pvalues, np.finfo(np.float32).eps, 1.0 - np.finfo(np.float32).eps)
+        min_pvals = np.min(pvalues, axis=1)
+        n = pvalues.shape[1]
+        # Aggregate p-values using the CDF of the min of n uniform(0,1) variables
+        aggregated_pvals = 1 - (1 - min_pvals) ** n
+        return norm.ppf(min_pvals), aggregated_pvals
     else:
         raise ValueError(f"Invalid ensemble test: {ensemble_test}")
     

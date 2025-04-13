@@ -1,10 +1,18 @@
 #!/bin/bash
 
+# Check for config file argument
+if [ $# -lt 1 ]; then
+    echo "Usage: $0 <path_to_config_json>"
+    exit 1
+fi
+
+CONFIG_FILE=$1
+
 # Base directory for logs
 LOGS_BASE_DIR="logs"
 
-# Load configurations from JSON file
-CONFIGS=$(cat configs.json)
+# Load configurations from the provided JSON file
+CONFIGS=$(cat "$CONFIG_FILE")
 CONFIGS_LENGTH=$(echo "$CONFIGS" | jq '. | length')
 
 # Loop through configurations
@@ -23,7 +31,7 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
 
         python executor_updated.py \
             --test_type multiple_patches \
-            --batch_size 256 \
+            --batch_size 64 \
             --sample_size 256 \
             --threshold 0.05 \
             --save_histograms 1 \
@@ -44,6 +52,8 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
             --ks_pvalue_abs_threshold 0.4 \
             --minimal_p_threshold 0.1 \
             --run_id "run_$TIMESTAMP" \
+            --experiment_id "RIGID - stouffer test only" \
+            --gpu 3 \
             $CONFIG
 
         echo "Run $((i + 1)) complete."

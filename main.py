@@ -9,7 +9,7 @@ from data_utils import ImageDataset, create_inference_dataset
 from torchvision import transforms
 from utils import build_backbones_statistics_list, plot_roc_curve, set_seed
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 # Argument parser
 parser = argparse.ArgumentParser(description='Wavelet and Patch Testing Pipeline')
@@ -18,7 +18,7 @@ parser.add_argument('--batch_size', type=int, default=128, help='Batch size for 
 parser.add_argument('--sample_size', type=int, default=256, help='Sample input size after downscale')
 parser.add_argument('--threshold', type=float, default=0.05, help='P-value threshold for significance testing')
 parser.add_argument('--save_histograms', type=int, choices=[0, 1], default=1, help='Flag to save KDE plots for real and fake p-values (1 for True, 0 for False)')
-parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm'], default='manual-stouffer', help='Type of ensemble test to perform')
+parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm', 'minp'], default='minp', help='Type of ensemble test to perform')
 parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=1, help='Flag to save independence test heatmaps (1 for True, 0 for False)')
 parser.add_argument('--dataset_type', type=str, default='COCO_STABLE_DIFFUSION_2_768', choices=[e.name for e in DatasetType], help='Type of dataset to use (CelebA, ProGan, COCO_LEAKAGE, COCO, COCO_ALL, PROGAN_FACES_BUT_CELEBA_AS_TRAIN)')
 parser.add_argument('--output_dir', type=str, default='logs', help='Path where to save artifacts')
@@ -114,7 +114,7 @@ def main():
             n_trials=75,
             uniform_p_threshold=0.05,
             calibration_auc_threshold=0.4,
-            ks_pvalue_abs_threshold=0.3,
+            ks_pvalue_abs_threshold=0.5,
             minimal_p_threshold=0.01,
             test_type=TestType.BOTH
         )

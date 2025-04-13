@@ -200,6 +200,56 @@ class DatasetType(Enum):
         "test_fake": {"path": "data/CNNDetector/testset/stylegan2/car/1_fake", "class": ImageDataset}
     }
 
+    # TEST ONLY
+    CELEBA_TEST_ONLY = {
+        "train_real": {"path": "data/CelebaHQMaskDataset/test/images_faces", "class": ImageDataset},
+        "test_real": {"path": "data/CelebaHQMaskDataset/test/images_faces", "class": ImageDataset},
+        "train_fake": {"path": "data/stable-diffusion-face-dataset/1024/both_faces", "class": ImageDataset},
+        "test_fake": {"path": "data/stable-diffusion-face-dataset/1024/both_faces", "class": ImageDataset}
+    }
+
+    COCO_TEST_ONLY = {
+        "train_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+        "test_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+        "train_fake": {"path": "data/CLIPDetector/test_set/fake/sdxl_cocoval", "class": ImageDataset},
+        "test_fake": {"path": "data/CLIPDetector/test_set/fake/sdxl_cocoval", "class": ImageDataset}
+    }
+
+    COCO_BIGGAN_256_TEST_ONLY = {
+        "train_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+        "test_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+        "train_fake": {"path": "data/CLIPDetector/test_set/fake/biggan_256", "class": ImageDataset},
+        "test_fake": {"path": "data/CLIPDetector/test_set/fake/biggan_256", "class": ImageDataset}
+    }
+
+    COCO_STABLE_DIFFUSION_XL_TEST_ONLY = {
+        "train_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+        "test_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+        "train_fake": {"path": "data/CLIPDetector/synthbuster/stable-diffusion-xl", "class": ImageDataset},
+        "test_fake": {"path": "data/CLIPDetector/synthbuster/stable-diffusion-xl", "class": ImageDataset}
+    }
+
+    COCO_DALLE3_COCOVAL_TEST_ONLY = {
+        "train_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+        "test_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+        "train_fake": {"path": "data/CLIPDetector/test_set/fake/dalle3_cocoval", "class": ImageDataset},
+        "test_fake": {"path": "data/CLIPDetector/test_set/fake/dalle3_cocoval", "class": ImageDataset}
+    }
+
+    COCO_SYNTH_MIDJOURNEY_V5_TEST_ONLY = {
+        "train_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+        "test_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+        "train_fake":  {"path": "data/CLIPDetector/synthbuster/midjourney-v5", "class": ImageDataset},
+        "test_fake": {"path": "data/CLIPDetector/synthbuster/midjourney-v5", "class": ImageDataset}
+    }
+
+    COCO_STABLE_DIFFUSION_2_TEST_ONLY = {
+        "train_real":  {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+        "test_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+        "train_fake": {"path": "data/CLIPDetector/synthbuster/stable-diffusion-2", "class": ImageDataset},
+        "test_fake": {"path": "data/CLIPDetector/synthbuster/stable-diffusion-2", "class": ImageDataset}
+    }
+
     def get_paths(self):
         return self.value
 
