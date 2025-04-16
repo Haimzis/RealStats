@@ -293,7 +293,7 @@ def main_multiple_patch_test(
     #         xlabel='statistic values'
     #     )
     
-    if not best_keys.any():
+    if len(best_keys) == 0:
         raise ValueError(f"Fake Calibration Step Error: No individual statistics found with AUC above {calibration_auc_threshold}")
 
     if uniform_sanity_check:
