@@ -36,7 +36,7 @@ dataset_types = [
 ]
 
 
-models = ['CONVNEXT', 'DINO', 'BEIT', 'CLIP', 'DEIT', 'RESNET']
+models = ['CLIPBIGG', 'CLIPOPENAI', 'CONVNEXT', 'DINO', 'BEIT', 'CLIP', 'DEIT', 'RESNET']
 noise_levels = ['01', '05', '10', '50', '75', '100']
 
 waves_choices = build_backbones_statistics_list(models, noise_levels)

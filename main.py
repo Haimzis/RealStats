@@ -80,7 +80,7 @@ def main():
     # waves = ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier', 'dct', 'blurness', 'gabor', 'hsv', 'jpeg', 'sift', 'ssim', 'psnr']
     # waves = ['edge5x5', 'smoothing', 'noise', 'sharpness', 'emboss', 'highpass', 'sobel', 'gauss_diff']
 
-    models = ['CONVNEXT', 'DINO', 'BEIT', 'CLIP', 'DEIT', 'RESNET']
+    models = ['CLIPBIGG', 'CLIPOPENAI', 'CONVNEXT', 'DINO', 'BEIT', 'CLIP', 'DEIT', 'RESNET']
     noise_levels = ['01', '05', '10', '50', '75', '100']
 
     waves = build_backbones_statistics_list(models, noise_levels)

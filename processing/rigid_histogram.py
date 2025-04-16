@@ -235,7 +235,37 @@ class RIGIDOpenCLIPHistogram(RIGIDCLSHistogram):
     def get_embedding(self, outputs):
         return outputs.last_hidden_state  # [B, seq_len, dim]
 
-    
+
+class RIGIDOpenAICLIPHistogram(RIGIDCLSHistogram):
+    def __init__(self, noise_level=0.05):
+        super().__init__(model_name="openai/clip-vit-large-patch14", noise_level=noise_level)
+
+    def load_processor(self):
+        return AutoImageProcessor.from_pretrained(self.model_name, do_rescale=False, use_fast=True)
+
+    def load_model(self):
+        model = CLIPModel.from_pretrained(self.model_name)
+        return model.vision_model  # Use only the vision tower
+
+    def get_embedding(self, outputs):
+        return outputs.last_hidden_state  # [B, seq_len, dim]
+
+
+class RIGIDBigGCLIPHistogram(RIGIDCLSHistogram):
+    def __init__(self, noise_level=0.05):
+        super().__init__(model_name="laion/CLIP-ViT-bigG-14-laion2B-39B-b160k", noise_level=noise_level)
+
+    def load_processor(self):
+        return AutoImageProcessor.from_pretrained(self.model_name, do_rescale=False, use_fast=True)
+
+    def load_model(self):
+        model = CLIPModel.from_pretrained(self.model_name)
+        return model.vision_model
+
+    def get_embedding(self, outputs):
+        return outputs.last_hidden_state
+
+
 class RIGIDConvNeXtHistogram(RIGIDCLSHistogram):
     def __init__(self, noise_level=0.05):
         super().__init__(model_name="facebook/convnext-base-224", noise_level=noise_level)

@@ -11,7 +11,7 @@ from processing.jpeg_histogram import JPEGCompressionRatioHistogram
 from processing.laplacian_histogram import LaplacianVarianceHistogram
 from processing.manifold_bias_histogram import LatentNoiseCriterion
 from processing.psnr_noise_histogram import PSNRBlurHistogram
-from processing.rigid_histogram import RIGIDBEiTHistogram, RIGIDConvNeXtHistogram, RIGIDDinoV2Histogram, RIGIDEVAHistogram, RIGIDOpenCLIPHistogram, RIGIDResNet50Histogram
+from processing.rigid_histogram import RIGIDBEiTHistogram, RIGIDBigGCLIPHistogram, RIGIDConvNeXtHistogram, RIGIDDinoV2Histogram, RIGIDEVAHistogram, RIGIDOpenAICLIPHistogram, RIGIDOpenCLIPHistogram, RIGIDResNet50Histogram
 from processing.sift_histogram import SIFTHistogram
 from processing.ssim_noise_histogram import SSIMBlurHistogram
 
@@ -105,6 +105,28 @@ WAVELET_HISTOGRAMS = {
     'RIGID.CLIP.50':  lambda level: RIGIDOpenCLIPHistogram(noise_level=0.50)  if level == 0 else None,
     'RIGID.CLIP.75':  lambda level: RIGIDOpenCLIPHistogram(noise_level=0.75)  if level == 0 else None,
     'RIGID.CLIP.100': lambda level: RIGIDOpenCLIPHistogram(noise_level=1.0)   if level == 0 else None,
+
+    # ===== OpenAI CLIP ViT-L/14 =====
+    'RIGID.CLIPOPENAI.001': lambda level: RIGIDOpenAICLIPHistogram(noise_level=0.001) if level == 0 else None,
+    'RIGID.CLIPOPENAI.01':  lambda level: RIGIDOpenAICLIPHistogram(noise_level=0.01)  if level == 0 else None,
+    'RIGID.CLIPOPENAI.05':  lambda level: RIGIDOpenAICLIPHistogram(noise_level=0.05)  if level == 0 else None,
+    'RIGID.CLIPOPENAI.10':  lambda level: RIGIDOpenAICLIPHistogram(noise_level=0.10)  if level == 0 else None,
+    'RIGID.CLIPOPENAI.20':  lambda level: RIGIDOpenAICLIPHistogram(noise_level=0.20)  if level == 0 else None,
+    'RIGID.CLIPOPENAI.30':  lambda level: RIGIDOpenAICLIPHistogram(noise_level=0.30)  if level == 0 else None,
+    'RIGID.CLIPOPENAI.50':  lambda level: RIGIDOpenAICLIPHistogram(noise_level=0.50)  if level == 0 else None,
+    'RIGID.CLIPOPENAI.75':  lambda level: RIGIDOpenAICLIPHistogram(noise_level=0.75)  if level == 0 else None,
+    'RIGID.CLIPOPENAI.100': lambda level: RIGIDOpenAICLIPHistogram(noise_level=1.0)   if level == 0 else None,
+
+    # ===== LAION CLIP ViT-bigG-14 =====
+    'RIGID.CLIPBIGG.001': lambda level: RIGIDBigGCLIPHistogram(noise_level=0.001) if level == 0 else None,
+    'RIGID.CLIPBIGG.01':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.01)  if level == 0 else None,
+    'RIGID.CLIPBIGG.05':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.05)  if level == 0 else None,
+    'RIGID.CLIPBIGG.10':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.10)  if level == 0 else None,
+    'RIGID.CLIPBIGG.20':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.20)  if level == 0 else None,
+    'RIGID.CLIPBIGG.30':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.30)  if level == 0 else None,
+    'RIGID.CLIPBIGG.50':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.50)  if level == 0 else None,
+    'RIGID.CLIPBIGG.75':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.75)  if level == 0 else None,
+    'RIGID.CLIPBIGG.100': lambda level: RIGIDBigGCLIPHistogram(noise_level=1.0)   if level == 0 else None,
 
     # ===== ConvNeXt =====
     'RIGID.CONVNEXT.001': lambda level: RIGIDConvNeXtHistogram(noise_level=0.001) if level == 0 else None,
