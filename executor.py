@@ -1,73 +1,97 @@
 import os
+import sys
 import argparse
 from urllib.parse import urlparse
-from stat_test import main_multiple_patch_test
-from data_utils import ImageDataset, create_inference_dataset
-from torchvision import transforms
-from utils import plot_roc_curve, set_seed
-import sys
+
 import mlflow
+from torchvision import transforms
+from datasets_factory import DatasetFactory, DatasetType
+from data_utils import ImageDataset, create_inference_dataset
+from stat_test import TestType, main_multiple_patch_test
+from utils import plot_roc_curve, set_seed
 
 sys.setrecursionlimit(2000)
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-# Define argument parser
+# Argument parser (with only relevant arguments kept from the original script)
 parser = argparse.ArgumentParser(description='Wavelet and Patch Testing Pipeline')
+parser.add_argument('--test_type', choices=['multiple_patches', 'multiple_wavelets'], default='multiple_wavelets', help='Choose which type of multiple tests to perform')
 parser.add_argument('--batch_size', type=int, default=512, help='Batch size for data loading.')
 parser.add_argument('--sample_size', type=int, default=256, help='Sample input size after downscale.')
 parser.add_argument('--patch_divisors', type=int, nargs='+', default=[2, 4, 8], help='Divisors to calculate patch sizes as sample_size // 2^i.')
 parser.add_argument('--threshold', type=float, default=0.05, help='P-value threshold for significance testing.')
 parser.add_argument('--save_histograms', type=int, choices=[0, 1], default=1, help='Save KDE plots for real and fake p-values.')
-parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm'], default='manual-stouffer', help='Type of ensemble test.')
+parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm', 'minp'], default='manual-stouffer', help='Type of ensemble test to perform')
 parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=1, help='Save independence test heatmaps.')
 parser.add_argument('--uniform_sanity_check', type=int, choices=[0, 1], default=0, help='Whether to perform uniform-KS sanity check.')
-parser.add_argument('--data_dir_real', type=str, required=True, help='Path to the real population dataset.')
-parser.add_argument('--data_dir_fake_real', type=str, required=True, help='Path to the real-fake dataset.')
-parser.add_argument('--data_dir_fake', type=str, required=True, help='Path to the fake dataset.')
+parser.add_argument('--dataset_type', type=str, default='COCO', choices=[e.name for e in DatasetType], help='Type of dataset to use (CelebA, ProGan, COCO_LEAKAGE, COCO, COCO_ALL, PROGAN_FACES_BUT_CELEBA_AS_TRAIN)')
 parser.add_argument('--output_dir', type=str, required=True, help='Directory to save logs and artifacts.')
-parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/pkls', help='Path where to save pkls.')
-parser.add_argument('--num_samples_per_class', type=int, default=2957, help='Number of samples per class for inference dataset.')
-parser.add_argument('--num_data_workers', type=int, default=2, help='Number of workers for data loading.')
-parser.add_argument('--max_wave_level', type=int, default=4, help='Maximum number of levels in DWT.')
-parser.add_argument('--max_workers', type=int, default=32, help='Maximum number of threads for parallel processing.')
+parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/rigid_pkls', help='Path where to save pkls.')
+parser.add_argument('--num_samples_per_class', type=int, default=-1, help='Number of samples per class for inference dataset.')
+parser.add_argument('--num_data_workers', type=int, default=4, help='Number of workers for data loading.')
+parser.add_argument('--max_workers', type=int, default=1, help='Maximum number of threads for parallel processing.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility.')
 parser.add_argument('--waves', type=str, nargs='+', default=['haar', 'coif1', 'sym2', 'fourier', 'dct'], help='List of wavelet types.')
 parser.add_argument('--wavelet_levels', type=int, nargs='+', default=[0, 1, 2, 3, 4], help='List of wavelet levels.')
 parser.add_argument('--finetune_portion', type=float, default=0.2, help='Portion of the dataset used for finetuning.')
 parser.add_argument('--chi2_bins', type=int, default=10, help='Number of bins for chi-square calculations.')
+parser.add_argument('--cdf_bins', type=int, default=1000, help='Number of bins for cdf.')
 parser.add_argument('--n_trials', type=int, default=75, help='Number of trials for optimization.')
 parser.add_argument('--uniform_p_threshold', type=float, default=0.05, help='KS Threshold for uniform goodness of fit.')
+parser.add_argument('--calibration_auc_threshold', type=float, default=0.5, help='Threshold for calibration AUC to filter unreliable tests.')
+parser.add_argument('--ks_pvalue_abs_threshold', type=float, default=0.4, help='Absolute KS p-value threshold for uniformity filtering.')
+parser.add_argument('--minimal_p_threshold', type=float, default=0.3, help='Minimum p-value threshold for chi-square filtering.')
+parser.add_argument('--gpu', type=str, default='0', help='GPU device(s) to use, e.g., "0", "1", or "0,1".')
 parser.add_argument('--run_id', type=str, required=True, help='Unique identifier for this MLflow run.')
+parser.add_argument('--experiment_id', type=str, required=True, help='Name or ID of the MLflow experiment.')
 args = parser.parse_args()
+os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
 
 def main():
-    # Set random seed
     set_seed(args.seed)
 
-    mlflow.set_experiment("stouffer test: new transforms")
+    # Get paths dynamically based on dataset_type
+    dataset_type_enum = DatasetType[args.dataset_type.upper()]
+    paths = dataset_type_enum.get_paths()
+
+    # Dynamically create a subdirectory in pkls_dir based on dataset type
+    dataset_pkls_dir = os.path.join(args.pkls_dir, args.dataset_type)
+    os.makedirs(dataset_pkls_dir, exist_ok=True)
+    
+    # Initialize MLflow experiment
+    mlflow.set_experiment(args.experiment_id)
     with mlflow.start_run(run_name=args.run_id):
         args.output_dir = urlparse(mlflow.get_artifact_uri()).path
-        
-        # Load datasets
-        transform = transforms.Compose([transforms.Resize((args.sample_size, args.sample_size)), transforms.ToTensor()])
-        real_population_dataset = ImageDataset(args.data_dir_real, transform=transform, labels=0)
-        inference_data = create_inference_dataset(args.data_dir_fake_real, args.data_dir_fake, args.num_samples_per_class, classes='both')
+
+        # Load transforms and datasets
+        transform = transforms.Compose([
+            transforms.Resize((args.sample_size, args.sample_size)),
+            transforms.ToTensor()
+        ])
+
+        datasets = DatasetFactory.create_dataset(dataset_type=args.dataset_type, transform=transform)
+        real_population_dataset, fake_population_dataset = datasets['train_real'], datasets['train_fake']
+        inference_data = create_inference_dataset(paths['test_real']['path'], paths['test_fake']['path'], args.num_samples_per_class, classes='both')
 
         # Prepare inference dataset
         image_paths = [x[0] for x in inference_data]
         labels = [x[1] for x in inference_data]
         inference_dataset = ImageDataset(image_paths, labels, transform=transform)
 
-        # Compute patch sizes based on sample_size and patch_divisors
-        patch_sizes = [args.sample_size // 2**i for i in args.patch_divisors]
+        # Compute patch sizes from divisors
+        patch_sizes = [args.sample_size // (2 ** d) for d in args.patch_divisors]
 
+        test_id = f"divs_{'-'.join(map(str, args.patch_divisors))}-waves_{len(args.waves)}"
+
+        # Log all relevant parameters
         mlflow.log_params(vars(args))
-        mlflow.log_param('patch_sizes', patch_sizes)
+        mlflow.log_param("patch_sizes", patch_sizes)
+        mlflow.log_param("test_id", test_id)
 
-        # Run the main test
+
         results = main_multiple_patch_test(
             real_population_dataset=real_population_dataset,
+            fake_population_dataset=fake_population_dataset,
             inference_dataset=inference_dataset,
             test_labels=labels,
             batch_size=args.batch_size,
@@ -81,19 +105,24 @@ def main():
             max_workers=args.max_workers,
             num_data_workers=args.num_data_workers,
             output_dir=args.output_dir,
-            pkl_dir=args.pkls_dir,
+            pkl_dir=dataset_pkls_dir,
             return_logits=True,
             portion=args.finetune_portion,
-            uniform_p_threshold=args.uniform_p_threshold,
             chi2_bins=args.chi2_bins,
+            cdf_bins=args.cdf_bins,
             n_trials=args.n_trials,
-            uniform_sanity_check=args.uniform_sanity_check,
+            uniform_p_threshold=args.uniform_p_threshold,
+            uniform_sanity_check=bool(args.uniform_sanity_check),
+            calibration_auc_threshold=args.calibration_auc_threshold,
+            ks_pvalue_abs_threshold=args.ks_pvalue_abs_threshold,
+            minimal_p_threshold=args.minimal_p_threshold,
+            test_type=TestType.BOTH,
             logger=mlflow
         )
 
         results['labels'] = labels
-        roc_auc = plot_roc_curve(results, args.run_id, args.output_dir)
-        mlflow.log_metric('AUC', roc_auc)
+        auc = plot_roc_curve(results, test_id, args.output_dir)
+        mlflow.log_metric("AUC", auc)
 
 
 if __name__ == "__main__":
