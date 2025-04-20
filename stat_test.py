@@ -64,7 +64,8 @@ def preprocess_wave(dataset, batch_size, wavelet, wavelet_level, num_data_worker
 
     # If not test data and file already exists, load cached histograms
     if data_type != DataType.TEST and os.path.exists(pkl_filename):
-        return load_population_histograms(pkl_filename)
+        pass
+        # return load_population_histograms(pkl_filename)
 
     # Create DataLoader for dataset
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_data_workers)
@@ -239,63 +240,27 @@ def main_multiple_patch_test(
 
     # Load or compute real population histograms
     real_population_histogram = patch_parallel_preprocess(
-        real_population_dataset, batch_size, training_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, data_type=DataType.TRAIN
-    )
-
-    fake_population_histogram = patch_parallel_preprocess(
-        fake_population_dataset, batch_size, training_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, data_type=DataType.CALIB
+        real_population_dataset, batch_size, training_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=False, data_type=DataType.TRAIN
     )
 
     real_population_histogram = compute_mean_std_dict(real_population_histogram)
-    fake_population_histogram = compute_mean_std_dict(fake_population_histogram)
-
     real_population_histogram = remove_nans_from_tests(real_population_histogram)
-    fake_population_histogram = remove_nans_from_tests(fake_population_histogram)
-
-    real_population_histogram = {k: real_population_histogram[k] for k in real_population_histogram.keys() & fake_population_histogram.keys()}
-    fake_population_histogram = {k: fake_population_histogram[k] for k in real_population_histogram.keys() & fake_population_histogram.keys()}
 
     # Spliting 
-    tuning_histogram, training_histogram = split_population_histogram(real_population_histogram, portion)
-    tuning_num_samples = len(tuning_histogram[next(iter(tuning_histogram))])
-    fake_calibration_histogram, _ = split_population_histogram(fake_population_histogram, tuning_num_samples)
+    # tuning_histogram, training_histogram = split_population_histogram(real_population_histogram, portion)
+    tuning_histogram, training_histogram = real_population_histogram, real_population_histogram
     
     # CDF creation
     real_population_cdfs = {test_id: compute_cdf(values, bins=cdf_bins, test_id=test_id) for test_id, values in training_histogram.items()}    
-    
-    # Fake Calibration Pvalues
-    fake_calibration_pvalues = calculate_pvals_from_cdf(real_population_cdfs, fake_calibration_histogram, DataType.CALIB.name, test_type)
-    fake_calibration_pvalues = np.clip(fake_calibration_pvalues, 0, 1)
 
     # Tuning Pvalues
     tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, tuning_histogram, DataType.TUNING.name, test_type)
     tuning_real_population_pvals = np.clip(tuning_real_population_pvals, 0, 1)
 
-    all_keys = list(real_population_histogram.keys())
+    keys = list(real_population_histogram.keys())
 
-    auc_scores, best_keys = AUC_tests_filter(tuning_real_population_pvals.T, fake_calibration_pvalues.T, calibration_auc_threshold)
-    save_to_csv(np.array(all_keys)[best_keys], auc_scores[best_keys], os.path.join(output_dir, 'individual_auc_scores.csv'))
-
-    fake_calibration_pvalues = fake_calibration_pvalues[:, best_keys]
-    tuning_real_population_pvals = tuning_real_population_pvals[:, best_keys]
     tuning_pvalue_distributions = tuning_real_population_pvals.T
-    fake_calibration_pvalue_distributions = fake_calibration_pvalues.T
-    keys = [all_keys[i] for i in best_keys]
-
-    # for key in keys:
-    #     real_histogram = real_population_histogram[key]
-    #     fake_histogram = fake_population_histogram[key]
-    #     plot_pvalue_histograms(
-    #         real_histogram,
-    #         fake_histogram,
-    #         f'histograms_stats/self_patch/COCO_LEAKAGE_BEST/{key}.png',
-    #         title=f"Real and Fake Histogram - {key}",
-    #         xlabel='statistic values'
-    #     )
-    
-    if len(best_keys) == 0:
-        raise ValueError(f"Fake Calibration Step Error: No individual statistics found with AUC above {calibration_auc_threshold}")
-
+ 
     if uniform_sanity_check:
         # Ignore non uniform distributions
         keys, tuning_real_population_pvals = ks_uniform_sanity_check(
@@ -315,23 +280,12 @@ def main_multiple_patch_test(
         chi2_p_matrix=chi2_p_matrix,
         pvals_matrix=tuning_pvalue_distributions,
         ensemble_test=ensemble_test,
-        fake_pvals_matrix=fake_calibration_pvalue_distributions,
+        fake_pvals_matrix=None,
         ks_pvalue_abs_threshold=ks_pvalue_abs_threshold,
         minimal_p_threshold=minimal_p_threshold
     )
     
     print(f'Relexation largest clique approximation: {largest_independent_clique_size_approximation}')
-
-    # # Find the Largest Optimal Independent Group using the best p_threshold Fine-tune
-    # independent_keys_group, best_results, optimization_roc = finding_optimal_independent_subgroup(
-    #     keys=keys,
-    #     chi2_p_matrix=chi2_p_matrix,
-    #     pvals_matrix=tuning_pvalue_distributions,
-    #     ensemble_test=ensemble_test,
-    #     n_trials=n_trials,
-    # )
-
-    # plot_ks_vs_pthreshold(optimization_roc["thresholds"], optimization_roc["ks_pvalues"], output_dir=output_dir)
 
     if logger:
         logger.log_param("num_tests", len(real_population_histogram.keys()))
@@ -599,7 +553,6 @@ def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pval
         'thresholds': [],
         'ks_pvalues': [],
         'num_tests': [],
-        'auc_scores': []
     }
 
     # Find all cliques at the current threshold
@@ -612,15 +565,9 @@ def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pval
         independent_indices = [keys.index(key) for key in independent_keys_group]
 
         independent_pvals = pvals_matrix[independent_indices].T
-        fake_pvals = fake_pvals_matrix[independent_indices].T
 
         # Perform ensemble testing
         ensembled_stats, ensembled_pvals = perform_ensemble_testing(independent_pvals, ensemble_test)
-        fake_ensembled_stats, fake_ensembled_pvals = perform_ensemble_testing(fake_pvals, ensemble_test)
-
-        # Calculate AUC scores
-        auc_scores, _ = AUC_tests_filter(ensembled_pvals[np.newaxis, :], fake_ensembled_pvals[np.newaxis, :], auc_threshold=0.0)
-        auc = auc_scores.squeeze()
 
         # Perform KS test
         _, ks_pvalue = kstest(ensembled_stats, 'norm', args=(0, 1))  # mean=0, std=1
@@ -630,7 +577,6 @@ def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pval
             optimization_data['thresholds'].append(minimal_p_threshold)
             optimization_data['ks_pvalues'].append(ks_pvalue)
             optimization_data['num_tests'].append(num_independent_tests)
-            optimization_data['auc_scores'].append(auc)
 
             # if not best_group or aux > best_results['best_AUC']:
             if not best_group or num_independent_tests > best_results['best_N']:
@@ -640,7 +586,6 @@ def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pval
                     'best_KS': ks_pvalue,
                     'best_N': num_independent_tests,
                     'best_alpha_threshold': minimal_p_threshold,
-                    'best_AUC': auc
                 }
 
     if not best_group:

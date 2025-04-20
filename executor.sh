@@ -52,7 +52,7 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
             --ks_pvalue_abs_threshold 0.4 \
             --minimal_p_threshold 0.1 \
             --run_id "run_$TIMESTAMP" \
-            --experiment_id "RIGID - stouffer test only" \
+            --experiment_id "R minp - Experiments I" \
             --gpu 3 \
             $CONFIG
 

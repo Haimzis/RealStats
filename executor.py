@@ -91,7 +91,7 @@ def main():
 
         results = main_multiple_patch_test(
             real_population_dataset=real_population_dataset,
-            fake_population_dataset=fake_population_dataset,
+            fake_population_dataset=None,
             inference_dataset=inference_dataset,
             test_labels=labels,
             batch_size=args.batch_size,
