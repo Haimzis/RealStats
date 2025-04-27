@@ -1,6 +1,6 @@
 import itertools
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import re
 import numpy as np
 from tqdm import tqdm
@@ -178,7 +178,7 @@ def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_wo
     """Preprocess the dataset for specific combinations in parallel."""
     results = {}
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_combination = {
             executor.submit(preprocess_wave, SelfPatchDataset(original_dataset, comb['patch_size']),
                             batch_size, comb['wavelet'], comb['level'], num_data_workers, comb['patch_size'], pkl_dir, save_pkl, data_type): comb
@@ -321,7 +321,8 @@ def main_multiple_patch_test(
     plot_pvalue_histograms_from_arrays(
         np.array([p for p, l in zip(independent_tests_pvalues, test_labels) if l == 0]),
         np.array([p for p, l in zip(independent_tests_pvalues, test_labels) if l == 1]),
-        os.path.join(output_dir, "inference_stat")
+        os.path.join(output_dir, "inference_stat"),
+        independent_keys_group
         )
     
     if save_histograms and test_labels:
@@ -578,7 +579,6 @@ def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pval
             optimization_data['ks_pvalues'].append(ks_pvalue)
             optimization_data['num_tests'].append(num_independent_tests)
 
-            # if not best_group or aux > best_results['best_AUC']:
             if not best_group or num_independent_tests > best_results['best_N']:
 
                 best_group = independent_keys_group
@@ -591,7 +591,7 @@ def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pval
     if not best_group:
         raise ValueError(f"No valid groups found within the KS p-value range of {0.5 - ks_pvalue_abs_threshold} to {0.5 + ks_pvalue_abs_threshold}")
 
-    print(f"Best State: p_threshold: {best_results['best_alpha_threshold']}, KS Pvalue: {best_results['best_KS']}, Num Tests: {best_results['best_N']}, Max AUC: {best_results['best_AUC']}")
+    print(f"Best State: p_threshold: {best_results['best_alpha_threshold']}, KS Pvalue: {best_results['best_KS']}, Num Tests: {best_results['best_N']}")
     print(f"Independent Keys Group: {best_group}")
 
     return best_group, best_results, optimization_data

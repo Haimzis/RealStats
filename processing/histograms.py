@@ -42,6 +42,7 @@ class BaseHistogram:
             images = images.view(B * P, *images.shape[2:]) # Cross batches
             images = images.to(self.device)
             histograms = self.preprocess(images)
+            torch.cuda.empty_cache()
             histograms = histograms.reshape(B, P)
             all_histograms.append(histograms)
         return np.concatenate(all_histograms, axis=0)

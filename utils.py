@@ -770,7 +770,8 @@ def compute_mean_std_dict(input_dict):
 def plot_pvalue_histograms_from_arrays(
     real_pvals_array, 
     inference_pvals_array, 
-    artifact_path
+    artifact_path,
+    keys
 ):
     """
     Plots p-value histograms for each test using plot_pvalue_histograms."
@@ -782,14 +783,14 @@ def plot_pvalue_histograms_from_arrays(
     for t in range(T):
         real_pvals = real_pvals_array[:, t]
         inf_pvals = inference_pvals_array[:, t]
-
-        output_file = f"{artifact_path}_test_{t}"
+        corrected_name = keys[t].replace(" ", "_").replace(".", "_").replace("=", "-")
+        output_file = f"{artifact_path}_test_{corrected_name}"
 
         plot_pvalue_histograms(
             real_pvals,
             inf_pvals,
             output_file,
-            title=f"Histogram of P-values - Test {t}"
+            title=f"Histogram of P-values - Test {corrected_name}"
         )
 
 def build_backbones_statistics_list(models, noise_levels, prefix="RIGID"):

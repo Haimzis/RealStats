@@ -31,29 +31,25 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
 
         python executor.py \
             --test_type multiple_patches \
-            --batch_size 64 \
-            --sample_size 256 \
+            --batch_size 16 \
+            --sample_size 512 \
             --threshold 0.05 \
             --save_histograms 1 \
-            --ensemble_test manual-stouffer \
+            --ensemble_test minp \
             --save_independence_heatmaps 1 \
             --uniform_sanity_check 0 \
             --output_dir "$LOGS_DIR" \
             --pkls_dir rigid_pkls \
             --num_samples_per_class -1 \
             --num_data_workers 4 \
-            --max_workers 1 \
-            --seed 42 \
+            --max_workers 2 \
             --wavelet_levels 0 \
-            --cdf_bins 2000 \
-            --n_trials 75 \
-            --uniform_p_threshold 0.05 \
-            --calibration_auc_threshold 0.5 \
-            --ks_pvalue_abs_threshold 0.4 \
+            --cdf_bins 400 \
+            --ks_pvalue_abs_threshold 0.5 \
             --minimal_p_threshold 0.1 \
             --run_id "run_$TIMESTAMP" \
-            --experiment_id "R minp - Experiments I" \
-            --gpu 3 \
+            --experiment_id "R minp_no_ks - Experiments I" \
+            --gpu "1,2,3" \
             $CONFIG
 
         echo "Run $((i + 1)) complete."
