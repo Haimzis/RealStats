@@ -20,14 +20,19 @@ class BaseHistogram:
             return torch.device("cpu")
 
         max_bytes = max(max_memory_gb * 1024 ** 3, max_memory_gb)
-        free_gpus = []
+        best_gpu = None
+        best_free_mem = -1
+
         for i in range(torch.cuda.device_count()):
             free_mem, _ = torch.cuda.mem_get_info(i)
-            if max_memory_gb == -1 or free_mem > (torch.cuda.get_device_properties(i).total_memory - max_bytes):
-                free_gpus.append(i)
-        
-        if free_gpus:
-            return torch.device(f"cuda:{random.choice(free_gpus)}")
+            total_mem = torch.cuda.get_device_properties(i).total_memory
+            if max_memory_gb == -1 or free_mem > (total_mem - max_bytes):
+                if free_mem > best_free_mem:
+                    best_gpu = i
+                    best_free_mem = free_mem
+
+        if best_gpu is not None:
+            return torch.device(f"cuda:{best_gpu}")
         return torch.device("cpu")
 
     def preprocess(self, image_batch):

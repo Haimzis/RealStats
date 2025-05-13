@@ -44,7 +44,7 @@ parser.add_argument('--gpu', type=str, default='0', help='GPU device(s) to use, 
 parser.add_argument('--run_id', type=str, required=True, help='Unique identifier for this MLflow run.')
 parser.add_argument('--experiment_id', type=str, required=True, help='Name or ID of the MLflow experiment.')
 args = parser.parse_args()
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3" # args.gpu
+os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
 
 def main():
@@ -117,7 +117,8 @@ def main():
             ks_pvalue_abs_threshold=args.ks_pvalue_abs_threshold,
             minimal_p_threshold=args.minimal_p_threshold,
             test_type=TestType.BOTH,
-            logger=mlflow
+            logger=mlflow,
+            seed=args.seed
         )
 
         results['labels'] = labels

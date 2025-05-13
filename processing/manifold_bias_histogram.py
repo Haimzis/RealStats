@@ -12,7 +12,7 @@ def clip_preprocess(img_t, siz, do_resize=False):
     """
     Converts VAE-decoded images to [0,1] and ensures compatibility with CLIP input.
     """
-    if do_resize:
+    if img_t.shape[-1] and do_resize != siz:
         img_t = F.resize(img_t, [siz, siz])  # Resize to target size if needed
 
     # ✅ Convert from [-float,float] → [0,1]
@@ -73,7 +73,7 @@ def load_sdv14_criterion_functionalities(device):
 class LatentNoiseCriterion(BaseHistogram):
     """Computes noise-based criteria in latent space using Stable Diffusion and CLIP."""
 
-    def __init__(self, device="cuda", num_noise=16, epsilon_reg=1e-6, siz=256, time_frac=0.1):
+    def __init__(self, device="cuda", num_noise=8, epsilon_reg=1e-6, siz=512, time_frac=0.01):
         """
         Initialize the latent noise criterion class.
 
@@ -116,46 +116,50 @@ class LatentNoiseCriterion(BaseHistogram):
         :return: List of dictionaries with computed statistics.
         """
         num_images = len(images_raw)
+        outputs = []
 
-        # Step 1: Preprocess Images
-        images = self.preprocess_images(images_raw)
+        for i in range(num_images):
+            # Step 1: Preprocess Images
+            image_raw = images_raw[i].unsqueeze(0)  # Add batch dimension
+            # image_raw = F.resize(image_raw, [self.siz, self.siz])
+            images = self.preprocess_images(image_raw)
 
-        # Step 2: Encode Text Prompts
-        text_emb = self.encode_text(prompts_list, num_images)
+            # Step 2: Encode Text Prompts
+            text_emb = self.encode_text(prompts_list, len(image_raw))
 
-        # Step 3: Encode Images into Latent Space
-        latents = self.encode_latents(images)
+            # Step 3: Encode Images into Latent Space
+            latents = self.encode_latents(images)
 
-        # Step 4: Generate and Apply Spherical Noise
-        spherical_noise = self.generate_spherical_noise(latents)
-        noisy_latents, timestep = self.add_noise_to_latents(latents, spherical_noise, self.time_frac)
+            # Step 4: Generate and Apply Spherical Noise
+            spherical_noise = self.generate_spherical_noise(latents)
+            noisy_latents, timestep = self.add_noise_to_latents(latents, spherical_noise, self.time_frac)
 
-        # Step 5: Predict Noise using UNet
-        noise_pred = self.predict_noise(noisy_latents, timestep, text_emb)
+            # Step 5: Predict Noise using UNet
+            noise_pred = self.predict_noise(noisy_latents, timestep, text_emb)
 
-        # Step 6: Decode Images from Latents
-        decoded_noise = self.decode_latents(noise_pred)
-        decoded_spherical_noise = self.decode_latents(spherical_noise)
+            # Step 6: Decode Images from Latents
+            decoded_noise = self.decode_latents(noise_pred)
+            decoded_spherical_noise = self.decode_latents(spherical_noise)
 
-        # Step 6.5: Fix values: 
-        decoded_noise_fixed = clip_preprocess(decoded_noise, siz=self.siz)
-        decoded_spherical_noise_fixed = clip_preprocess(decoded_spherical_noise, siz=self.siz)
+            # Step 6.5: Fix values: 
+            decoded_noise_fixed = clip_preprocess(decoded_noise, siz=self.siz, do_resize=True)
+            decoded_spherical_noise_fixed = clip_preprocess(decoded_spherical_noise, siz=self.siz, do_resize=True)
 
-        # Step 7: Compute CLIP Similarities
-        img_clip = self.compute_clip_embeddings(images_raw)
-        img_d_clip = self.compute_clip_embeddings(decoded_noise_fixed)
-        img_s_clip = self.compute_clip_embeddings(decoded_spherical_noise_fixed)
+            # Step 7: Compute CLIP Similarities
+            img_clip = self.compute_clip_embeddings(image_raw)
+            img_d_clip = self.compute_clip_embeddings(decoded_noise_fixed)
+            img_s_clip = self.compute_clip_embeddings(decoded_spherical_noise_fixed)
 
-        # Step 8: Compute Statistics & Criterion
-        stats = self.compute_statistics(img_clip, img_d_clip, img_s_clip)
-        criterion = self.compute_criterion(stats)
+            # Step 8: Compute Statistics & Criterion
+            stats = self.compute_statistics(img_clip, img_d_clip, img_s_clip)
+            criterion = self.compute_criterion(stats)
 
-        # Step 9: Return Results
-        result = {"criterion": float(criterion)}
-        if return_terms:
-            result.update(stats)
-
-        return criterion
+            # Step 9: Return Results
+            result = {"criterion": float(criterion)}
+            if return_terms:
+                result.update(stats)
+            outputs.append(criterion)
+        return np.array(outputs)
 
     ### **Helper Functions for Each Step**
     def preprocess_images(self, image_batch):
@@ -178,7 +182,7 @@ class LatentNoiseCriterion(BaseHistogram):
     def encode_latents(self, images):
         """ Encode images into latent space using VAE. """
         with torch.no_grad():
-            latents = self.vae.encode(images).latent_dist.sample().to(dtype=torch.float16)
+            latents = self.vae.encode(images).latent_dist.sample()
             latents *= self.vae.config.scaling_factor
         return latents.repeat_interleave(self.num_noise, dim=0).half()
 
@@ -193,7 +197,7 @@ class LatentNoiseCriterion(BaseHistogram):
 
     def add_noise_to_latents(self, latents, spherical_noise, time_frac):
         """ Add noise to latents using the diffusion scheduler. """
-        timestep = int(time_frac * self.scheduler.config.num_train_timesteps)
+        timestep = time_frac * self.scheduler.config.num_train_timesteps
         timestep_tensor = torch.full((latents.shape[0],), timestep, device=self.device, dtype=torch.long)
         return self.scheduler.add_noise(original_samples=latents, noise=spherical_noise, timesteps=timestep_tensor).half(), timestep_tensor
 
@@ -201,20 +205,19 @@ class LatentNoiseCriterion(BaseHistogram):
         """ Predict noise using UNet model. """
         with torch.no_grad():
             noise_pred = self.unet(noisy_latents, timestep, encoder_hidden_states=text_emb)[0]
-        return noise_pred / self.vae.config.scaling_factor
+        return 1 / self.vae.config.scaling_factor * noise_pred
 
     def decode_latents(self, latents, sub_batch_size=16):
         """ Decode latent vectors into images. """
         num_samples = latents.shape[0]
 
-        if num_samples <= sub_batch_size:
+        if num_samples <= sub_batch_size and False:
             return self.vae.decode(latents, return_dict=False)[0]
-
-        decoded_list = []
-        for i in range(0, num_samples, sub_batch_size):
-            batch = latents[i:i+sub_batch_size]
-            torch.cuda.empty_cache()
-            with torch.no_grad():
+        with torch.no_grad():
+            decoded_list = []
+            for i in range(0, num_samples, sub_batch_size):
+                batch = latents[i:i+sub_batch_size]
+                torch.cuda.empty_cache()
                 decoded_list.append(self.vae.decode(batch, return_dict=False)[0])
 
         return torch.cat(decoded_list, dim=0)

@@ -1,3 +1,4 @@
+import os
 import random
 import json
 import argparse
@@ -15,15 +16,30 @@ dataset_types = [
     'COCO_SYNTH_MIDJOURNEY_V5_TEST_ONLY', 'COCO_STABLE_DIFFUSION_2_TEST_ONLY'
 ]
 
-models = ['DINO', 'BEIT', 'CLIP', 'DEIT', 'RESNET']
-noise_levels = ['01', '05', '10', '50', '75', '100']
+# models = ['DINO', 'BEIT', 'CLIP', 'DEIT', 'RESNET']
+# noise_levels = ['01', '05', '10', '50', '75', '100']
 
-waves_choices = build_backbones_statistics_list(models, noise_levels)
-patch_divisors_choices = ["0 1", "0 1", "0", "0", "0"]
-chi2_bins_choices = [5, 10]
+models_1 = ['DINO', 'CLIP']
+noise_levels_1 = ['01', '05', '75', '100']
+
+models_2 = ['RESNET']
+noise_levels_2 = ['50', '75', '100']
+
+models_3 = ['BEIT']
+noise_levels_3 = ['01', '05', '10']
+
+waves_choices = []
+waves_choices += build_backbones_statistics_list(models_1, noise_levels_1)
+waves_choices += build_backbones_statistics_list(models_2, noise_levels_2)
+waves_choices += build_backbones_statistics_list(models_3, noise_levels_3)
+
+# patch_divisors_choices = ["0 1", "0 1", "0", "0", "0"]
+patch_divisors_choices = ["0 1"]
+chi2_bins_choices = [10]
+statistic_ensemble = "minp"  # minp
 
 N = 100
-RUNS_PER_CONFIG = 5  # generate each config with 5 different seeds
+RUNS_PER_CONFIG = 10  # generate each config with 5 different seeds
 
 def generate_configurations(num_configs, runs_per_config):
     configs = []
@@ -32,13 +48,14 @@ def generate_configurations(num_configs, runs_per_config):
     # Force each dataset_type to appear at least once
     for dataset_type in dataset_types:
         finetune_portion = random.choice(finetune_portion_range)
-        waves = random.sample(waves_choices, 15)
+        waves = waves_choices
         patch_divisors = random.choice(patch_divisors_choices)
         chi2_bins = random.choice(chi2_bins_choices)
 
         base_config = (
             f"--finetune_portion {finetune_portion} "
             f"--waves {' '.join(waves)} "
+            f"--ensemble_test {statistic_ensemble} "
             f"--patch_divisors {patch_divisors} "
             f"--chi2_bins {chi2_bins} "
             f"--dataset_type {dataset_type}"
@@ -51,27 +68,27 @@ def generate_configurations(num_configs, runs_per_config):
 
         used_dataset_types.add(dataset_type)
 
-    # Fill the rest randomly if needed
-    remaining_configs = num_configs - len(dataset_types)
-    for _ in range(remaining_configs):
-        dataset_type = random.choice(dataset_types)
-        finetune_portion = random.choice(finetune_portion_range)
-        waves = random.sample(waves_choices, 15)
-        patch_divisors = random.choice(patch_divisors_choices)
-        chi2_bins = random.choice(chi2_bins_choices)
+    # # Fill the rest randomly if needed
+    # remaining_configs = num_configs - len(dataset_types)
+    # for _ in range(remaining_configs):
+    #     dataset_type = random.choice(dataset_types)
+    #     finetune_portion = random.choice(finetune_portion_range)
+    #     waves = random.sample(waves_choices, 15)
+    #     patch_divisors = random.choice(patch_divisors_choices)
+    #     chi2_bins = random.choice(chi2_bins_choices)
 
-        base_config = (
-            f"--finetune_portion {finetune_portion} "
-            f"--waves {' '.join(waves)} "
-            f"--patch_divisors {patch_divisors} "
-            f"--chi2_bins {chi2_bins} "
-            f"--dataset_type {dataset_type}"
-        )
+    #     base_config = (
+    #         f"--finetune_portion {finetune_portion} "
+    #         f"--waves {' '.join(waves)} "
+    #         f"--patch_divisors {patch_divisors} "
+    #         f"--chi2_bins {chi2_bins} "
+    #         f"--dataset_type {dataset_type}"
+    #     )
 
-        for _ in range(runs_per_config):
-            seed = random.randint(0, 100000)
-            full_config = f"{base_config} --seed {seed}"
-            configs.append(full_config)
+    #     for _ in range(runs_per_config):
+    #         seed = random.randint(0, 100000)
+    #         full_config = f"{base_config} --seed {seed}"
+    #         configs.append(full_config)
 
     return configs
 
@@ -82,7 +99,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     configs = generate_configurations(N, RUNS_PER_CONFIG)
-    with open(args.configname, "w") as f:
+    with open(os.path.join('configs', args.configname), "w") as f:
         json.dump(configs, f, indent=2)
 
     print(f"Generated {len(configs)} configurations and saved to {args.configname}")

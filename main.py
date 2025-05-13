@@ -9,7 +9,7 @@ from data_utils import ImageDataset, create_inference_dataset
 from torchvision import transforms
 from utils import build_backbones_statistics_list, plot_roc_curve, set_seed
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2,3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
 
 # Argument parser
 parser = argparse.ArgumentParser(description='Wavelet and Patch Testing Pipeline')
@@ -18,7 +18,7 @@ parser.add_argument('--batch_size', type=int, default=8, help='Batch size for da
 parser.add_argument('--sample_size', type=int, default=512, help='Sample input size after downscale')
 parser.add_argument('--threshold', type=float, default=0.05, help='P-value threshold for significance testing')
 parser.add_argument('--save_histograms', type=int, choices=[0, 1], default=1, help='Flag to save KDE plots for real and fake p-values (1 for True, 0 for False)')
-parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm', 'minp'], default='manual-stouffer', help='Type of ensemble test to perform')
+parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm', 'minp'], default='minp', help='Type of ensemble test to perform')
 parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=1, help='Flag to save independence test heatmaps (1 for True, 0 for False)')
 parser.add_argument('--dataset_type', type=str, default='COCO_STABLE_DIFFUSION_2_768', choices=[e.name for e in DatasetType], help='Type of dataset to use (CelebA, ProGan, COCO_LEAKAGE, COCO, COCO_ALL, PROGAN_FACES_BUT_CELEBA_AS_TRAIN)')
 parser.add_argument('--output_dir', type=str, default='logs', help='Path where to save artifacts')
@@ -26,7 +26,7 @@ parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/rigid_p
 parser.add_argument('--num_samples_per_class', type=int, default=-1, help='Number of samples per class for inference dataset')
 parser.add_argument('--num_data_workers', type=int, default=4, help='Number of workers for data loading')
 parser.add_argument('--max_wave_level', type=int, default=4, help='Maximum number of levels in DWT')
-parser.add_argument('--max_workers', type=int, default=4, help='Maximum number of threads for parallel processing')
+parser.add_argument('--max_workers', type=int, default=10, help='Maximum number of threads for parallel processing')
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
 args = parser.parse_args()
 
@@ -117,7 +117,8 @@ def main():
             calibration_auc_threshold=0.4,
             ks_pvalue_abs_threshold=0.4,
             minimal_p_threshold=0.01,
-            test_type=TestType.BOTH
+            test_type=TestType.BOTH,
+            seed=args.seed
         )
 
     results['labels'] = labels

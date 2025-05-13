@@ -25,6 +25,7 @@ from utils import (
     plot_binned_histogram,
     plot_histograms,
     save_to_csv,
+    set_seed,
     split_population_histogram,
     plot_cdf,
     compute_dist_cdf,
@@ -51,16 +52,17 @@ class TestType(Enum):
     BOTH = "both"
     
 
-def get_unique_id(patch_size, level, wave, data_type: DataType):
+def get_unique_id(patch_size, level, wave, data_type: DataType, seed=42):
     """Generate a unique ID for processing."""
-    return f"PatchProcessing_wavelet={wave}_level={level}_patch_size={patch_size}_{data_type.value}"
+    return f"PatchProcessing_wavelet={wave}_level={level}_patch_size={patch_size}_{data_type.value}_seed={seed}"
 
 
-def preprocess_wave(dataset, batch_size, wavelet, wavelet_level, num_data_workers, patch_size, pkl_dir, save_pkl, data_type: DataType):
+def preprocess_wave(dataset, batch_size, wavelet, wavelet_level, num_data_workers, patch_size, pkl_dir, save_pkl, data_type: DataType, seed=42):
     """Preprocess the dataset for a single wave level and wavelet type using various histogram statistics."""
-    
+    set_seed(seed)
+
     # Generate unique filename for saving results
-    pkl_filename = os.path.join(pkl_dir, f"{get_unique_id(patch_size, wavelet_level, wavelet, data_type)}.pkl")
+    pkl_filename = os.path.join(pkl_dir, f"{get_unique_id(patch_size, wavelet_level, wavelet, data_type, seed)}.pkl")
 
     # If not test data and file already exists, load cached histograms
     if data_type != DataType.TEST and os.path.exists(pkl_filename):
@@ -174,14 +176,14 @@ def interpret_keys_to_combinations(independent_keys_group):
     return combinations
 
 
-def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_workers, num_data_workers, pkl_dir='pkls', save_pkl=False, data_type: DataType = DataType.TRAIN, sort=True):
+def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_workers, num_data_workers, pkl_dir='pkls', save_pkl=False, data_type: DataType = DataType.TRAIN, sort=True, seed=42):
     """Preprocess the dataset for specific combinations in parallel."""
     results = {}
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_combination = {
             executor.submit(preprocess_wave, SelfPatchDataset(original_dataset, comb['patch_size']),
-                            batch_size, comb['wavelet'], comb['level'], num_data_workers, comb['patch_size'], pkl_dir, save_pkl, data_type): comb
+                            batch_size, comb['wavelet'], comb['level'], num_data_workers, comb['patch_size'], pkl_dir, save_pkl, data_type, seed): comb
             for comb in combinations
         }
 
@@ -231,6 +233,7 @@ def main_multiple_patch_test(
     test_type=TestType.LEFT,
     minimal_p_threshold=0.05,
     logger=None,
+    seed=42
 ):
     """Run test for number of patches and collect sensitivity and specificity results."""
     print(f"Running test with: \npatches sizes: {patch_sizes}\nwavelets: {waves}\nlevels: {wavelet_levels}")
@@ -240,7 +243,7 @@ def main_multiple_patch_test(
 
     # Load or compute real population histograms
     real_population_histogram = patch_parallel_preprocess(
-        real_population_dataset, batch_size, training_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=False, data_type=DataType.TRAIN
+        real_population_dataset, batch_size, training_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, data_type=DataType.TRAIN, seed=seed
     )
 
     real_population_histogram = compute_mean_std_dict(real_population_histogram)
@@ -302,7 +305,7 @@ def main_multiple_patch_test(
 
     # Inference
     inference_histogram = patch_parallel_preprocess(
-        inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=False, data_type=DataType.TEST
+        inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, data_type=DataType.TEST, seed=seed
     )
 
     inference_histogram = compute_mean_std_dict(inference_histogram)
@@ -387,7 +390,7 @@ def perform_ensemble_testing(pvalues, ensemble_test, output_dir='logs', plot=Fal
         n = pvalues.shape[1]
         # Aggregate p-values using the CDF of the min of n uniform(0,1) variables
         aggregated_pvals = 1 - (1 - min_pvals) ** n
-        return norm.ppf(min_pvals), aggregated_pvals
+        return norm.ppf(aggregated_pvals), aggregated_pvals
     else:
         raise ValueError(f"Invalid ensemble test: {ensemble_test}")
     
