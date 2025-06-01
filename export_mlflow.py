@@ -57,8 +57,13 @@ def export_auc_per_dataset(
         final_df = processed[columns_to_export]
 
     elif aggregation == AggregationStrategy.AVERAGE:
-        numeric_cols = runs.select_dtypes(include=[np.number]).columns
-        agg = grouped[numeric_cols].agg(['mean', 'std'])
+        top_k = 10
+
+        # Keep only top K runs per group based on AUC
+        top_runs = grouped.apply(lambda x: x.sort_values(by="auc", ascending=False).head(top_k)).reset_index(drop=True)
+
+        numeric_cols = top_runs.select_dtypes(include=[np.number]).columns
+        agg = top_runs.groupby(group_key)[numeric_cols].agg(['mean', 'std'])
 
         # Flatten MultiIndex columns
         agg.columns = [f"{col}_{stat}" for col, stat in agg.columns]
@@ -67,8 +72,8 @@ def export_auc_per_dataset(
         # Bring in first categorical columns (excluding the group key)
         non_numeric_cols = [col for col in columns_to_export if col not in numeric_cols and col != group_key]
         for col in non_numeric_cols:
-            if col in runs.columns:
-                first_values = grouped[col].first().reset_index()
+            if col in top_runs.columns:
+                first_values = top_runs.groupby(group_key)[col].first().reset_index()
                 agg = pd.merge(agg, first_values, on=group_key, how="left")
 
         final_df = agg
@@ -105,7 +110,8 @@ def export_auc_per_dataset(
 
 if __name__ == "__main__":
     experiment_names = [
-        "R minp no patch - Experiments II",
+        "R minp patch - Experiments II - Ours",
+        "R stouffer patch - Experiments II - Ours"
     ]
 
     columns_to_export = [
@@ -128,7 +134,7 @@ if __name__ == "__main__":
         #     aggregation=AggregationStrategy.BEST,
         # )
 
-        output_csv_avg = f"experiments/experiments_summary_{safe_name}_average.csv"
+        output_csv_avg = f"experiments/csvs/experiments_summary_{safe_name}_average.csv"
         export_auc_per_dataset(
             experiment_name,
             output_csv=output_csv_avg,

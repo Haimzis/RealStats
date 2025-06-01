@@ -121,7 +121,7 @@ class LatentNoiseCriterion(BaseHistogram):
         for i in range(num_images):
             # Step 1: Preprocess Images
             image_raw = images_raw[i].unsqueeze(0)  # Add batch dimension
-            # image_raw = F.resize(image_raw, [self.siz, self.siz])
+
             images = self.preprocess_images(image_raw)
 
             # Step 2: Encode Text Prompts

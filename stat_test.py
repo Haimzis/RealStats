@@ -65,9 +65,10 @@ def preprocess_wave(dataset, batch_size, wavelet, wavelet_level, num_data_worker
     pkl_filename = os.path.join(pkl_dir, f"{get_unique_id(patch_size, wavelet_level, wavelet, data_type, seed)}.pkl")
 
     # If not test data and file already exists, load cached histograms
-    if data_type != DataType.TEST and os.path.exists(pkl_filename):
-        pass
-        # return load_population_histograms(pkl_filename)
+    # TODO: Haim's Change Uncomment this if you want to load existing histograms
+    if os.path.exists(pkl_filename):# and data_type != DataType.TEST:
+        # pass
+        return load_population_histograms(pkl_filename)
 
     # Create DataLoader for dataset
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_data_workers)
@@ -189,7 +190,7 @@ def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_wo
 
         for future in tqdm(as_completed(future_to_combination), total=len(future_to_combination), desc="Processing..."):
             combination = future_to_combination[future]
-            unique_id = get_unique_id(combination['patch_size'], combination['level'], combination['wavelet'], data_type)
+            unique_id = get_unique_id(combination['patch_size'], combination['level'], combination['wavelet'], data_type, seed)
             try:
                 results[unique_id] = future.result()
             except Exception as exc:
@@ -340,6 +341,133 @@ def main_multiple_patch_test(
         return {
             'scores': 1 - np.array(ensembled_pvalues),
             'n_tests': len(list(independent_keys_group))
+        }
+
+    # Evaluate predictions
+    if test_labels:
+        metrics = calculate_metrics(test_labels, predictions)
+        return metrics
+
+
+def inference_multiple_patch_test(
+    inference_dataset,
+    independent_statistics_keys_group,
+    test_labels=None,
+    batch_size=128,
+    threshold=0.05,
+    save_independence_heatmaps=False,
+    save_histograms=False,
+    ensemble_test='stouffer',
+    max_workers=128,
+    num_data_workers=2,
+    output_dir='logs',
+    pkl_dir='pkls',
+    return_logits=False,
+    chi2_bins=10,
+    cdf_bins=500,
+    test_type=TestType.LEFT,
+    logger=None,
+    seed=42
+):
+    """
+    Simplified version of patch test for inference: no tuning, no clique finding.
+    Uses all combinations and applies ensemble testing.
+    """
+    print(f"[INFO] Running inference-only test with waves={independent_statistics_keys_group}")
+
+    # Generate all combinations for training
+    independent_combinations = interpret_keys_to_combinations(independent_statistics_keys_group)
+
+    real_population_histogram = {}
+
+    # If not test data and file already exists, load cached histograms
+    for combination in independent_combinations:
+        wavelet = combination['wavelet']
+        wavelet_level = combination['level']
+        patch_size = combination['patch_size']
+        stat_id = get_unique_id(patch_size, wavelet_level, wavelet, DataType.TRAIN, seed)
+        pkl_filename = os.path.join(pkl_dir, f"{stat_id}.pkl")
+        
+        assert os.path.exists(pkl_filename), "File not found. Please run full pipeline."
+        real_population_histogram[stat_id] = load_population_histograms(pkl_filename)
+    
+        real_population_histogram = {k.replace(f"_{DataType.TRAIN.value}", ""): v for k, v in real_population_histogram.items()}
+
+    # Load or compute real population histograms
+    real_population_histogram = compute_mean_std_dict(real_population_histogram)
+    real_population_histogram = remove_nans_from_tests(real_population_histogram)
+
+    real_population_histogram = {k: v for k, v in real_population_histogram.items() if k in independent_statistics_keys_group}
+
+    # Spliting 
+    # tuning_histogram, training_histogram = split_population_histogram(real_population_histogram, portion)
+    tuning_histogram, training_histogram = real_population_histogram, real_population_histogram
+    
+    # CDF creation
+    real_population_cdfs = {test_id: compute_cdf(values, bins=cdf_bins, test_id=test_id) for test_id, values in training_histogram.items()}    
+
+    # Tuning Pvalues
+    tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, tuning_histogram, DataType.TUNING.name, test_type)
+    tuning_real_population_pvals = np.clip(tuning_real_population_pvals, 0, 1)
+
+    keys = list(real_population_histogram.keys())
+    keys = [k.replace(f"_{DataType.TRAIN}", "") for k in keys]
+
+    tuning_pvalue_distributions = tuning_real_population_pvals.T
+
+    # Chi-Square and Correlation Matrix Computation
+    chi2_p_matrix, corr_matrix = compute_chi2_and_corr_matrix(
+        keys, tuning_pvalue_distributions, max_workers=max_workers,
+        plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir, bins=chi2_bins
+    )
+    
+    largest_independent_clique_size_approximation = len(find_largest_independent_group(keys, chi2_p_matrix, 0.05))
+    
+    print(f'Relexation largest clique approximation: {largest_independent_clique_size_approximation}')
+
+    if logger:
+        logger.log_param("num_tests", len(real_population_histogram.keys()))
+        logger.log_param("Independent keys", independent_statistics_keys_group)
+        logger.log_metric("largest_independent_clique_size_approximation", largest_independent_clique_size_approximation)
+
+    independent_keys_group_indices = [keys.index(value) for value in independent_statistics_keys_group]
+    tuning_independent_pvals = tuning_pvalue_distributions[independent_keys_group_indices].T
+    perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)    
+    
+    # Inference
+    inference_histogram = patch_parallel_preprocess(
+        inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, data_type=DataType.TEST, seed=seed
+    )
+
+    inference_histogram = compute_mean_std_dict(inference_histogram)
+    inference_histogram = {k: v for k, v in inference_histogram.items() if k in independent_statistics_keys_group}
+
+    input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, DataType.TEST.name, test_type)
+    independent_tests_pvalues = np.array(input_samples_pvalues)
+    independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
+
+    ensembled_stats, ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
+    predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
+
+    plot_pvalue_histograms_from_arrays(
+        np.array([p for p, l in zip(independent_tests_pvalues, test_labels) if l == 0]),
+        np.array([p for p, l in zip(independent_tests_pvalues, test_labels) if l == 1]),
+        os.path.join(output_dir, "inference_stat"),
+        independent_statistics_keys_group
+        )
+    
+    if save_histograms and test_labels:
+        plot_pvalue_histograms(
+            [p for p, l in zip(ensembled_pvalues, test_labels) if l == 0],
+            [p for p, l in zip(ensembled_pvalues, test_labels) if l == 1],
+            os.path.join(output_dir, f"histogram_plot_{ensemble_test}_alpha_{threshold}.png"),
+            "Histogram of P-values"
+        )
+    
+    if return_logits:
+        return {
+            'scores': 1 - np.array(ensembled_pvalues),
+            'n_tests': len(list(independent_statistics_keys_group))
         }
 
     # Evaluate predictions

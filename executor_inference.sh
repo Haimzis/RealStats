@@ -29,25 +29,13 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
         echo "Starting run $((i + 1))..."
         echo "Command: python executor.py $CONFIG"
 
-        python executor.py \
-            --test_type multiple_patches \
-            --batch_size 8 \
-            --sample_size 512 \
-            --threshold 0.05 \
-            --save_histograms 1 \
-            --save_independence_heatmaps 1 \
-            --uniform_sanity_check 0 \
+        python executor_inference.py \
+            --ensemble_test "manual-stouffer" \
+            --batch_size 32 \
             --output_dir "$LOGS_DIR" \
-            --pkls_dir pkls_experiments_II \
-            --num_samples_per_class -1 \
             --num_data_workers 3 \
-            --max_workers 2 \
-            --wavelet_levels 0 \
-            --cdf_bins 400 \
-            --ks_pvalue_abs_threshold 0.4 \
-            --minimal_p_threshold 0.1 \
-            --run_id "run_$TIMESTAMP" \
-            --experiment_id "R minp patch - Experiments II - Plus ManifoldBias" \
+            --max_workers 4 \
+            --experiment_id "R stouffer no_patch - Experiments II - Ours" \
             --gpu "0,1,2,3" \
             $CONFIG
 

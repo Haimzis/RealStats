@@ -806,3 +806,92 @@ def build_backbones_statistics_list(models, noise_levels, prefix="RIGID"):
         list of str: All wave combinations like RIGID.DINO.01, RIGID.CLIP.05, ...
     """
     return [f"{prefix}.{model}.{noise}" for model in models for noise in noise_levels]
+
+
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+
+def plot_fakeness_score_distribution(results, test_id, output_dir, threshold=0.5):
+    """
+    Plot fakeness scores per sample with block-wise shuffling,
+    styled to match the current matplotlib environment configuration.
+
+    Parameters:
+    - results (dict): Must contain 'scores' (fakeness score: high=fake) and 'labels' (0=real, 1=fake).
+    - test_id (str): Unique ID for the test (used for filename).
+    - output_dir (str): Directory to save the plot.
+    - threshold (float): Score threshold for decision boundary (default 0.5).
+
+    Returns:
+    - plot_path (str): File path of the saved plot.
+    """
+    # Extract and shuffle scores per class
+    scores = np.array(results['scores'])
+    labels = np.array(results['labels'])
+
+    real_scores = np.random.permutation(scores[labels == 0])
+    fake_scores = np.random.permutation(scores[labels == 1])
+
+    real_x = np.arange(len(real_scores))
+    fake_x = np.arange(len(real_scores), len(real_scores) + len(fake_scores))
+
+    # Plot
+    plt.figure(figsize=(12, 4))
+    plt.scatter(real_x, real_scores, alpha=0.5, label='Real', s=10, color='tab:blue')
+    plt.scatter(fake_x, fake_scores, alpha=0.5, label='Fake', s=10, color='tab:orange')
+    plt.axhline(y=threshold, color='red', linestyle='--', label='Threshold')
+
+    plt.xlabel("Sample Index")
+    plt.ylabel("Fakeness Prob")
+    plt.title("Ensemble Probability per Sample (Block-Shuffled)")
+    plt.legend(loc='upper left')
+    plt.tight_layout()
+
+    # Save plot
+    os.makedirs(output_dir, exist_ok=True)
+    plot_path = os.path.join(output_dir, f"{test_id}_fakeness_score_plot.svg")
+    plt.savefig(plot_path)
+    plt.close()
+
+    print(f"[INFO] Fakeness score plot saved to: {plot_path}")
+    return plot_path
+
+
+def plot_fakeness_score_histogram(results, test_id, output_dir, threshold=0.5):
+    """
+    Plot a histogram of fakeness scores for real and fake samples
+    with consistent matplotlib styling.
+
+    Parameters:
+    - results (dict): Contains 'scores' (fakeness scores) and 'labels' (0=real, 1=fake)
+    - test_id (str): Identifier used in the filename
+    - output_dir (str): Directory to save the plot
+    - threshold (float): Threshold line to show on the plot
+    """
+    scores = np.array(results['scores'])
+    labels = np.array(results['labels'])
+
+    real_scores = scores[labels == 0]
+    fake_scores = scores[labels == 1]
+
+    # Plot
+    plt.figure(figsize=(8, 4))
+    plt.hist(real_scores, bins=50, alpha=0.6, label='Real', density=True, color='tab:blue')
+    plt.hist(fake_scores, bins=50, alpha=0.6, label='Fake', density=True, color='tab:orange')
+    plt.axvline(x=threshold, color='red', linestyle='--', label=f'significance level α = {1 - threshold:.2f}')
+
+    plt.title("Ensemble Probability Distribution")
+    plt.xlabel("Fakeness Prob")
+    plt.ylabel("Density")
+    plt.legend()
+    plt.tight_layout()
+
+    # Save
+    os.makedirs(output_dir, exist_ok=True)
+    plot_path = os.path.join(output_dir, f"{test_id}_classifier_score_histogram.svg")
+    plt.savefig(plot_path)
+    plt.close()
+
+    print(f"[INFO] Classifier score histogram saved to: {plot_path}")
+    return plot_path

@@ -11,7 +11,7 @@ from data_utils import ImageDataset, create_inference_dataset
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 parser = argparse.ArgumentParser(description='Custom Histogram and Testing Pipeline')
-parser.add_argument('--batch_size', type=int, default=1, help='Batch size for data loading')
+parser.add_argument('--batch_size', type=int, default=32, help='Batch size for data loading')
 parser.add_argument('--sample_size', type=int, default=512, help='Sample input size after downscale')
 parser.add_argument('--threshold', type=float, default=0.05, help='P-value threshold for significance testing')
 parser.add_argument('--dataset_type', type=str, default='COCO_ALL', choices=[e.name for e in DatasetType], help='Type of dataset to use')
@@ -40,7 +40,7 @@ def extract_patch_processing_args(key: str):
 
 def preprocess_and_plot():
     set_seed(args.seed)
-    patch_sizes = [args.sample_size // 2]
+    patch_sizes = [args.sample_size]
     levels = [0]
     # waves = ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier', 'dct'] + ['blurness', 'hsv', 'jpeg']
     

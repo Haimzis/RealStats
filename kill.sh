@@ -1,0 +1,1 @@
+ps aux | grep executor |  awk '{print $2}' | xargs -I {} kill {}
