@@ -1045,26 +1045,23 @@ def save_per_image_kde_and_images(
             Image.open(img_path).convert("RGB").save(img_save_path)
 
             for j, stat_key in enumerate(independent_statistics_keys_group):
-                fig, ax = plt.subplots(figsize=(4, 4))
+                fig, ax = plt.subplots(figsize=(8, 4))
 
                 # Plot histogram of reference (real) p-values
                 ax.hist(
                     tuning_real_population_pvals[:, j],
                     bins=20,
                     density=True,
-                    color="blue",
+                    color="tab:blue",
                     alpha=0.6,
-                    edgecolor="k",
                 )
 
                 # Vertical marker for current image's p-value
-                color = 'green' if label == 0 else 'red'
-                ax.axvline(pvals[j], color=color, linestyle='-', linewidth=2)
+                ax.axvline(pvals[j], color="red", linestyle="--", linewidth=2)
 
-                # Clean layout
+                # Minimal layout
                 ax.set_yticks([])
-                ax.set_ylabel("")
-                ax.set_xlabel("")
+                ax.set_xlabel("p-value")
                 ax.set_title("")
                 ax.grid(False)
                 ax.set_xlim(0, 1)
@@ -1124,17 +1121,14 @@ def save_ensembled_pvalue_kde_and_images(
                 tuning_ensembled_pvalues,
                 bins=20,
                 density=True,
-                color="blue",
+                color="tab:blue",
                 alpha=0.6,
-                edgecolor="k",
             )
 
-            color = 'green' if label == 0 else 'red'
-            ax.axvline(ensembled_pvalues[i], color=color, linestyle='-', linewidth=2)
+            ax.axvline(ensembled_pvalues[i], color="red", linestyle="--", linewidth=2)
 
             ax.set_yticks([])
-            ax.set_ylabel("")
-            ax.set_xlabel("")
+            ax.set_xlabel("p-value")
             ax.set_title("")
             ax.grid(False)
             ax.set_xlim(0, 1)
