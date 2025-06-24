@@ -20,6 +20,8 @@ from utils import (
     plot_stouffer_analysis,
     plot_uniform_and_nonuniform,
     remove_nans_from_tests,
+    save_ensembled_pvalue_kde_and_images,
+    save_per_image_kde_and_images,
     save_population_histograms,
     plot_pvalue_histograms,
     plot_binned_histogram,
@@ -158,8 +160,10 @@ def generate_combinations(patch_sizes, waves, wavelet_levels):
 
 
 def interpret_keys_to_combinations(independent_keys_group):
-    """Convert independent keys to relevant test combinations and prevent duplicates."""
-    combinations_set = set()
+    """Convert independent keys to relevant test combinations and preserve order while removing duplicates."""
+    seen = set()
+    combinations = []
+
     for key in independent_keys_group:
         match = re.match(r"PatchProcessing_wavelet=([\w.]+)_level=(\d+)_patch_size=(\d+)", key)
         if match:
@@ -169,11 +173,11 @@ def interpret_keys_to_combinations(independent_keys_group):
                 'level': int(level),
                 'patch_size': int(patch_size),
             }
-            # Convert the dictionary to a frozenset to use as a hashable type
-            combinations_set.add(frozenset(combination.items()))
-    
-    # Convert the frozensets back to dictionaries
-    combinations = [dict(comb) for comb in combinations_set]
+            key_tuple = (wavelet, int(level), int(patch_size))
+            if key_tuple not in seen:
+                seen.add(key_tuple)
+                combinations.append(combination)
+
     return combinations
 
 
@@ -391,7 +395,7 @@ def inference_multiple_patch_test(
         assert os.path.exists(pkl_filename), "File not found. Please run full pipeline."
         real_population_histogram[stat_id] = load_population_histograms(pkl_filename)
     
-        real_population_histogram = {k.replace(f"_{DataType.TRAIN.value}", ""): v for k, v in real_population_histogram.items()}
+    real_population_histogram = {k.replace(f"_{DataType.TRAIN.value}", ""): v for k, v in real_population_histogram.items()}
 
     # Load or compute real population histograms
     real_population_histogram = compute_mean_std_dict(real_population_histogram)
@@ -432,7 +436,7 @@ def inference_multiple_patch_test(
 
     independent_keys_group_indices = [keys.index(value) for value in independent_statistics_keys_group]
     tuning_independent_pvals = tuning_pvalue_distributions[independent_keys_group_indices].T
-    perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)    
+    _, tuning_ensembled_pvalues = perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)    
     
     # Inference
     inference_histogram = patch_parallel_preprocess(
@@ -440,15 +444,39 @@ def inference_multiple_patch_test(
     )
 
     inference_histogram = compute_mean_std_dict(inference_histogram)
-    inference_histogram = {k: v for k, v in inference_histogram.items() if k in independent_statistics_keys_group}
+    inference_histogram = {
+        key: inference_histogram[key] for key in independent_statistics_keys_group if key in inference_histogram
+    }
 
     input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, DataType.TEST.name, test_type)
     independent_tests_pvalues = np.array(input_samples_pvalues)
     independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
 
+    # Save per-image KDE plots and images
+    if test_labels and hasattr(inference_dataset, "image_paths"):
+        save_per_image_kde_and_images(
+            image_paths=inference_dataset.image_paths,
+            test_labels=test_labels,
+            tuning_real_population_pvals=tuning_independent_pvals,
+            input_samples_pvalues=input_samples_pvalues,
+            independent_statistics_keys_group=independent_statistics_keys_group,
+            output_dir=output_dir,
+            max_per_class=10
+        )
+
     ensembled_stats, ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
     predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
 
+    if test_labels and hasattr(inference_dataset, "image_paths"):
+        save_ensembled_pvalue_kde_and_images(
+            image_paths=inference_dataset.image_paths,
+            test_labels=test_labels,
+            ensembled_pvalues=ensembled_pvalues,
+            tuning_ensembled_pvalues=tuning_ensembled_pvalues,
+            output_dir=output_dir,
+            max_per_class=10
+        )
+        
     plot_pvalue_histograms_from_arrays(
         np.array([p for p, l in zip(independent_tests_pvalues, test_labels) if l == 0]),
         np.array([p for p, l in zip(independent_tests_pvalues, test_labels) if l == 1]),

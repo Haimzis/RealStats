@@ -38,7 +38,7 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
             --save_independence_heatmaps 1 \
             --uniform_sanity_check 0 \
             --output_dir "$LOGS_DIR" \
-            --pkls_dir pkls_experiments_II \
+            --pkls_dir pkls_experiments_II_reset_no_patch \
             --num_samples_per_class -1 \
             --num_data_workers 3 \
             --max_workers 2 \
@@ -47,8 +47,8 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
             --ks_pvalue_abs_threshold 0.4 \
             --minimal_p_threshold 0.1 \
             --run_id "run_$TIMESTAMP" \
-            --experiment_id "R minp patch - Experiments II - Plus ManifoldBias" \
-            --gpu "0,1,2,3" \
+            --experiment_id "R minp no patch - Experiments II - Plus ManifoldBias, Reset" \
+            --gpu "1" \
             $CONFIG
 
         echo "Run $((i + 1)) complete."

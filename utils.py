@@ -14,9 +14,10 @@ import os
 import seaborn as sns
 import networkx as nx
 import numpy as np
-from scipy.stats import chi2, kstest
+from scipy.stats import chi2, kstest, gaussian_kde
 from tqdm import tqdm
 from sklearn.metrics import roc_auc_score
+from PIL import Image
 
 
 def view_subgraph(subgraph, title="Subgraph Visualization", save_path='subgraph.png'):
@@ -895,3 +896,190 @@ def plot_fakeness_score_histogram(results, test_id, output_dir, threshold=0.5):
 
     print(f"[INFO] Classifier score histogram saved to: {plot_path}")
     return plot_path
+
+
+def plot_kde_with_image_markers(pvals_real, image_pvals, image_labels, figsize=(6, 6), bw=0.2):
+    """
+    Plots a KDE of the real p-value distribution and overlays image p-value markers.
+    
+    Args:
+        pvals_real (array-like): Reference real p-value distribution.
+        image_pvals (array-like): List of p-values for individual images.
+        image_labels (list of str): List of labels for each image ('real' or 'fake').
+        figsize (tuple): Size of the output figure (default: (6, 6)).
+        bw (float): Bandwidth for KDE smoothing (default: 0.2).
+    """
+    # Compute KDE
+    kde = gaussian_kde(pvals_real, bw_method=bw)
+    x_vals = np.linspace(0, 1, 1000)
+    y_vals = kde(x_vals)
+
+    # Create figure
+    plt.figure(figsize=figsize)
+    plt.plot(x_vals, y_vals, color='blue', linewidth=2)
+    plt.fill_between(x_vals, y_vals, color='blue', alpha=0.4)
+
+    # Plot vertical lines for each image
+    for pval, label in zip(image_pvals, image_labels):
+        color = 'green' if label == 'real' else 'red'
+        plt.axvline(pval, ymin=0, ymax=0.3, color=color, linestyle='--', alpha=0.8, linewidth=2)
+
+    # Clean styling
+    plt.xlabel("")
+    plt.ylabel("")
+    plt.yticks([])
+    plt.xticks(np.linspace(0, 1, 5))
+    plt.title("")
+    plt.box(False)
+    plt.grid(False)
+    plt.tight_layout()
+    plt.show()
+
+
+
+import os
+import matplotlib.pyplot as plt
+import numpy as np
+from PIL import Image
+import seaborn as sns
+
+
+def save_per_image_kde_and_images(
+    image_paths,
+    test_labels,
+    tuning_real_population_pvals,
+    input_samples_pvalues,
+    independent_statistics_keys_group,
+    output_dir,
+    max_per_class=3
+):
+    """
+    Saves KDE plots with vertical lines marking each selected image's p-value,
+    along with a copy of the image.
+
+    Args:
+        image_paths (list): List of image file paths.
+        test_labels (list): Corresponding list of labels (0 for real, 1 for fake).
+        tuning_real_population_pvals (np.ndarray): [num_samples x num_statistics] real p-values.
+        input_samples_pvalues (list of list): Per-image p-values for the statistics.
+        independent_statistics_keys_group (list): List of statistic keys in order.
+        output_dir (str): Directory to save plots.
+        max_per_class (int): Max number of images per class to plot.
+    """
+    save_dir = os.path.join(output_dir, "image_kde_markers")
+    os.makedirs(save_dir, exist_ok=True)
+
+    num_stats = len(independent_statistics_keys_group)
+    num_real_samples, stats_dim = tuning_real_population_pvals.shape
+    num_test_images = len(image_paths)
+
+    # Ensure statistics match
+    assert stats_dim == num_stats, f"Expected {num_stats} statistics, but tuning_real_population_pvals has {stats_dim}"
+    assert len(test_labels) == len(image_paths) == len(input_samples_pvalues), "Mismatch in number of test images, labels, or p-values"
+
+    for i, pvals in enumerate(input_samples_pvalues):
+        assert len(pvals) == num_stats, f"Sample {i} p-value length mismatch: expected {num_stats}, got {len(pvals)}"
+
+    label_indices = {0: [], 1: []}
+    for idx, label in enumerate(test_labels):
+        if len(label_indices[label]) < max_per_class:
+            label_indices[label].append(idx)
+
+    for label, indices in label_indices.items():
+        label_name = 'real' if label == 0 else 'fake'
+        label_dir = os.path.join(save_dir, label_name)
+        os.makedirs(label_dir, exist_ok=True)
+
+        for i in indices:
+            pvals = input_samples_pvalues[i]
+            img_path = image_paths[i]
+            img_basename = os.path.splitext(os.path.basename(img_path))[0]
+
+            # Save original image
+            img_save_path = os.path.join(label_dir, f"{img_basename}.png")
+            Image.open(img_path).convert("RGB").save(img_save_path)
+
+            for j, stat_key in enumerate(independent_statistics_keys_group):
+                fig, ax = plt.subplots(figsize=(4, 4))
+
+                # Plot KDE of reference (real) p-values
+                sns.kdeplot(tuning_real_population_pvals[:, j], fill=True, color='blue', bw_adjust=0.5, ax=ax)
+
+                # Vertical marker for current image's p-value
+                color = 'green' if label == 0 else 'red'
+                ax.axvline(pvals[j], color=color, linestyle='-', linewidth=2)
+
+                # Clean layout
+                ax.set_yticks([])
+                ax.set_ylabel("")
+                ax.set_xlabel("")
+                ax.set_title("")
+                ax.grid(False)
+                ax.set_xlim(0, 1)
+
+                stat_filename = stat_key.replace("=", "-").replace(",", "_").replace(" ", "_")
+                plot_path = os.path.join(label_dir, f"{img_basename}_{stat_filename}.png")
+                plt.tight_layout()
+                plt.savefig(plot_path, bbox_inches="tight", pad_inches=0.1)
+                plt.close()
+
+
+def save_ensembled_pvalue_kde_and_images(
+    image_paths,
+    test_labels,
+    ensembled_pvalues,
+    tuning_ensembled_pvalues,
+    output_dir,
+    max_per_class=3
+):
+    """
+    Saves KDE plots of ensembled p-values for selected real/fake images,
+    with vertical lines showing where each image falls.
+
+    Args:
+        image_paths (list): List of image file paths.
+        test_labels (list): Corresponding labels (0=real, 1=fake).
+        ensembled_pvalues (list or np.ndarray): Inference-time ensembled p-values.
+        tuning_ensembled_pvalues (np.ndarray): Reference distribution from training set.
+        output_dir (str): Directory to save output.
+        max_per_class (int): Number of images per class to save.
+    """
+    save_dir = os.path.join(output_dir, "ensemble_kde_markers")
+    os.makedirs(save_dir, exist_ok=True)
+
+    label_indices = {0: [], 1: []}
+    for idx, label in enumerate(test_labels):
+        if len(label_indices[label]) < max_per_class:
+            label_indices[label].append(idx)
+
+    for label, indices in label_indices.items():
+        label_name = 'real' if label == 0 else 'fake'
+        label_dir = os.path.join(save_dir, label_name)
+        os.makedirs(label_dir, exist_ok=True)
+
+        for i in indices:
+            img_path = image_paths[i]
+            img_basename = os.path.splitext(os.path.basename(img_path))[0]
+
+            # Save original image
+            img_save_path = os.path.join(label_dir, f"{img_basename}.png")
+            Image.open(img_path).convert("RGB").save(img_save_path)
+
+            # Plot KDE + marker
+            fig, ax = plt.subplots(figsize=(4, 4))
+            sns.kdeplot(tuning_ensembled_pvalues, fill=True, color='blue', bw_adjust=0.5, ax=ax)
+
+            color = 'green' if label == 0 else 'red'
+            ax.axvline(ensembled_pvalues[i], color=color, linestyle='-', linewidth=2)
+
+            ax.set_yticks([])
+            ax.set_ylabel("")
+            ax.set_xlabel("")
+            ax.set_title("")
+            ax.grid(False)
+            ax.set_xlim(0, 1)
+
+            plot_path = os.path.join(label_dir, f"{img_basename}_ensemble.png")
+            plt.tight_layout()
+            plt.savefig(plot_path, bbox_inches="tight", pad_inches=0.1)
+            plt.close()
