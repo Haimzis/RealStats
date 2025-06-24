@@ -1045,19 +1045,23 @@ def save_per_image_kde_and_images(
             Image.open(img_path).convert("RGB").save(img_save_path)
 
             for j, stat_key in enumerate(independent_statistics_keys_group):
-                fig, ax = plt.subplots(figsize=(4, 4))
+                fig, ax = plt.subplots(figsize=(8, 4))
 
-                # Plot KDE of reference (real) p-values
-                sns.kdeplot(tuning_real_population_pvals[:, j], fill=True, color='blue', bw_adjust=0.5, ax=ax)
+                # Plot histogram of reference (real) p-values
+                ax.hist(
+                    tuning_real_population_pvals[:, j],
+                    bins=20,
+                    density=True,
+                    color="tab:blue",
+                    alpha=0.6,
+                )
 
                 # Vertical marker for current image's p-value
-                color = 'green' if label == 0 else 'red'
-                ax.axvline(pvals[j], color=color, linestyle='-', linewidth=2)
+                ax.axvline(pvals[j], color="red", linestyle="--", linewidth=2)
 
-                # Clean layout
+                # Minimal layout
                 ax.set_yticks([])
-                ax.set_ylabel("")
-                ax.set_xlabel("")
+                ax.set_xlabel("p-value")
                 ax.set_title("")
                 ax.grid(False)
                 ax.set_xlim(0, 1)
@@ -1111,16 +1115,20 @@ def save_ensembled_pvalue_kde_and_images(
             img_save_path = os.path.join(label_dir, f"{img_basename}.png")
             Image.open(img_path).convert("RGB").save(img_save_path)
 
-            # Plot KDE + marker
-            fig, ax = plt.subplots(figsize=(4, 4))
-            sns.kdeplot(tuning_ensembled_pvalues, fill=True, color='blue', bw_adjust=0.5, ax=ax)
+            # Plot histogram + marker
+            fig, ax = plt.subplots(figsize=(8, 4))
+            ax.hist(
+                tuning_ensembled_pvalues,
+                bins=20,
+                density=True,
+                color="tab:blue",
+                alpha=0.6,
+            )
 
-            color = 'green' if label == 0 else 'red'
-            ax.axvline(ensembled_pvalues[i], color=color, linestyle='-', linewidth=2)
+            ax.axvline(ensembled_pvalues[i], color="red", linestyle="--", linewidth=2)
 
             ax.set_yticks([])
-            ax.set_ylabel("")
-            ax.set_xlabel("")
+            ax.set_xlabel("p-value")
             ax.set_title("")
             ax.grid(False)
             ax.set_xlim(0, 1)
@@ -1179,6 +1187,34 @@ def save_real_population_kde(
             stat_key.replace("=", "-")
             .replace(",", "_")
             .replace(" ", "_")
+        )
+        plot_path = os.path.join(save_dir, f"{stat_filename}.png")
+        plt.tight_layout()
+        plt.savefig(plot_path, bbox_inches="tight", pad_inches=0.1)
+        plt.close()
+
+
+def save_real_statistics_kde(statistics_dict, statistics_keys, output_dir):
+    """Save KDE plots of raw statistic distributions for each key."""
+    save_dir = os.path.join(output_dir, "real_statistics_kde")
+    os.makedirs(save_dir, exist_ok=True)
+
+    for stat_key in statistics_keys:
+        if stat_key not in statistics_dict:
+            continue
+
+        values = np.asarray(statistics_dict[stat_key])
+        fig, ax = plt.subplots(figsize=(4, 4))
+        sns.kdeplot(values, fill=True, color="blue", bw_adjust=0.5, ax=ax)
+
+        ax.set_yticks([])
+        ax.set_ylabel("")
+        ax.set_xlabel("")
+        ax.set_title("")
+        ax.grid(False)
+
+        stat_filename = (
+            stat_key.replace("=", "-").replace(",", "_").replace(" ", "_")
         )
         plot_path = os.path.join(save_dir, f"{stat_filename}.png")
         plt.tight_layout()

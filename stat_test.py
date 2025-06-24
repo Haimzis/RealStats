@@ -32,7 +32,8 @@ from utils import (
     split_population_histogram,
     plot_cdf,
     compute_dist_cdf,
-    plot_pvalue_histograms_from_arrays
+    plot_pvalue_histograms_from_arrays,
+    save_real_statistics_kde
 )
 from statsmodels.stats.multitest import multipletests
 from scipy.stats import combine_pvalues
@@ -404,6 +405,13 @@ def inference_multiple_patch_test(
 
     real_population_histogram = {k: v for k, v in real_population_histogram.items() if k in independent_statistics_keys_group}
 
+    # Plot raw statistic distributions as KDE
+    save_real_statistics_kde(
+        real_population_histogram,
+        independent_statistics_keys_group,
+        output_dir,
+    )
+
     # Spliting 
     # tuning_histogram, training_histogram = split_population_histogram(real_population_histogram, portion)
     tuning_histogram, training_histogram = real_population_histogram, real_population_histogram
@@ -546,6 +554,13 @@ def inference_multiple_patch_test_with_dependence(
     real_population_histogram = remove_nans_from_tests(real_population_histogram)
 
     real_population_histogram = {k: v for k, v in real_population_histogram.items() if k in statistics_keys_group}
+
+    # Plot raw statistic distributions as KDE
+    save_real_statistics_kde(
+        real_population_histogram,
+        statistics_keys_group,
+        output_dir,
+    )
 
     tuning_histogram, training_histogram = real_population_histogram, real_population_histogram
 
