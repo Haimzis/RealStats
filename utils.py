@@ -1116,7 +1116,7 @@ def save_ensembled_pvalue_kde_and_images(
             Image.open(img_path).convert("RGB").save(img_save_path)
 
             # Plot histogram + marker
-            fig, ax = plt.subplots(figsize=(8, 4))
+            fig, ax = plt.subplots(figsize=(4, 4))
             ax.hist(
                 tuning_ensembled_pvalues,
                 bins=20,
