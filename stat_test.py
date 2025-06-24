@@ -573,17 +573,22 @@ def inference_multiple_patch_test_with_dependence(
     tuning_independent_pvals = tuning_pvalue_distributions[independent_indices].T
     _, tuning_ensembled_pvalues = perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)
 
-    independent_combinations = interpret_keys_to_combinations(independent_keys_group)
-    inference_histogram = patch_parallel_preprocess(
-        inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, data_type=DataType.TEST, seed=seed
+    # Compute histograms for all statistics
+    all_combinations = interpret_keys_to_combinations(statistics_keys_group)
+    all_inference_histogram = patch_parallel_preprocess(
+        inference_dataset, batch_size, all_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, data_type=DataType.TEST, seed=seed
     )
+    all_inference_histogram = compute_mean_std_dict(all_inference_histogram)
 
-    inference_histogram = compute_mean_std_dict(inference_histogram)
-    inference_histogram = {key: inference_histogram[key] for key in independent_keys_group if key in inference_histogram}
+    # P-values for all statistics
+    input_all_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, all_inference_histogram, DataType.TEST.name, test_type)
+    all_tests_pvalues = np.clip(np.array(input_all_samples_pvalues), 0, 1)
+
+    # Focus on the independent subset for inference
+    inference_histogram = {key: all_inference_histogram[key] for key in independent_keys_group if key in all_inference_histogram}
 
     input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, DataType.TEST.name, test_type)
-    independent_tests_pvalues = np.array(input_samples_pvalues)
-    independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
+    independent_tests_pvalues = np.clip(np.array(input_samples_pvalues), 0, 1)
 
     if test_labels and hasattr(inference_dataset, "image_paths"):
         save_per_image_kde_and_images(
@@ -608,6 +613,14 @@ def inference_multiple_patch_test_with_dependence(
             output_dir=output_dir,
             max_per_class=10
         )
+
+    # Plot per-statistic histograms for all tests
+    plot_pvalue_histograms_from_arrays(
+        np.array([p for p, l in zip(all_tests_pvalues, test_labels) if l == 0]),
+        np.array([p for p, l in zip(all_tests_pvalues, test_labels) if l == 1]),
+        os.path.join(output_dir, "all_statistics"),
+        statistics_keys_group
+    )
 
     plot_pvalue_histograms_from_arrays(
         np.array([p for p, l in zip(independent_tests_pvalues, test_labels) if l == 0]),
