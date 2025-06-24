@@ -1069,6 +1069,7 @@ def save_per_image_kde_and_images(
                 plt.close()
 
 
+
 def save_ensembled_pvalue_kde_and_images(
     image_paths,
     test_labels,
@@ -1128,3 +1129,58 @@ def save_ensembled_pvalue_kde_and_images(
             plt.tight_layout()
             plt.savefig(plot_path, bbox_inches="tight", pad_inches=0.1)
             plt.close()
+
+
+def save_real_population_kde(
+    tuning_real_population_pvals,
+    statistics_keys,
+    output_dir,
+):
+    """Save KDE plots of real population p-values for each statistic.
+
+    This helper can be used when only the real population data is available and
+    no per-image examples are required. It creates one KDE plot per statistic in
+    ``statistics_keys``.
+
+    Args:
+        tuning_real_population_pvals (np.ndarray): ``[num_samples, num_stats]``
+            array of p-values from the real population.
+        statistics_keys (list of str): Names of the statistics in the same order
+            as the columns of ``tuning_real_population_pvals``.
+        output_dir (str): Directory where the plots will be saved.
+    """
+    save_dir = os.path.join(output_dir, "real_population_kde")
+    os.makedirs(save_dir, exist_ok=True)
+
+    num_stats = len(statistics_keys)
+    num_samples, stats_dim = tuning_real_population_pvals.shape
+    assert stats_dim == num_stats, (
+        f"Expected {num_stats} statistics, got {stats_dim}"
+    )
+
+    for j, stat_key in enumerate(statistics_keys):
+        fig, ax = plt.subplots(figsize=(4, 4))
+        sns.kdeplot(
+            tuning_real_population_pvals[:, j],
+            fill=True,
+            color="blue",
+            bw_adjust=0.5,
+            ax=ax,
+        )
+
+        ax.set_yticks([])
+        ax.set_ylabel("")
+        ax.set_xlabel("")
+        ax.set_title("")
+        ax.grid(False)
+        ax.set_xlim(0, 1)
+
+        stat_filename = (
+            stat_key.replace("=", "-")
+            .replace(",", "_")
+            .replace(" ", "_")
+        )
+        plot_path = os.path.join(save_dir, f"{stat_filename}.png")
+        plt.tight_layout()
+        plt.savefig(plot_path, bbox_inches="tight", pad_inches=0.1)
+        plt.close()
