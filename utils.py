@@ -213,6 +213,51 @@ def find_largest_independent_group(keys, chi2_p_matrix, p_threshold=0.05):
     return list(independent_set) if independent_set else [keys[0]]
 
 
+def find_largest_independent_group_with_plot(keys, chi2_p_matrix, p_threshold=0.05, output_dir='logs'):
+    """Find and plot the largest independent group using the Chi-Square p-value matrix."""
+    G = nx.Graph()
+    G.add_nodes_from(keys)
+
+    indices = np.triu(chi2_p_matrix, k=1) > p_threshold
+    rows, cols = np.where(indices)
+    edges = np.column_stack((np.array(keys)[rows], np.array(keys)[cols]))
+    G.add_edges_from(edges)
+
+    subgraph = G.subgraph([node for node, degree in G.degree() if degree > 0])
+    independent_set = nx.algorithms.approximation.clique.max_clique(subgraph)
+
+    if independent_set:
+        os.makedirs(output_dir, exist_ok=True)
+        pos = nx.spring_layout(subgraph)
+
+        # Node styling: inner color white, outer color indicates membership
+        node_edge_colors = ["tab:orange" if n in independent_set else "tab:blue" for n in subgraph.nodes()]
+        node_colors = ["white" for _ in subgraph.nodes()]
+
+        plt.figure(figsize=(10, 8))
+
+        # Draw all edges with dashed style
+        nx.draw_networkx_edges(subgraph, pos, edge_color="lightgray", style="dashed", width=0.8)
+
+        # Draw edges inside the clique with solid brighter color
+        clique_edges = [e for e in subgraph.edges() if e[0] in independent_set and e[1] in independent_set]
+        nx.draw_networkx_edges(subgraph, pos, edgelist=clique_edges, edge_color="tab:orange", width=1.2)
+
+        # Draw nodes with edge colors
+        nx.draw_networkx_nodes(subgraph, pos, node_color=node_colors, edgecolors=node_edge_colors, linewidths=1.2, node_size=500)
+
+        # Short labels S1, S2, ...
+        short_labels = {node: f"S{i+1}" for i, node in enumerate(subgraph.nodes())}
+        nx.draw_networkx_labels(subgraph, pos, labels=short_labels, font_size=8)
+
+        plt.title("Largest Independent Group")
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, "independent_graph.png"))
+        plt.close()
+
+    return list(independent_set) if independent_set else [keys[0]]
+
+
 def find_largest_uncorrelated_group(keys, corr_matrix, p_threshold=0.05):
     """Find the largest independent group using the Chi-Square p-value matrix."""
     G = nx.Graph()
