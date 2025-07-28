@@ -4,6 +4,7 @@ import argparse
 from urllib.parse import urlparse
 
 import mlflow
+from sklearn.metrics import average_precision_score
 from torchvision import transforms
 from datasets_factory import DatasetFactory, DatasetType
 from data_utils import ImageDataset, create_inference_dataset
@@ -123,7 +124,9 @@ def main():
 
         results['labels'] = labels
         auc = plot_roc_curve(results, test_id, args.output_dir)
+        ap = average_precision_score(labels, results['scores'])
         mlflow.log_metric("AUC", auc)
+        mlflow.log_metric("AP", ap)
 
 
 if __name__ == "__main__":

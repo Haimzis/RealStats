@@ -48,6 +48,106 @@ def view_subgraph(subgraph, title="Subgraph Visualization", save_path='subgraph.
     print(f"Subgraph saved to {save_path}")
 
 
+def view_independence_subgraph(
+        subgraph: nx.Graph,
+        independent_nodes=None,
+        *,
+        k: float = 0.05,
+        node_size: int = 2000,
+        save_path: str | None = None,
+        transparent: bool = True,
+        edge_width: float = 2.25,
+        highlight_width: float = 4.0,
+):
+    """
+    Draw a NetworkX subgraph using a clean, publication‐ready style.
+
+    Features
+    --------
+    • All nodes are **circular** with a white fill.
+    • Nodes in `independent_nodes` keep an **orange outline**; others get blue.
+    • Edges within the independent set become **solid, thick orange**.
+    • All other edges are light-grey dashed.
+    • Background can be fully transparent (ideal for PNG overlays).
+    • Layout compactness controlled by `k` (Fruchterman–Reingold).
+
+    Parameters
+    ----------
+    subgraph : networkx.Graph
+        The graph (or subgraph) to draw.
+    independent_nodes : list | set | None, optional
+        Nodes to highlight.  Empty / None means “no special nodes”.
+    k : float, optional
+        Spring‐layout compactness (smaller ⇒ nodes closer).
+    node_size : int, optional
+        Size of each node (circles) in points².
+    save_path : str | None, optional
+        If provided, saves the figure to this path (PNG, 300 dpi).
+        If None, shows the figure interactively.
+    transparent : bool, optional
+        Makes the figure background transparent when saving.
+    edge_width : float, optional
+        Width of the regular (grey dashed) edges.
+    highlight_width : float, optional
+        Width of the solid orange edges inside the independent set.
+    """
+    independent_nodes = set(independent_nodes) if independent_nodes else set()
+
+    # ----- Layout -----------------------------------------------------------
+    pos = nx.spring_layout(subgraph, k=k, seed=42)
+
+    # ----- Figure / axis ----------------------------------------------------
+    fig, ax = plt.subplots(figsize=(6, 5))
+    if transparent:
+        fig.patch.set_alpha(0)
+        ax.set_facecolor('none')
+
+    # ----- Edges ------------------------------------------------------------
+    ALL_EDGE_KW       = dict(edge_color="lightgray", style="dashed", width=edge_width)
+    HIGHLIGHT_EDGE_KW = dict(edge_color="tab:orange",  style="solid",  width=highlight_width)
+
+    nx.draw_networkx_edges(subgraph, pos, **ALL_EDGE_KW)
+
+    if independent_nodes:
+        intra_edges = [
+            e for e in subgraph.edges()
+            if e[0] in independent_nodes and e[1] in independent_nodes
+        ]
+        nx.draw_networkx_edges(subgraph, pos, edgelist=intra_edges,
+                               **HIGHLIGHT_EDGE_KW)
+
+    # ----- Nodes ------------------------------------------------------------
+    node_edge_colors = [
+        "tab:orange" if n in independent_nodes else "tab:blue"
+        for n in subgraph.nodes()
+    ]
+
+    nx.draw_networkx_nodes(
+        subgraph, pos,
+        node_color="white",
+        edgecolors=node_edge_colors,
+        linewidths=2.5,
+        node_size=node_size,
+        node_shape='o'
+    )
+
+    # ----- Labels -----------------------------------------------------------
+    short_labels = {n: f"S{i+1}" for i, n in enumerate(subgraph.nodes())}
+    nx.draw_networkx_labels(subgraph, pos, labels=short_labels, font_size=16)
+
+    # ----- Cosmetics / export ----------------------------------------------
+    ax.set_axis_off()
+    plt.tight_layout()
+
+    if save_path is None:
+        plt.show()
+    else:
+        plt.savefig(save_path, dpi=300, bbox_inches="tight",
+                    transparent=transparent)
+        plt.close()
+        print(f"Subgraph saved to {save_path}")
+
+
 def chi_square_independence_test(observed):
     """
     chi2_stat : float
@@ -226,34 +326,8 @@ def find_largest_independent_group_with_plot(keys, chi2_p_matrix, p_threshold=0.
     subgraph = G.subgraph([node for node, degree in G.degree() if degree > 0])
     independent_set = nx.algorithms.approximation.clique.max_clique(subgraph)
 
-    if independent_set:
-        os.makedirs(output_dir, exist_ok=True)
-        pos = nx.spring_layout(subgraph)
-
-        # Node styling: inner color white, outer color indicates membership
-        node_edge_colors = ["tab:orange" if n in independent_set else "tab:blue" for n in subgraph.nodes()]
-        node_colors = ["white" for _ in subgraph.nodes()]
-
-        plt.figure(figsize=(10, 8))
-
-        # Draw all edges with dashed style
-        nx.draw_networkx_edges(subgraph, pos, edge_color="lightgray", style="dashed", width=0.8)
-
-        # Draw edges inside the clique with solid brighter color
-        clique_edges = [e for e in subgraph.edges() if e[0] in independent_set and e[1] in independent_set]
-        nx.draw_networkx_edges(subgraph, pos, edgelist=clique_edges, edge_color="tab:orange", width=1.2)
-
-        # Draw nodes with edge colors
-        nx.draw_networkx_nodes(subgraph, pos, node_color=node_colors, edgecolors=node_edge_colors, linewidths=1.2, node_size=500)
-
-        # Short labels S1, S2, ...
-        short_labels = {node: f"S{i+1}" for i, node in enumerate(subgraph.nodes())}
-        nx.draw_networkx_labels(subgraph, pos, labels=short_labels, font_size=8)
-
-        plt.title("Largest Independent Group")
-        plt.tight_layout()
-        plt.savefig(os.path.join(output_dir, "independent_graph.png"))
-        plt.close()
+    view_independence_subgraph(subgraph, save_path=os.path.join(output_dir, 'independence_graph.png'))
+    view_independence_subgraph(subgraph, independent_set, save_path=os.path.join(output_dir, 'independent_clique.png'))
 
     return list(independent_set) if independent_set else [keys[0]]
 
@@ -1032,6 +1106,8 @@ def save_per_image_kde_and_images(
 
     for label, indices in label_indices.items():
         label_name = 'real' if label == 0 else 'fake'
+        division_color = 'black' if label == 0 else 'red'
+
         label_dir = os.path.join(save_dir, label_name)
         os.makedirs(label_dir, exist_ok=True)
 
@@ -1045,7 +1121,7 @@ def save_per_image_kde_and_images(
             Image.open(img_path).convert("RGB").save(img_save_path)
 
             for j, stat_key in enumerate(independent_statistics_keys_group):
-                fig, ax = plt.subplots(figsize=(8, 4))
+                fig, ax = plt.subplots(figsize=(4, 4))
 
                 # Plot histogram of reference (real) p-values
                 ax.hist(
@@ -1057,12 +1133,11 @@ def save_per_image_kde_and_images(
                 )
 
                 # Vertical marker for current image's p-value
-                ax.axvline(pvals[j], color="red", linestyle="--", linewidth=2)
+                ax.axvline(pvals[j], color=division_color, linestyle="--", linewidth=2)
 
                 # Minimal layout
                 ax.set_yticks([])
-                ax.set_xlabel("p-value")
-                ax.set_title("")
+                ax.set_xticks([])
                 ax.grid(False)
                 ax.set_xlim(0, 1)
 
@@ -1104,6 +1179,7 @@ def save_ensembled_pvalue_kde_and_images(
 
     for label, indices in label_indices.items():
         label_name = 'real' if label == 0 else 'fake'
+        division_color = 'black' if label == 0 else 'red'
         label_dir = os.path.join(save_dir, label_name)
         os.makedirs(label_dir, exist_ok=True)
 
@@ -1125,11 +1201,10 @@ def save_ensembled_pvalue_kde_and_images(
                 alpha=0.6,
             )
 
-            ax.axvline(ensembled_pvalues[i], color="red", linestyle="--", linewidth=2)
+            ax.axvline(ensembled_pvalues[i], color=division_color, linestyle="--", linewidth=2)
 
             ax.set_yticks([])
-            ax.set_xlabel("p-value")
-            ax.set_title("")
+            ax.set_xticks([])
             ax.grid(False)
             ax.set_xlim(0, 1)
 
@@ -1137,61 +1212,6 @@ def save_ensembled_pvalue_kde_and_images(
             plt.tight_layout()
             plt.savefig(plot_path, bbox_inches="tight", pad_inches=0.1)
             plt.close()
-
-
-def save_real_population_kde(
-    tuning_real_population_pvals,
-    statistics_keys,
-    output_dir,
-):
-    """Save KDE plots of real population p-values for each statistic.
-
-    This helper can be used when only the real population data is available and
-    no per-image examples are required. It creates one KDE plot per statistic in
-    ``statistics_keys``.
-
-    Args:
-        tuning_real_population_pvals (np.ndarray): ``[num_samples, num_stats]``
-            array of p-values from the real population.
-        statistics_keys (list of str): Names of the statistics in the same order
-            as the columns of ``tuning_real_population_pvals``.
-        output_dir (str): Directory where the plots will be saved.
-    """
-    save_dir = os.path.join(output_dir, "real_population_kde")
-    os.makedirs(save_dir, exist_ok=True)
-
-    num_stats = len(statistics_keys)
-    num_samples, stats_dim = tuning_real_population_pvals.shape
-    assert stats_dim == num_stats, (
-        f"Expected {num_stats} statistics, got {stats_dim}"
-    )
-
-    for j, stat_key in enumerate(statistics_keys):
-        fig, ax = plt.subplots(figsize=(4, 4))
-        sns.kdeplot(
-            tuning_real_population_pvals[:, j],
-            fill=True,
-            color="blue",
-            bw_adjust=0.5,
-            ax=ax,
-        )
-
-        ax.set_yticks([])
-        ax.set_ylabel("")
-        ax.set_xlabel("")
-        ax.set_title("")
-        ax.grid(False)
-        ax.set_xlim(0, 1)
-
-        stat_filename = (
-            stat_key.replace("=", "-")
-            .replace(",", "_")
-            .replace(" ", "_")
-        )
-        plot_path = os.path.join(save_dir, f"{stat_filename}.png")
-        plt.tight_layout()
-        plt.savefig(plot_path, bbox_inches="tight", pad_inches=0.1)
-        plt.close()
 
 
 def save_real_statistics_kde(statistics_dict, statistics_keys, output_dir):
@@ -1208,6 +1228,7 @@ def save_real_statistics_kde(statistics_dict, statistics_keys, output_dir):
         sns.kdeplot(values, fill=True, color="blue", bw_adjust=0.5, ax=ax)
 
         ax.set_yticks([])
+        ax.set_xticks([])
         ax.set_ylabel("")
         ax.set_xlabel("")
         ax.set_title("")

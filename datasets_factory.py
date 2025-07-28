@@ -102,13 +102,6 @@ class DatasetType(Enum):
         "test_fake": {"path": "data/CNNDetector/testset/biggan/1_fake", "class": ImageDataset}
     }
 
-    PROGAN_LDM = {
-        "train_real": {"path": "data/CNNDetector/trainset", "class": ProGanDataset},
-        # "test_real": {"path": "data/CNNDetector/testset/biggan/0_real", "class": ProGanDataset},
-        "train_fake": {"path": "data/CNNDetector/trainset", "class": ProGanDataset},
-        "test_fake": {"path": "data/CNNDetector/diffusion_datasets/ldm_200/1_fake", "class": ImageDataset}
-    }
-
     PROGAN_DALLE = {
         "train_real": {"path": "data/CNNDetector/trainset", "class": ProGanDataset},
         # "test_real": {"path": "data/CNNDetector/testset/biggan/0_real", "class": ProGanDataset},
@@ -248,6 +241,77 @@ class DatasetType(Enum):
         "test_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
         "train_fake": {"path": "data/CLIPDetector/synthbuster/stable-diffusion-2", "class": ImageDataset},
         "test_fake": {"path": "data/CLIPDetector/synthbuster/stable-diffusion-2", "class": ImageDataset}
+    }
+
+    # COMPLETION DATASETS
+    COCO_STABLE_DIFFUSION_1_4_TEST_ONLY = {
+        "train_real":  {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+        "test_real": {"path": "data/CLIPDetector/test_set/real/real_coco_valid", "class": ImageDataset},
+        "train_fake": {"path": "data/CLIPDetector/synthbuster/stable-diffusion-1-4", "class": ImageDataset},
+        "test_fake": {"path": "data/CLIPDetector/synthbuster/stable-diffusion-1-4", "class": ImageDataset}
+    }
+
+    IMAGENET_GLIDE_100_10 = {
+        "train_real": {"path": "data/CNNDetector/diffusion_datasets/imagenet/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/diffusion_datasets/imagenet/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/diffusion_datasets/glide_100_10/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/diffusion_datasets/glide_100_10/1_fake", "class": ImageDataset}
+    }
+
+    IMAGENET_GLIDE_100_27 = {
+        "train_real": {"path": "data/CNNDetector/diffusion_datasets/imagenet/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/diffusion_datasets/imagenet/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/diffusion_datasets/glide_100_27/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/diffusion_datasets/glide_100_27/1_fake", "class": ImageDataset}
+    }
+
+    IMAGENET_LDM = {
+        "train_real": {"path": "data/CNNDetector/diffusion_datasets/imagenet/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/diffusion_datasets/imagenet/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/diffusion_datasets/ldm_200_cfg/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/diffusion_datasets/ldm_200_cfg/1_fake", "class": ImageDataset}
+    }
+
+    LAION_GLIDE_100_10 = {
+        "train_real": {"path": "data/CNNDetector/diffusion_datasets/laion/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/diffusion_datasets/laion/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/diffusion_datasets/glide_100_10/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/diffusion_datasets/glide_100_10/1_fake", "class": ImageDataset}
+    }
+
+    LAION_GLIDE_100_27 = {
+        "train_real": {"path": "data/CNNDetector/diffusion_datasets/laion/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/diffusion_datasets/laion/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/diffusion_datasets/glide_100_27/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/diffusion_datasets/glide_100_27/1_fake", "class": ImageDataset}
+    }
+
+    LAION_LDM = {
+        "train_real": {"path": "data/CNNDetector/diffusion_datasets/laion/0_real", "class": ImageDataset},
+        "test_real": {"path": "data/CNNDetector/diffusion_datasets/laion/0_real", "class": ImageDataset},
+        "train_fake": {"path": "data/CNNDetector/diffusion_datasets/ldm_200_cfg/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/diffusion_datasets/ldm_200_cfg/1_fake", "class": ImageDataset}
+    }
+
+    PROGAN_GLIDE_100_10 = {
+        "train_real": {"path": "data/CNNDetector/trainset", "class": ProGanDataset},
+        "test_real": {"path": "data/CNNDetector/trainset", "class": ProGanDataset},
+        "train_fake": {"path": "data/CNNDetector/diffusion_datasets/glide_100_10/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/diffusion_datasets/glide_100_10/1_fake", "class": ImageDataset}
+    }
+
+    PROGAN_GLIDE_100_27 = {
+        "train_real": {"path": "data/CNNDetector/trainset", "class": ProGanDataset},
+        "test_real": {"path": "data/CNNDetector/trainset", "class": ProGanDataset},
+        "train_fake": {"path": "data/CNNDetector/diffusion_datasets/glide_100_27/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/diffusion_datasets/glide_100_27/1_fake", "class": ImageDataset}
+    }
+
+    PROGAN_LDM = {
+        "train_real": {"path": "data/CNNDetector/trainset", "class": ProGanDataset},
+        "test_real": {"path": "data/CNNDetector/trainset", "class": ProGanDataset},
+        "train_fake": {"path": "data/CNNDetector/diffusion_datasets/ldm_200_cfg/1_fake", "class": ImageDataset},
+        "test_fake": {"path": "data/CNNDetector/diffusion_datasets/ldm_200_cfg/1_fake", "class": ImageDataset}
     }
 
     def get_paths(self):

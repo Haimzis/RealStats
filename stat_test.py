@@ -70,7 +70,7 @@ def preprocess_wave(dataset, batch_size, wavelet, wavelet_level, num_data_worker
 
     # If not test data and file already exists, load cached histograms
     # TODO: Haim's Change Uncomment this if you want to load existing histograms
-    if os.path.exists(pkl_filename):# and data_type != DataType.TEST:
+    if os.path.exists(pkl_filename) and data_type != DataType.TEST:
         # pass
         return load_population_histograms(pkl_filename)
 

@@ -18,7 +18,7 @@ class ImageDataset(Dataset):
         """
         # If input is a directory, load all image paths from the directory
         if isinstance(image_input, str):
-            self.image_paths = [os.path.join(image_input, f) for f in os.listdir(image_input) if f.endswith(('.jpeg', '.jpg', '.png'))]
+            self.image_paths = [os.path.join(image_input, f) for f in os.listdir(image_input) if f.lower().endswith(('.jpeg', '.jpg', '.png'))]
         # If input is a list of image paths
         elif isinstance(image_input, list):
             self.image_paths = image_input
@@ -77,7 +77,7 @@ class ProGanDataset(Dataset):
                 data_dir = os.path.join(class_path, f'{label}_real')  # Only look for relevant subdirectory
                 if os.path.isdir(data_dir): 
                     for image_name in os.listdir(data_dir):
-                        if image_name.endswith(('.jpeg', '.jpg', '.png')):  # Filter image files
+                        if image_name.lower().endswith(('.jpeg', '.jpg', '.png')):  # Filter image files
                             self.image_paths.append(os.path.join(data_dir, image_name))
                             self.labels.append(label)  # Assign label for samples
 
@@ -213,8 +213,8 @@ def create_inference_dataset(real_dir, fake_dir, num_samples_per_class, classes=
     Returns:
         list: List of tuples (image_path, label), where label is 0 for real and 1 for fake.
     """
-    real_images = [os.path.join(real_dir, f) for f in os.listdir(real_dir) if f.endswith(('.jpeg', '.jpg', '.png'))]
-    fake_images = [os.path.join(fake_dir, f) for f in os.listdir(fake_dir) if f.endswith(('.jpeg', '.jpg', '.png'))]
+    real_images = [os.path.join(real_dir, f) for f in os.listdir(real_dir) if f.lower().endswith(('.jpeg', '.jpg', '.png'))]
+    fake_images = [os.path.join(fake_dir, f) for f in os.listdir(fake_dir) if f.lower().endswith(('.jpeg', '.jpg', '.png'))]
 
     # Handle -1 for all samples
     if num_samples_per_class == -1:
