@@ -17,7 +17,7 @@ import numpy as np
 from scipy.stats import chi2, kstest, gaussian_kde
 from tqdm import tqdm
 from sklearn.metrics import roc_auc_score
-from PIL import Image
+from PIL import Image, ImageDraw
 
 
 def view_subgraph(subgraph, title="Subgraph Visualization", save_path='subgraph.png'):
@@ -602,19 +602,32 @@ def plot_sensitivity_specificity_by_patch_size(results, wavelet, threshold, outp
     plt.savefig(os.path.join(output_dir, f'sensitivity_specificity_{wavelet}_alpha_{threshold}.png'))
     plt.close()
 
-        
-def plot_pvalue_histograms(real_pvalues, fake_pvalues, figname, title, xlabel="p-values", ylabel="Density"):
+
+def plot_pvalue_histograms(
+    real_pvalues,
+    fake_pvalues,
+    figname,
+    title,
+    xlabel="p-values",
+    ylabel="Density",
+    bins=100,
+    figsize=(8, 6),
+    title_fontsize=14,
+    label_fontsize=12,
+    legend_fontsize=10
+):
     """Plot histograms for real and fake p-values with transparency and save to a file."""
-    plt.figure(figsize=(12, 6))
-    plt.hist(real_pvalues, bins=100, alpha=0.5, label="Real", color='blue', density=True, edgecolor='k')
-    plt.hist(fake_pvalues, bins=100, alpha=0.5, label="Fake", color='orange', density=True,  edgecolor='k')
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.title(title)
-    plt.legend()
+    plt.figure(figsize=figsize)
+    plt.hist(real_pvalues, bins=bins, alpha=0.6, label="Real", color='tab:blue', density=True)
+    plt.hist(fake_pvalues, bins=bins, alpha=0.6, label="Fake", color='tab:orange', density=True)
+    plt.xlabel(xlabel, fontsize=label_fontsize)
+    plt.ylabel(ylabel, fontsize=label_fontsize)
+    plt.title(title, fontsize=title_fontsize)
+    plt.legend(fontsize=legend_fontsize)
     plt.tight_layout()
     plt.savefig(figname)
     plt.close()
+
 
 
 def plot_histograms(hist, figname='plot.png', title='histogram', density=True, bins=50):
@@ -1147,6 +1160,188 @@ def save_per_image_kde_and_images(
                 plt.savefig(plot_path, bbox_inches="tight", pad_inches=0.1)
                 plt.close()
 
+
+def create_pvalue_grid_figure(
+    image_paths,
+    pvalues,
+    test_labels,
+    threshold=0.05,
+    max_per_group=4,
+    figsize=(15, 5),
+    output_path="pvalue_grid_figure.png"
+):
+    """
+    Creates a 2-row figure showing images grouped by p-value threshold.
+    Top row: fake (label==1) with p < threshold
+    Bottom row: real (label==0) with p >= threshold
+    """
+    assert len(image_paths) == len(pvalues) == len(test_labels), "Length mismatch"
+
+    def preprocess_image(path):
+        img = Image.open(path).convert("RGB")
+        w, h = img.size
+        scale = 512 / min(w, h)
+        new_w, new_h = int(w * scale), int(h * scale)
+        img = img.resize((new_w, new_h), Image.LANCZOS)
+        left = (new_w - 512) // 2
+        upper = (new_h - 512) // 2
+        img = img.crop((left, upper, left + 512, upper + 512))
+        return img
+
+    top_group = [
+        (img, pv) for img, pv, label in zip(image_paths, pvalues, test_labels)
+        if pv < threshold and label == 1
+    ]
+    bottom_group = [
+        (img, pv) for img, pv, label in zip(image_paths, pvalues, test_labels)
+        if pv >= threshold and label == 0
+    ]
+
+    if len(top_group) < max_per_group or len(bottom_group) < max_per_group:
+        return False  # Skip this figure
+
+    top_group = top_group[:max_per_group]
+    bottom_group = bottom_group[:max_per_group]
+    n_cols = max(len(top_group), len(bottom_group))
+    n_rows = 2
+
+    fig, axes = plt.subplots(
+        n_rows, n_cols + 1, figsize=figsize, 
+        gridspec_kw={'width_ratios': [0.5] + [1.0] * n_cols, 'wspace': 0.05}  # ⬅️ Shrink label column
+    )
+
+    for ax_row in axes:
+        for ax in ax_row:
+            ax.axis("off")
+
+    # Increase font sizes by ~25%
+    label_fontsize = 36
+    title_fontsize = 28
+
+    # Left column group labels
+    axes[0][0].text(
+        0.5, 0.5, f"$p < {threshold}$",
+        fontsize=label_fontsize, ha="center", va="center",
+        transform=axes[0][0].transAxes
+    )
+    axes[1][0].text(
+        0.5, 0.5, f"$p \\geq {threshold}$",
+        fontsize=label_fontsize, ha="center", va="center",
+        transform=axes[1][0].transAxes
+    )
+
+    # Fill in images + p-values
+    for i, (img_path, pv) in enumerate(top_group):
+        img = preprocess_image(img_path)
+        axes[0][i + 1].imshow(img)
+        axes[0][i + 1].set_title(f"$p = {pv:.3f}$", fontsize=title_fontsize)
+
+    for i, (img_path, pv) in enumerate(bottom_group):
+        img = preprocess_image(img_path)
+        axes[1][i + 1].imshow(img)
+        axes[1][i + 1].set_title(f"$p = {pv:.3f}$", fontsize=title_fontsize)
+
+    # plt.tight_layout()
+    plt.savefig(output_path, dpi=300)
+    plt.close()
+    return True
+
+
+def create_multiband_pvalue_grid_figure(
+    image_paths,
+    pvalues,
+    test_labels,
+    thresholds=[0.1, 0.25, 0.5],
+    max_per_group=4,
+    figsize=(15, 10),
+    output_path="pvalue_multiband_grid.png"
+):
+    """
+    Creates a multi-row figure showing images grouped by p-value intervals.
+    Each row corresponds to a p-value bin between two thresholds.
+    Only fakes (label=1) are used for lower intervals, and only reals (label=0) for higher ones.
+    """
+    assert len(image_paths) == len(pvalues) == len(test_labels), "Length mismatch"
+
+    def preprocess_image(path):
+        img = Image.open(path).convert("RGB")
+        w, h = img.size
+        scale = 512 / min(w, h)
+        new_w, new_h = int(w * scale), int(h * scale)
+        img = img.resize((new_w, new_h), Image.LANCZOS)
+        left = (new_w - 512) // 2
+        upper = (new_h - 512) // 2
+        img = img.crop((left, upper, left + 512, upper + 512))
+        return img
+
+    # Define threshold bands
+    bands = [0.0] + thresholds + [1.0]
+    num_rows = len(bands) - 1
+
+    grouped_rows = []
+    for i in range(num_rows):
+        lower = bands[i]
+        upper = bands[i + 1]
+        # Label logic
+        if upper <= 0.5:
+            group = [
+                (img, pv) for img, pv, label in zip(image_paths, pvalues, test_labels)
+                if lower < pv < upper# and label == 1
+            ]
+        else:
+            group = [
+                (img, pv) for img, pv, label in zip(image_paths, pvalues, test_labels)
+                if lower <= pv < upper# and label == 0
+            ]
+
+        if len(group) < max_per_group:
+            return False  # Skip figure if any row is underpopulated
+
+        grouped_rows.append(group[:max_per_group])
+
+    n_cols = max(len(row) for row in grouped_rows)
+    fig, axes = plt.subplots(
+        num_rows, n_cols + 1,
+        figsize=figsize,
+        gridspec_kw={'width_ratios': [0.6] + [1.0] * n_cols, 'wspace': 0.01, 'hspace':0.01}
+    )
+
+    label_fontsize = 16
+    # title_fontsize = 20
+
+    for ax_row in axes:
+        for ax in ax_row:
+            ax.axis("off")
+
+    for row_idx, row_group in enumerate(grouped_rows):
+        lower = bands[row_idx]
+        upper = bands[row_idx + 1]
+
+        # Label for left column
+        if row_idx == 0:
+            label_text = f"$0 < p < {upper}$"
+        elif upper == 1.0:
+            label_text = f"${lower} \\leq p \\leq 1$"
+        else:
+            label_text = f"${lower} \\leq p < {upper}$"
+
+        axes[row_idx][0].text(
+            0.5, 0.5, label_text,
+            fontsize=label_fontsize, ha="center", va="center",
+            transform=axes[row_idx][0].transAxes
+        )
+
+        # Fill in the images
+        for col_idx, (img_path, pv) in enumerate(row_group):
+            img = preprocess_image(img_path)
+            axes[row_idx][col_idx + 1].imshow(img)
+            # axes[row_idx][col_idx + 1].set_title(f"$p = {pv:.3f}$", fontsize=title_fontsize)
+
+    plt.subplots_adjust(wspace=0.01, hspace=0.01)
+    # plt.tight_layout()
+    plt.savefig(output_path, dpi=300)
+    plt.close()
+    return True
 
 
 def save_ensembled_pvalue_kde_and_images(

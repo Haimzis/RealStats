@@ -21,18 +21,13 @@ mkdir -p "$LOGS_DIR"
         --experiment_id "plots" \
         --gpu "0,1,2,3" \
         --independent_keys \
-            PatchProcessing_wavelet=RIGID.CLIP.100_level=0_patch_size=256_seed=72532_mean \
-            PatchProcessing_wavelet=RIGID.BEIT.10_level=0_patch_size=256_seed=72532_std \
-            PatchProcessing_wavelet=RIGID.DINO.01_level=0_patch_size=512_seed=72532 \
-            PatchProcessing_wavelet=RIGID.CLIP.05_level=0_patch_size=512_seed=72532 \
-            PatchProcessing_wavelet=RIGID.RESNET.100_level=0_patch_size=512_seed=72532 \
-            PatchProcessing_wavelet=RIGID.RESNET.50_level=0_patch_size=256_seed=72532_std \
-            PatchProcessing_wavelet=RIGID.RESNET.100_level=0_patch_size=256_seed=72532_mean \
-        --patch_divisors 0 1 \
+            PatchProcessing_wavelet=RIGID.DINO.05_level=0_patch_size=512_seed=61885 \
+            PatchProcessing_wavelet=RIGID.CLIP.05_level=0_patch_size=512_seed=61885 \
+        --patch_divisors 0 \
         --chi2_bins 10 \
         --cdf_bins 400 \
         --dataset_type COCO_STABLE_DIFFUSION_XL_TEST_ONLY \
-        --seed 72532 \
+        --seed 61885 \
         --sample_size 512 \
         --threshold 0.9 \
         --save_histograms 1 \
@@ -40,7 +35,6 @@ mkdir -p "$LOGS_DIR"
         --pkls_dir pkls_experiments_II \
         --num_samples_per_class -1 \
         --run_id plot_sdxl_inference_logo_plot_run_$TIMESTAMP
-
 
     echo "Run complete."
 } &> "$LOGS_DIR/logs.txt"

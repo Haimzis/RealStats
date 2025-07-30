@@ -9,10 +9,10 @@ from stat_test import DataType, generate_combinations, patch_parallel_preprocess
 from utils import build_backbones_statistics_list, plot_pvalue_histograms, set_seed
 from data_utils import ImageDataset, create_inference_dataset
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 parser = argparse.ArgumentParser(description='Custom Histogram and Testing Pipeline')
-parser.add_argument('--batch_size', type=int, default=8, help='Batch size for data loading')
+parser.add_argument('--batch_size', type=int, default=4, help='Batch size for data loading')
 parser.add_argument('--sample_size', type=int, default=512, help='Sample input size after downscale')
 parser.add_argument('--threshold', type=float, default=0.05, help='P-value threshold for significance testing')
 parser.add_argument('--dataset_type', type=str, default='COCO_ALL', choices=[e.name for e in DatasetType], help='Type of dataset to use')
@@ -20,11 +20,11 @@ parser.add_argument('--num_samples_per_class', type=int, default=-1, help='Numbe
 parser.add_argument('--max_workers', type=int, default=1, help='Maximum number of threads for parallel processing')
 parser.add_argument('--num_data_workers', type=int, default=2, help='Number of workers for data loading')
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
-parser.add_argument('--pkls_dir', type=str, default='pkls_experiments_figure3', help='Path where to save pkls')
+parser.add_argument('--pkls_dir', type=str, default='pkls_adaptability', help='Path where to save pkls')
 
 args = parser.parse_args()
 
-histograms_stats_dir = os.path.join('histograms_stats', '01.06_figure3')
+histograms_stats_dir = os.path.join('histograms_stats', '29.07_adaptability')
 
 
 def extract_patch_processing_args(key: str):
@@ -44,19 +44,22 @@ def preprocess_and_plot():
     patch_sizes = [args.sample_size]
     levels = [0]
     # waves = ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier', 'jpeg', 'hsv']
-    models = ['CONVNEXT', 'DINO', 'BEIT', 'CLIP', 'DEIT', 'RESNET']
-    noise_levels = ['01', '05', '10', '50', '75', '100']
+    models = ['DINO', 'BEIT', 'CLIP', 'RESNET']
+    # noise_levels = ['01', '05', '10', '50', '75', '100']
+    noise_levels = ['01', '05', '10']
     waves = build_backbones_statistics_list(models, noise_levels)
-    waves += ['LatentNoiseCriterion']
+    # waves += ['LatentNoiseCriterion']
 
-    dataset_types = [
-        'BIGGAN_TEST_ONLY', 'CYCLEGAN_TEST_ONLY', 'GAUGAN_TEST_ONLY', 'PROGAN_TEST_ONLY',
-        'SEEINGDARK_TEST_ONLY', 'STYLEGAN_TEST_ONLY', 'CRN_TEST_ONLY', 'DEEPFAKE_TEST_ONLY',
-        'IMLE_TEST_ONLY', 'SAN_TEST_ONLY', 'STARGAN_TEST_ONLY', 'STYLEGAN2_TEST_ONLY',
-        'CELEBA_TEST_ONLY', 'COCO_TEST_ONLY', 'COCO_BIGGAN_256_TEST_ONLY',
-        'COCO_STABLE_DIFFUSION_XL_TEST_ONLY', 'COCO_DALLE3_COCOVAL_TEST_ONLY',
-        'COCO_SYNTH_MIDJOURNEY_V5_TEST_ONLY', 'COCO_STABLE_DIFFUSION_2_TEST_ONLY'
-    ]
+    # dataset_types = [
+    #     'BIGGAN_TEST_ONLY', 'CYCLEGAN_TEST_ONLY', 'GAUGAN_TEST_ONLY', 'PROGAN_TEST_ONLY',
+    #     'SEEINGDARK_TEST_ONLY', 'STYLEGAN_TEST_ONLY', 'CRN_TEST_ONLY', 'DEEPFAKE_TEST_ONLY',
+    #     'IMLE_TEST_ONLY', 'SAN_TEST_ONLY', 'STARGAN_TEST_ONLY', 'STYLEGAN2_TEST_ONLY',
+    #     'CELEBA_TEST_ONLY', 'COCO_TEST_ONLY', 'COCO_BIGGAN_256_TEST_ONLY',
+    #     'COCO_STABLE_DIFFUSION_XL_TEST_ONLY', 'COCO_DALLE3_COCOVAL_TEST_ONLY',
+    #     'COCO_SYNTH_MIDJOURNEY_V5_TEST_ONLY', 'COCO_STABLE_DIFFUSION_2_TEST_ONLY'
+    # ]
+
+    dataset_types = ['COCO_STABLE_DIFFUSION_1_4_TEST_ONLY', 'GAUGAN_TEST_ONLY']
 
     for dataset in tqdm(dataset_types, desc="Datasets", unit="dataset"):
         os.makedirs(os.path.join(histograms_stats_dir, dataset), exist_ok=True)  

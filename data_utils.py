@@ -201,7 +201,7 @@ class SelfPatchDataset(Dataset):
         return torch.stack(patches), label  # Return all patches as a batch
 
 
-def create_inference_dataset(real_dir, fake_dir, num_samples_per_class, classes='both'):
+def create_inference_dataset(real_dir, fake_dir, num_samples_per_class, classes='both', shuffle=False):
     """
     Create a balanced dataset for inference by sampling images from real and fake directories.
     Args:
@@ -234,5 +234,6 @@ def create_inference_dataset(real_dir, fake_dir, num_samples_per_class, classes=
     else:
         raise ValueError(f"Invalid classes argument: {classes}. Choose from 'both', 'real', or 'fake'.")
 
-    random.shuffle(inference_data)  # Shuffle the dataset
+    if shuffle:
+        random.shuffle(inference_data)  # Shuffle the dataset
     return inference_data

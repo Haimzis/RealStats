@@ -1,6 +1,7 @@
 import itertools
 import os
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+import random
 import re
 import numpy as np
 from tqdm import tqdm
@@ -12,6 +13,8 @@ from utils import (
     calculate_metrics,
     compute_chi2_and_corr_matrix,
     compute_mean_std_dict,
+    create_multiband_pvalue_grid_figure,
+    create_pvalue_grid_figure,
     find_largest_independent_group,
     find_largest_independent_group_with_plot,
     find_largest_independent_group_iterative,
@@ -461,31 +464,49 @@ def inference_multiple_patch_test(
     independent_tests_pvalues = np.array(input_samples_pvalues)
     independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
 
-    # Save per-image KDE plots and images
-    if test_labels and hasattr(inference_dataset, "image_paths"):
-        save_per_image_kde_and_images(
-            image_paths=inference_dataset.image_paths,
-            test_labels=test_labels,
-            tuning_real_population_pvals=tuning_independent_pvals,
-            input_samples_pvalues=input_samples_pvalues,
-            independent_statistics_keys_group=independent_statistics_keys_group,
-            output_dir=output_dir,
-            max_per_class=10
-        )
-
+    # # Save per-image KDE plots and images
+    # if test_labels and hasattr(inference_dataset, "image_paths"):
+    #     save_per_image_kde_and_images(
+    #         image_paths=inference_dataset.image_paths,
+    #         test_labels=test_labels,
+    #         tuning_real_population_pvals=tuning_independent_pvals,
+    #         input_samples_pvalues=input_samples_pvalues,
+    #         independent_statistics_keys_group=independent_statistics_keys_group,
+    #         output_dir=output_dir,
+    #         max_per_class=10
+    #     )
+    
     ensembled_stats, ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
     predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
 
-    if test_labels and hasattr(inference_dataset, "image_paths"):
-        save_ensembled_pvalue_kde_and_images(
-            image_paths=inference_dataset.image_paths,
-            test_labels=test_labels,
-            ensembled_pvalues=ensembled_pvalues,
-            tuning_ensembled_pvalues=tuning_ensembled_pvalues,
-            output_dir=output_dir,
-            max_per_class=10
-        )
-        
+    # if test_labels and hasattr(inference_dataset, "image_paths"):
+    #     save_ensembled_pvalue_kde_and_images(
+    #         image_paths=inference_dataset.image_paths,
+    #         test_labels=test_labels,
+    #         ensembled_pvalues=ensembled_pvalues,
+    #         tuning_ensembled_pvalues=tuning_ensembled_pvalues,
+    #         output_dir=output_dir,
+    #         max_per_class=10
+    #     )
+    
+    # if test_labels and hasattr(inference_dataset, "image_paths"):
+    #     combined = list(zip(inference_dataset.image_paths, ensembled_pvalues, test_labels))
+
+    #     for i in range(10):
+    #         random.shuffle(combined)  # New shuffle each time
+
+    #         image_paths_shuffled, pvalues_shuffled, test_labels_shuffled = zip(*combined)
+
+    #         success = create_multiband_pvalue_grid_figure(
+    #             image_paths=image_paths_shuffled,
+    #             pvalues=pvalues_shuffled,
+    #             test_labels=test_labels_shuffled,
+    #             thresholds=[0.05, 0.1, 0.25, 0.5],
+    #             max_per_group=7,
+    #             output_path=os.path.join(output_dir, f"significance_grid_{i}.svg")
+    #         )
+
+
     plot_pvalue_histograms_from_arrays(
         np.array([p for p, l in zip(independent_tests_pvalues, test_labels) if l == 0]),
         np.array([p for p, l in zip(independent_tests_pvalues, test_labels) if l == 1]),
