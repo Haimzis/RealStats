@@ -6,9 +6,10 @@ from urllib.parse import urlparse
 import mlflow
 from torchvision import transforms
 from datasets_factory import DatasetFactory, DatasetType
-from data_utils import ImageDataset, create_inference_dataset
+from data_utils import ImageDataset, JPEGCompressionTransform, create_inference_dataset
 from stat_test import TestType, inference_multiple_patch_test
 from utils import plot_fakeness_score_distribution, plot_fakeness_score_histogram, plot_roc_curve, set_seed
+from torchvision.utils import save_image
 
 sys.setrecursionlimit(2000)
 
@@ -33,10 +34,13 @@ parser.add_argument('--gpu', type=str, default='0', help='GPU device(s) to use, 
 parser.add_argument('--run_id', type=str, required=True, help='Unique identifier for this MLflow run.')
 parser.add_argument('--experiment_id', type=str, required=True, help='Name or ID of the MLflow experiment.')
 parser.add_argument('--independent_keys', type=str, nargs='+', required=True, help='Independent statistics keys group')
+parser.add_argument('--inference_aug', type=str, default='none', choices=['none', 'jpeg', 'blur'], help='Apply augmentation to inference dataset (jpeg or blur).')
+parser.add_argument('--draw_pvalues_trend_figure', type=int, default=0, help='whether to draw p-values trend figure')
+
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
-
+    
 def main():
     set_seed(args.seed)
 
@@ -53,17 +57,22 @@ def main():
     with mlflow.start_run(run_name=args.run_id):
         args.output_dir = urlparse(mlflow.get_artifact_uri()).path
 
-        # Load transforms and datasets
-        transform = transforms.Compose([
-            transforms.Resize((args.sample_size, args.sample_size)),
-            transforms.ToTensor()
-        ])
+        inference_transform_list = [transforms.Resize((args.sample_size, args.sample_size))]
+        if args.inference_aug == 'jpeg':
+            inference_transform_list.append(JPEGCompressionTransform())
+        elif args.inference_aug == 'blur':
+            inference_transform_list.append(transforms.GaussianBlur(kernel_size=(3, 3), sigma=1.0))
+        inference_transform_list.append(transforms.ToTensor())
+        inference_transform = transforms.Compose(inference_transform_list)
 
         inference_data = create_inference_dataset(paths['test_real']['path'], paths['test_fake']['path'], args.num_samples_per_class, classes='both')
 
         image_paths = [x[0] for x in inference_data]
         labels = [x[1] for x in inference_data]
-        inference_dataset = ImageDataset(image_paths, labels, transform=transform)
+        inference_dataset = ImageDataset(image_paths, labels, transform=inference_transform)
+
+        img_tensor, label = inference_dataset[0]
+        save_image(img_tensor, os.path.join(args.output_dir, "example_image.png"))
 
         patch_sizes = [args.sample_size // (2 ** d) for d in args.patch_divisors]
         test_id = f"inference_run_{args.run_id}"
@@ -93,12 +102,14 @@ def main():
             cdf_bins=args.cdf_bins,
             test_type=TestType.BOTH,
             logger=mlflow,
-            seed=args.seed
+            seed=args.seed,
+            draw_pvalues_trend_figure=bool(args.draw_pvalues_trend_figure)
+
         )
 
         results['labels'] = labels
         auc = plot_roc_curve(results, test_id, args.output_dir)
-        plot_fakeness_score_distribution(results, test_id, args.output_dir, args.threshold)
+        # plot_fakeness_score_distribution(results, test_id, args.output_dir, args.threshold)
         plot_fakeness_score_histogram(results, test_id, args.output_dir, args.threshold)
         mlflow.log_metric("AUC", auc)
 

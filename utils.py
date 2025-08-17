@@ -994,13 +994,7 @@ def plot_fakeness_score_distribution(results, test_id, output_dir, threshold=0.5
 def plot_fakeness_score_histogram(results, test_id, output_dir, threshold=0.5):
     """
     Plot a histogram of fakeness scores for real and fake samples
-    with consistent matplotlib styling.
-
-    Parameters:
-    - results (dict): Contains 'scores' (fakeness scores) and 'labels' (0=real, 1=fake)
-    - test_id (str): Identifier used in the filename
-    - output_dir (str): Directory to save the plot
-    - threshold (float): Threshold line to show on the plot
+    with consistent matplotlib styling and standardized text sizes.
     """
     scores = np.array(results['scores'])
     labels = np.array(results['labels'])
@@ -1014,10 +1008,14 @@ def plot_fakeness_score_histogram(results, test_id, output_dir, threshold=0.5):
     plt.hist(fake_scores, bins=50, alpha=0.6, label='Fake', density=True, color='tab:orange')
     plt.axvline(x=threshold, color='red', linestyle='--', label=f'significance level α = {1 - threshold:.2f}')
 
-    plt.title("Ensemble Probability Distribution")
-    plt.xlabel("Fakeness Prob")
-    plt.ylabel("Density")
-    plt.legend()
+    # Font size settings
+    plt.title("Ensemble Probability Distribution", fontsize=18)
+    plt.xlabel("Fakeness Prob", fontsize=14)
+    plt.ylabel("Density", fontsize=14)
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    plt.legend(fontsize=14)
+
     plt.tight_layout()
 
     # Save
@@ -1066,14 +1064,6 @@ def plot_kde_with_image_markers(pvals_real, image_pvals, image_labels, figsize=(
     plt.grid(False)
     plt.tight_layout()
     plt.show()
-
-
-
-import os
-import matplotlib.pyplot as plt
-import numpy as np
-from PIL import Image
-import seaborn as sns
 
 
 def save_per_image_kde_and_images(
@@ -1253,7 +1243,7 @@ def create_multiband_pvalue_grid_figure(
     test_labels,
     thresholds=[0.1, 0.25, 0.5],
     max_per_group=4,
-    figsize=(15, 10),
+    figsize=(12, 10),
     output_path="pvalue_multiband_grid.png"
 ):
     """
@@ -1283,15 +1273,23 @@ def create_multiband_pvalue_grid_figure(
         lower = bands[i]
         upper = bands[i + 1]
         # Label logic
-        if upper <= 0.5:
+        if i == 0:
+            # Lowest p-value bin: only allow fake (label == 1)
             group = [
-                (img, pv) for img, pv, label in zip(image_paths, pvalues, test_labels)
-                if lower < pv < upper# and label == 1
+                (img, pv, label) for img, pv, label in zip(image_paths, pvalues, test_labels)
+                if lower < pv < upper and label == 1
+            ]
+        elif i == num_rows - 1:
+            # Highest p-value bin: only allow real (label == 0)
+            group = [
+                (img, pv, label) for img, pv, label in zip(image_paths, pvalues, test_labels)
+                if lower <= pv < upper and label == 0
             ]
         else:
+            # Middle bins: allow all labels
             group = [
-                (img, pv) for img, pv, label in zip(image_paths, pvalues, test_labels)
-                if lower <= pv < upper# and label == 0
+                (img, pv, label) for img, pv, label in zip(image_paths, pvalues, test_labels)
+                if lower < pv < upper
             ]
 
         if len(group) < max_per_group:
@@ -1300,10 +1298,18 @@ def create_multiband_pvalue_grid_figure(
         grouped_rows.append(group[:max_per_group])
 
     n_cols = max(len(row) for row in grouped_rows)
+
+    # Dynamically scale widths: 25% for labels, 75% divided among image columns
+    label_col_ratio = 0.2
+    img_col_ratio = (1.0 - label_col_ratio) / n_cols
     fig, axes = plt.subplots(
         num_rows, n_cols + 1,
         figsize=figsize,
-        gridspec_kw={'width_ratios': [0.6] + [1.0] * n_cols, 'wspace': 0.01, 'hspace':0.01}
+        gridspec_kw={
+            'width_ratios': [label_col_ratio] + [img_col_ratio] * n_cols,
+            'wspace': 0.01,
+            'hspace': 0.01
+        }
     )
 
     label_fontsize = 16
@@ -1332,10 +1338,21 @@ def create_multiband_pvalue_grid_figure(
         )
 
         # Fill in the images
-        for col_idx, (img_path, pv) in enumerate(row_group):
+        for col_idx, (img_path, pv, label) in enumerate(row_group):
             img = preprocess_image(img_path)
-            axes[row_idx][col_idx + 1].imshow(img)
+            ax = axes[row_idx][col_idx + 1]
+            ax.imshow(img)
             # axes[row_idx][col_idx + 1].set_title(f"$p = {pv:.3f}$", fontsize=title_fontsize)
+
+            # Add label overlay to each image (Fake or Real)
+            lbl_text = "Fake" if label == 1 else "Real"
+            lbl_color = "red" if label == 1 else "green"
+            ax.text(
+                5, 20, lbl_text,  # Position in pixels from top-left
+                fontsize=12,
+                color=lbl_color,
+                bbox=dict(facecolor="white", alpha=0.7, edgecolor='none', boxstyle='round,pad=0.2')
+            )
 
     plt.subplots_adjust(wspace=0.01, hspace=0.01)
     # plt.tight_layout()

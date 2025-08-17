@@ -30,12 +30,11 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
         echo "Command: python executor.py $CONFIG"
 
         python executor_inference.py \
-            --ensemble_test "manual-stouffer" \
-            --batch_size 32 \
+            --batch_size 4 \
             --output_dir "$LOGS_DIR" \
-            --num_data_workers 3 \
-            --max_workers 4 \
-            --experiment_id "R stouffer no_patch - Experiments II - Ours" \
+            --num_data_workers 2 \
+            --max_workers 3 \
+            --experiment_id "Robustness minp - Jpeg" \
             --gpu "0,1,2,3" \
             $CONFIG
 

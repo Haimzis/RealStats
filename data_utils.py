@@ -1,3 +1,4 @@
+import io
 import os
 import random
 from PIL import Image
@@ -5,6 +6,18 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
+
+class JPEGCompressionTransform:
+    """Apply JPEG compression to an image."""
+    def __init__(self, quality=50):
+        self.quality = quality
+
+    def __call__(self, img: Image.Image) -> Image.Image:
+        buffer = io.BytesIO()
+        img.save(buffer, format='JPEG', quality=self.quality)
+        buffer.seek(0)
+        return Image.open(buffer)
+    
 
 class ImageDataset(Dataset):
     """Custom Dataset for loading images from either a directory or a list of file paths with labels."""

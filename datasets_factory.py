@@ -293,27 +293,6 @@ class DatasetType(Enum):
         "test_fake": {"path": "data/CNNDetector/diffusion_datasets/ldm_200_cfg/1_fake", "class": ImageDataset}
     }
 
-    PROGAN_GLIDE_100_10 = {
-        "train_real": {"path": "data/CNNDetector/trainset", "class": ProGanDataset},
-        "test_real": {"path": "data/CNNDetector/trainset", "class": ProGanDataset},
-        "train_fake": {"path": "data/CNNDetector/diffusion_datasets/glide_100_10/1_fake", "class": ImageDataset},
-        "test_fake": {"path": "data/CNNDetector/diffusion_datasets/glide_100_10/1_fake", "class": ImageDataset}
-    }
-
-    PROGAN_GLIDE_100_27 = {
-        "train_real": {"path": "data/CNNDetector/trainset", "class": ProGanDataset},
-        "test_real": {"path": "data/CNNDetector/trainset", "class": ProGanDataset},
-        "train_fake": {"path": "data/CNNDetector/diffusion_datasets/glide_100_27/1_fake", "class": ImageDataset},
-        "test_fake": {"path": "data/CNNDetector/diffusion_datasets/glide_100_27/1_fake", "class": ImageDataset}
-    }
-
-    PROGAN_LDM = {
-        "train_real": {"path": "data/CNNDetector/trainset", "class": ProGanDataset},
-        "test_real": {"path": "data/CNNDetector/trainset", "class": ProGanDataset},
-        "train_fake": {"path": "data/CNNDetector/diffusion_datasets/ldm_200_cfg/1_fake", "class": ImageDataset},
-        "test_fake": {"path": "data/CNNDetector/diffusion_datasets/ldm_200_cfg/1_fake", "class": ImageDataset}
-    }
-
     def get_paths(self):
         return self.value
 

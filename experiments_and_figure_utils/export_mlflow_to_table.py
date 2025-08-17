@@ -100,10 +100,11 @@ if __name__ == "__main__":
     experiments = [
         # ("R minp no patch - Experiments II - With AP", AggregationStrategy.AVERAGE),
         # ("R minp patch dino clip low - Experiments II - With AP", AggregationStrategy.AVERAGE),
-        ("R minp no patch all low - Completion", AggregationStrategy.AVERAGE),
+        ("Robustness minp - Jpeg", AggregationStrategy.AVERAGE),
+        ("Robustness minp - Blur", AggregationStrategy.AVERAGE),
     ]
 
-    metrics_to_export = ["AUC", "AP"]
+    metrics_to_export = ["AUC"]
     top_k = 10
 
     os.makedirs("experiments/csvs", exist_ok=True)

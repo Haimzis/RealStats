@@ -3,8 +3,8 @@ import json
 import os
 import ast
 
-EXPERIMENT_ID = "766807702207221717"
-OUTPUT_JSON_PATH = "configs/experiment2/no_patch_stf.json"
+EXPERIMENT_ID = "363611449386840575"
+OUTPUT_JSON_PATH = "configs/robustness/no_patch_low_completion.json"
 
 FIXED_ARGS = [
     "--patch_divisors",

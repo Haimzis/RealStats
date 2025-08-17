@@ -4,6 +4,7 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_compl
 import random
 import re
 import numpy as np
+import torch
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from statistics_factory import get_histogram_generator
@@ -44,6 +45,7 @@ from data_utils import GlobalPatchDataset, SelfPatchDataset
 from scipy.stats import norm, kstest
 import optuna
 from enum import Enum
+import time
 
 
 class DataType(Enum):
@@ -376,7 +378,8 @@ def inference_multiple_patch_test(
     cdf_bins=500,
     test_type=TestType.LEFT,
     logger=None,
-    seed=42
+    seed=42,
+    draw_pvalues_trend_figure=False
 ):
     """
     Simplified version of patch test for inference: no tuning, no clique finding.
@@ -489,22 +492,22 @@ def inference_multiple_patch_test(
     #         max_per_class=10
     #     )
     
-    # if test_labels and hasattr(inference_dataset, "image_paths"):
-    #     combined = list(zip(inference_dataset.image_paths, ensembled_pvalues, test_labels))
+    if test_labels and hasattr(inference_dataset, "image_paths") and draw_pvalues_trend_figure:
+        combined = list(zip(inference_dataset.image_paths, ensembled_pvalues, test_labels))
 
-    #     for i in range(10):
-    #         random.shuffle(combined)  # New shuffle each time
+        for i in range(30):
+            random.shuffle(combined)  # New shuffle each time
 
-    #         image_paths_shuffled, pvalues_shuffled, test_labels_shuffled = zip(*combined)
+            image_paths_shuffled, pvalues_shuffled, test_labels_shuffled = zip(*combined)
 
-    #         success = create_multiband_pvalue_grid_figure(
-    #             image_paths=image_paths_shuffled,
-    #             pvalues=pvalues_shuffled,
-    #             test_labels=test_labels_shuffled,
-    #             thresholds=[0.05, 0.1, 0.25, 0.5],
-    #             max_per_group=7,
-    #             output_path=os.path.join(output_dir, f"significance_grid_{i}.svg")
-    #         )
+            success = create_multiband_pvalue_grid_figure(
+                image_paths=image_paths_shuffled,
+                pvalues=pvalues_shuffled,
+                test_labels=test_labels_shuffled,
+                thresholds=[0.01, 0.05, 0.10, 0.25, 0.5],
+                max_per_group=6,
+                output_path=os.path.join(output_dir, f"significance_grid_{i}.png")
+            )
 
 
     plot_pvalue_histograms_from_arrays(
@@ -519,7 +522,9 @@ def inference_multiple_patch_test(
             [p for p, l in zip(ensembled_pvalues, test_labels) if l == 0],
             [p for p, l in zip(ensembled_pvalues, test_labels) if l == 1],
             os.path.join(output_dir, f"histogram_plot_{ensemble_test}_alpha_{threshold}.png"),
-            "Histogram of P-values"
+            "Histogram of P-values", 
+            bins=50,
+            figsize=(6, 6), title_fontsize=16, label_fontsize=14, legend_fontsize=12
         )
     
     if return_logits:
@@ -532,6 +537,24 @@ def inference_multiple_patch_test(
     if test_labels:
         metrics = calculate_metrics(test_labels, predictions)
         return metrics
+
+
+import sys
+import json
+def get_total_size_in_MB(obj):
+    """
+    Estimate object size in megabytes using its serialized string length.
+    Uses JSON if possible, falls back to str().
+    """
+    try:
+        # Try JSON serialization (works for basic types)
+        obj_str = json.dumps(obj)
+    except (TypeError, OverflowError):
+        # Fallback to string representation
+        obj_str = str(obj)
+
+    size_bytes = sys.getsizeof(obj_str)
+    return size_bytes / (1024 ** 2)  # Convert to megabytes
 
 
 def inference_multiple_patch_test_with_dependence(
@@ -594,16 +617,39 @@ def inference_multiple_patch_test_with_dependence(
 
     tuning_pvalue_distributions = tuning_real_population_pvals.T
 
+    start_time = time.time()
     chi2_p_matrix, _ = compute_chi2_and_corr_matrix(
         keys, tuning_pvalue_distributions, max_workers=max_workers,
         plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir, bins=chi2_bins
     )
 
+    chi2_duration = (time.time() - start_time) * 1000  # in ms
+
     independent_keys_group = find_largest_independent_group_with_plot(keys, chi2_p_matrix, p_threshold, output_dir)
 
+    start_time = time.time()
+    _, _, _ = finding_optimal_independent_subgroup_deterministic(
+        keys=keys,
+        chi2_p_matrix=chi2_p_matrix,
+        pvals_matrix=tuning_pvalue_distributions,
+        ensemble_test=ensemble_test,
+        fake_pvals_matrix=None,
+        ks_pvalue_abs_threshold=0.5,
+        minimal_p_threshold=0.05
+    )
+    clique_duration = (time.time() - start_time) * 1000  # in ms
+
+    # After real_population_histogram is ready
+    hist_size_mb = get_total_size_in_MB(real_population_histogram)
+    cdf_size_mb = get_total_size_in_MB(real_population_cdfs)
+    
     if logger:
         logger.log_param("num_tests", len(real_population_histogram.keys()))
         logger.log_param("Independent keys", independent_keys_group)
+        logger.log_metric("graph_reconstruction_and_max_clique_timer", clique_duration)
+        logger.log_metric("chi2_pair_wise_timer", chi2_duration)
+        logger.log_metric("real_population_histogram_MB", round(hist_size_mb, 2))
+        logger.log_metric("real_population_cdfs_MB", round(cdf_size_mb, 2))
 
     independent_indices = [keys.index(value) for value in independent_keys_group]
     tuning_independent_pvals = tuning_pvalue_distributions[independent_indices].T
@@ -611,9 +657,17 @@ def inference_multiple_patch_test_with_dependence(
 
     # Compute histograms for all statistics
     all_combinations = interpret_keys_to_combinations(statistics_keys_group)
+
+    start_stat_extraction = time.time()
     all_inference_histogram = patch_parallel_preprocess(
         inference_dataset, batch_size, all_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, data_type=DataType.TEST, seed=seed
     )
+    end_stat_extraction = time.time()
+    elapsed_stat_extraction = (end_stat_extraction - start_stat_extraction) * 1000  # ms
+
+    if logger:
+        logger.log_metric("statistic_extraction_timer", round(elapsed_stat_extraction, 2))
+
     all_inference_histogram = compute_mean_std_dict(all_inference_histogram)
 
     # P-values for all statistics

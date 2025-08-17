@@ -14,29 +14,28 @@ mkdir -p "$LOGS_DIR"
 
     python executor_inference.py \
         --ensemble_test "minp" \
-        --batch_size 4 \
+        --batch_size 16 \
         --output_dir "$LOGS_DIR" \
         --num_data_workers 3 \
-        --max_workers 3 \
+        --max_workers 2 \
         --experiment_id "plots" \
-        --gpu "0" \
+        --gpu "0,1,2,3" \
         --independent_keys \
-            PatchProcessing_wavelet=RIGID.DINO.05_level=0_patch_size=512_seed=72532 \
-            PatchProcessing_wavelet=RIGID.CLIP.05_level=0_patch_size=512_seed=72532 \
-            PatchProcessing_wavelet=RIGID.CLIP.01_level=0_patch_size=512_seed=72532 \
+            PatchProcessing_wavelet=RIGID.DINO.05_level=0_patch_size=512_seed=61885 \
+            PatchProcessing_wavelet=RIGID.CLIP.05_level=0_patch_size=512_seed=61885 \
         --patch_divisors 0 \
-        --chi2_bins 30 \
+        --chi2_bins 10 \
         --cdf_bins 400 \
         --dataset_type COCO_STABLE_DIFFUSION_XL_TEST_ONLY \
-        --seed 72532 \
+        --seed 61885 \
         --sample_size 512 \
         --threshold 0.9 \
         --save_histograms 1 \
         --save_independence_heatmaps 1 \
         --pkls_dir pkls_experiments_II \
         --num_samples_per_class -1 \
-        --run_id plot_sdxl_jpeg_inference_plot_run_$TIMESTAMP \
-        --inference_aug jpeg
+        --run_id plot_sdxl_inference_logo_plot_run_$TIMESTAMP \
+        --draw_pvalues_trend_figure 1 
 
     echo "Run complete."
 } &> "$LOGS_DIR/logs.txt"
