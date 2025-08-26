@@ -10,11 +10,10 @@ import torch
 import numpy as np
 from pytorch_wavelets import DTCWTForward, DTCWTInverse
 from scipy.stats import chi2_contingency
-from sklearn.metrics import auc, confusion_matrix, precision_score, recall_score, f1_score, accuracy_score, confusion_matrix, roc_curve
+from sklearn.metrics import auc, confusion_matrix, precision_score, recall_score, f1_score, accuracy_score, roc_curve
 import os
 import seaborn as sns
 import networkx as nx
-import numpy as np
 from scipy.stats import chi2, kstest, gaussian_kde, combine_pvalues, norm
 from tqdm import tqdm
 from sklearn.metrics import roc_auc_score
