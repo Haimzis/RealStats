@@ -97,8 +97,8 @@ def export_auc_per_dataset(
 
     final_df = final_df[output_columns]
 
-    if "params.waves" in final_df.columns:
-        final_df["params.waves"] = final_df["params.waves"].str.replace("RIGID.", "", regex=False)
+    if "params.statistics" in final_df.columns:
+        final_df["params.statistics"] = final_df["params.statistics"].str.replace("RIGID.", "", regex=False)
 
     # Round numeric columns
     for col in final_df.select_dtypes(include=[np.number]).columns:
@@ -120,7 +120,7 @@ if __name__ == "__main__":
         # "metrics.best_N",
         # "metrics.best_KS",
         # "params.patch_sizes",
-        # "params.waves",
+        # "params.statistics",
     ]
 
     for experiment_name in experiment_names:

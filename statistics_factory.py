@@ -18,8 +18,8 @@ from processing.ssim_noise_histogram import SSIMBlurHistogram
 # Import all histogram classes
 
 
-# Define a dictionary that maps wavelet types to their corresponding histogram generator classes
-WAVELET_HISTOGRAMS = {
+# Define a dictionary that maps statistic names to their corresponding histogram generator classes
+STATISTIC_HISTOGRAMS = {
     # Wavelet and Frequency Domain Statistics
     'bior1.1': lambda level: WaveletNormHistogram(selected_indices=[level], wave='bior1.1'),
     'bior3.1': lambda level: WaveletNormHistogram(selected_indices=[level], wave='bior3.1'),
@@ -152,6 +152,6 @@ WAVELET_HISTOGRAMS = {
 }
 
 
-def get_histogram_generator(wavelet: str, wavelet_level: int) -> Optional[object]:
-    """Returns the appropriate histogram generator based on wavelet type and level."""
-    return WAVELET_HISTOGRAMS.get(wavelet, lambda level: None)(wavelet_level)
+def get_histogram_generator(statistic: str, level: int) -> Optional[object]:
+    """Returns the appropriate histogram generator based on statistic name and level."""
+    return STATISTIC_HISTOGRAMS.get(statistic, lambda lvl: None)(level)

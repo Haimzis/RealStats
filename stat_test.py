@@ -61,17 +61,17 @@ class TestType(Enum):
     BOTH = "both"
     
 
-def get_unique_id(patch_size, level, wave, data_type: DataType, seed=42):
+def get_unique_id(patch_size, level, statistic, data_type: DataType, seed=42):
     """Generate a unique ID for processing."""
-    return f"PatchProcessing_wavelet={wave}_level={level}_patch_size={patch_size}_{data_type.value}_seed={seed}"
+    return f"PatchProcessing_statistic={statistic}_level={level}_patch_size={patch_size}_{data_type.value}_seed={seed}"
 
 
-def preprocess_wave(dataset, batch_size, wavelet, wavelet_level, num_data_workers, patch_size, pkl_dir, save_pkl, data_type: DataType, seed=42):
-    """Preprocess the dataset for a single wave level and wavelet type using various histogram statistics."""
+def preprocess_statistic(dataset, batch_size, statistic, level, num_data_workers, patch_size, pkl_dir, save_pkl, data_type: DataType, seed=42):
+    """Preprocess the dataset for a single statistic name and level using various histogram statistics."""
     set_seed(seed)
 
     # Generate unique filename for saving results
-    pkl_filename = os.path.join(pkl_dir, f"{get_unique_id(patch_size, wavelet_level, wavelet, data_type, seed)}.pkl")
+    pkl_filename = os.path.join(pkl_dir, f"{get_unique_id(patch_size, level, statistic, data_type, seed)}.pkl")
 
     # If not test data and file already exists, load cached histograms
     # TODO: Haim's Change Uncomment this if you want to load existing histograms
@@ -83,9 +83,9 @@ def preprocess_wave(dataset, batch_size, wavelet, wavelet_level, num_data_worker
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_data_workers)
 
     # Use the factory function to get the histogram generator
-    histogram_generator = get_histogram_generator(wavelet, wavelet_level)
+    histogram_generator = get_histogram_generator(statistic, level)
 
-    # If wavelet_level is not valid, return None
+    # If level is not valid, return None
     if histogram_generator is None:
         return None
 
@@ -154,13 +154,13 @@ def calculate_pvals_from_cdf(real_population_cdfs, samples_histogram, split="Inp
     return input_samples_pvalues
 
 
-def generate_combinations(patch_sizes, waves, wavelet_levels):
+def generate_combinations(patch_sizes, statistics, wavelet_levels):
     """Generate all combinations for the training phase."""
     combinations = []
-    for patch_size, wavelet, level in itertools.product(patch_sizes, waves, wavelet_levels):
+    for patch_size, statistic, level in itertools.product(patch_sizes, statistics, wavelet_levels):
         combinations.append({
             'patch_size': patch_size,
-            'wavelet': wavelet,
+            'statistic': statistic,
             'level': level,
         })
     return combinations
@@ -172,15 +172,15 @@ def interpret_keys_to_combinations(independent_keys_group):
     combinations = []
 
     for key in independent_keys_group:
-        match = re.match(r"PatchProcessing_wavelet=([\w.]+)_level=(\d+)_patch_size=(\d+)", key)
+        match = re.match(r"PatchProcessing_statistic=([\w.]+)_level=(\d+)_patch_size=(\d+)", key)
         if match:
-            wavelet, level, patch_size = match.groups()
+            statistic, level, patch_size = match.groups()
             combination = {
-                'wavelet': wavelet,
+                'statistic': statistic,
                 'level': int(level),
                 'patch_size': int(patch_size),
             }
-            key_tuple = (wavelet, int(level), int(patch_size))
+            key_tuple = (statistic, int(level), int(patch_size))
             if key_tuple not in seen:
                 seen.add(key_tuple)
                 combinations.append(combination)
@@ -194,14 +194,14 @@ def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_wo
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_combination = {
-            executor.submit(preprocess_wave, SelfPatchDataset(original_dataset, comb['patch_size']),
-                            batch_size, comb['wavelet'], comb['level'], num_data_workers, comb['patch_size'], pkl_dir, save_pkl, data_type, seed): comb
+            executor.submit(preprocess_statistic, SelfPatchDataset(original_dataset, comb['patch_size']),
+                            batch_size, comb['statistic'], comb['level'], num_data_workers, comb['patch_size'], pkl_dir, save_pkl, data_type, seed): comb
             for comb in combinations
         }
 
         for future in tqdm(as_completed(future_to_combination), total=len(future_to_combination), desc="Processing..."):
             combination = future_to_combination[future]
-            unique_id = get_unique_id(combination['patch_size'], combination['level'], combination['wavelet'], data_type, seed)
+            unique_id = get_unique_id(combination['patch_size'], combination['level'], combination['statistic'], data_type, seed)
             try:
                 results[unique_id] = future.result()
             except Exception as exc:
@@ -220,7 +220,7 @@ def main_multiple_patch_test(
     real_population_dataset,
     fake_population_dataset,
     inference_dataset,
-    waves,
+    statistics,
     wavelet_levels,
     patch_sizes,
     test_labels=None,
@@ -248,10 +248,10 @@ def main_multiple_patch_test(
     seed=42
 ):
     """Run test for number of patches and collect sensitivity and specificity results."""
-    print(f"Running test with: \npatches sizes: {patch_sizes}\nwavelets: {waves}\nlevels: {wavelet_levels}")
+    print(f"Running test with: \npatches sizes: {patch_sizes}\nstatistics: {statistics}\nlevels: {wavelet_levels}")
 
     # Generate all combinations for training
-    training_combinations = generate_combinations(patch_sizes, waves, wavelet_levels)
+    training_combinations = generate_combinations(patch_sizes, statistics, wavelet_levels)
 
     # Load or compute real population histograms
     real_population_histogram = patch_parallel_preprocess(
@@ -385,7 +385,7 @@ def inference_multiple_patch_test(
     Simplified version of patch test for inference: no tuning, no clique finding.
     Uses all combinations and applies ensemble testing.
     """
-    print(f"[INFO] Running inference-only test with waves={independent_statistics_keys_group}")
+    print(f"[INFO] Running inference-only test with statistics={independent_statistics_keys_group}")
 
     # Generate all combinations for training
     independent_combinations = interpret_keys_to_combinations(independent_statistics_keys_group)
@@ -394,10 +394,10 @@ def inference_multiple_patch_test(
 
     # If not test data and file already exists, load cached histograms
     for combination in independent_combinations:
-        wavelet = combination['wavelet']
-        wavelet_level = combination['level']
+        statistic = combination['statistic']
+        level = combination['level']
         patch_size = combination['patch_size']
-        stat_id = get_unique_id(patch_size, wavelet_level, wavelet, DataType.TRAIN, seed)
+        stat_id = get_unique_id(patch_size, level, statistic, DataType.TRAIN, seed)
         pkl_filename = os.path.join(pkl_dir, f"{stat_id}.pkl")
         
         assert os.path.exists(pkl_filename), "File not found. Please run full pipeline."
@@ -585,10 +585,10 @@ def inference_multiple_patch_test_with_dependence(
 
     real_population_histogram = {}
     for combination in all_combinations:
-        wavelet = combination['wavelet']
-        wavelet_level = combination['level']
+        statistic = combination['statistic']
+        level = combination['level']
         patch_size = combination['patch_size']
-        stat_id = get_unique_id(patch_size, wavelet_level, wavelet, DataType.TRAIN, seed)
+        stat_id = get_unique_id(patch_size, level, statistic, DataType.TRAIN, seed)
         pkl_filename = os.path.join(pkl_dir, f"{stat_id}.pkl")
         assert os.path.exists(pkl_filename), "File not found. Please run full pipeline."
         real_population_histogram[stat_id] = load_population_histograms(pkl_filename)

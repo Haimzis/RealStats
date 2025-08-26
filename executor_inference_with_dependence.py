@@ -12,7 +12,7 @@ from utils import plot_fakeness_score_distribution, plot_fakeness_score_histogra
 
 sys.setrecursionlimit(2000)
 
-parser = argparse.ArgumentParser(description='Inference-Only Wavelet and Patch Testing Pipeline')
+parser = argparse.ArgumentParser(description='Inference-Only Statistic and Patch Testing Pipeline')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size for data loading.')
 parser.add_argument('--sample_size', type=int, default=512, help='Sample input size after downscale.')
 parser.add_argument('--patch_divisors', type=int, nargs='+', default=[2, 4, 8], help='Divisors to calculate patch sizes as sample_size // 2^i.')

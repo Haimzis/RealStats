@@ -14,8 +14,8 @@ from utils import plot_roc_curve, set_seed
 sys.setrecursionlimit(2000)
 
 # Argument parser (with only relevant arguments kept from the original script)
-parser = argparse.ArgumentParser(description='Wavelet and Patch Testing Pipeline')
-parser.add_argument('--test_type', choices=['multiple_patches', 'multiple_wavelets'], default='multiple_wavelets', help='Choose which type of multiple tests to perform')
+parser = argparse.ArgumentParser(description='Statistic and Patch Testing Pipeline')
+parser.add_argument('--test_type', choices=['multiple_patches', 'multiple_statistics'], default='multiple_statistics', help='Choose which type of multiple tests to perform')
 parser.add_argument('--batch_size', type=int, default=512, help='Batch size for data loading.')
 parser.add_argument('--sample_size', type=int, default=256, help='Sample input size after downscale.')
 parser.add_argument('--patch_divisors', type=int, nargs='+', default=[2, 4, 8], help='Divisors to calculate patch sizes as sample_size // 2^i.')
@@ -31,7 +31,7 @@ parser.add_argument('--num_samples_per_class', type=int, default=-1, help='Numbe
 parser.add_argument('--num_data_workers', type=int, default=4, help='Number of workers for data loading.')
 parser.add_argument('--max_workers', type=int, default=1, help='Maximum number of threads for parallel processing.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility.')
-parser.add_argument('--waves', type=str, nargs='+', default=['haar', 'coif1', 'sym2', 'fourier', 'dct'], help='List of wavelet types.')
+parser.add_argument('--statistics', type=str, nargs='+', default=['haar', 'coif1', 'sym2', 'fourier', 'dct'], help='List of statistic types.')
 parser.add_argument('--wavelet_levels', type=int, nargs='+', default=[0, 1, 2, 3, 4], help='List of wavelet levels.')
 parser.add_argument('--finetune_portion', type=float, default=0.2, help='Portion of the dataset used for finetuning.')
 parser.add_argument('--chi2_bins', type=int, default=10, help='Number of bins for chi-square calculations.')
@@ -71,7 +71,7 @@ def main():
         ])
 
         datasets = DatasetFactory.create_dataset(dataset_type=args.dataset_type, transform=transform)
-        real_population_dataset, fake_population_dataset = datasets['train_real'], datasets['train_fake']
+        reference_real_dataset = datasets['reference_real']
         inference_data = create_inference_dataset(paths['test_real']['path'], paths['test_fake']['path'], args.num_samples_per_class, classes='both', shuffle=False)
 
         # Prepare inference dataset
@@ -82,7 +82,7 @@ def main():
         # Compute patch sizes from divisors
         patch_sizes = [args.sample_size // (2 ** d) for d in args.patch_divisors]
 
-        test_id = f"divs_{'-'.join(map(str, args.patch_divisors))}-waves_{len(args.waves)}"
+        test_id = f"divs_{'-'.join(map(str, args.patch_divisors))}-statistics_{len(args.statistics)}"
 
         # Log all relevant parameters
         mlflow.log_params(vars(args))
@@ -91,14 +91,14 @@ def main():
 
 
         results = main_multiple_patch_test(
-            real_population_dataset=real_population_dataset,
+            real_population_dataset=reference_real_dataset,
             fake_population_dataset=None,
             inference_dataset=inference_dataset,
             test_labels=labels,
             batch_size=args.batch_size,
             threshold=args.threshold,
             patch_sizes=patch_sizes,
-            waves=args.waves,
+            statistics=args.statistics,
             wavelet_levels=args.wavelet_levels,
             save_independence_heatmaps=bool(args.save_independence_heatmaps),
             save_histograms=bool(args.save_histograms),

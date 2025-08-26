@@ -83,8 +83,8 @@ def preprocess_and_plot():
     set_seed(args.seed)
     patch_sizes = [args.sample_size]
     levels = [0]
-    waves = build_backbones_statistics_list(['DINO','BEIT','CLIP','RESNET'], ['01','05','10'])
-    # waves = build_backbones_statistics_list(['DINO'], ['01','05','10'])
+    statistics = build_backbones_statistics_list(['DINO','BEIT','CLIP','RESNET'], ['01','05','10'])
+    # statistics = build_backbones_statistics_list(['DINO'], ['01','05','10'])
     dataset_types = [
         # 'COCO_STABLE_DIFFUSION_1_4_TEST_ONLY', 
         'GAUGAN_TEST_ONLY',
@@ -105,7 +105,7 @@ def preprocess_and_plot():
         fake_paths = [x[0] for x in inference_data if x[1] == 1]
         real_ds = ImageDataset(real_paths, [0]*len(real_paths), transform)
         fake_ds = ImageDataset(fake_paths, [1]*len(fake_paths), transform)
-        stat_combs = generate_combinations(patch_sizes, waves, levels)
+        stat_combs = generate_combinations(patch_sizes, statistics, levels)
 
         real_hist = patch_parallel_preprocess(real_ds, args.batch_size, stat_combs, args.max_workers, args.num_data_workers, pkl_dir, True, DataType.CALIB)
         fake_hist = patch_parallel_preprocess(fake_ds, args.batch_size, stat_combs, args.max_workers, args.num_data_workers, pkl_dir, True, DataType.TEST)
@@ -116,7 +116,7 @@ def preprocess_and_plot():
         df = pd.read_csv(os.path.join(args.pkls_dir, f'{dataset}.csv'))
         real_sorted = df[df.label == 0].set_index('image_path').loc[real_paths].reset_index()
         fake_sorted = df[df.label == 1].set_index('image_path').loc[fake_paths].reset_index()
-        key = f'PatchProcessing_wavelet=ManifoldBias_level=0_patch_size=512_seed={args.seed}'
+        key = f'PatchProcessing_statistic=ManifoldBias_level=0_patch_size=512_seed={args.seed}'
         real_hist[key] = np.array([[v] for v in real_sorted['criterion'].tolist()])
         fake_hist[key] = np.array([[v] for v in fake_sorted['criterion'].tolist()])
 
