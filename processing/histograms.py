@@ -41,16 +41,20 @@ class BaseHistogram:
 
     def create_histogram(self, data_loader):
         """Generate histograms for all images in the dataset."""
-        all_histograms = []
-        for images, _ in tqdm(data_loader, desc="Generating histograms", leave=False):
+        results = {}
+
+        for images, _, paths in tqdm(data_loader, desc="Generating histograms", leave=False):
             B, P = images.shape[:2]
             images = images.view(B * P, *images.shape[2:]) # Cross batches
             images = images.to(self.device)
             histograms = self.preprocess(images)
             torch.cuda.empty_cache()
             histograms = histograms.reshape(B, P)
-            all_histograms.append(histograms)
-        return np.concatenate(all_histograms, axis=0)
+
+            for sample, path in zip(histograms, paths):
+                results[path] = sample
+
+        return results
 
     def plot_histograms(self, histograms_real, histograms_fake, figname='histogram.png', xlabel='Metric', title='Histogram'):
         """Plot histograms for real and fake datasets with mean and std in a rectangle."""

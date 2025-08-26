@@ -20,8 +20,12 @@ class JPEGCompressionTransform:
     
 
 class ImageDataset(Dataset):
-    """Custom Dataset for loading images from either a directory or a list of file paths with labels."""
-    
+    """Custom Dataset for loading images from either a directory or a list of file paths with labels.
+
+    Always returns the original file path for each sample to allow
+    per-image processing and caching.
+    """
+
     def __init__(self, image_input, labels=None, transform=None):
         """
         Args:
@@ -65,8 +69,8 @@ class ImageDataset(Dataset):
         # Apply any transformations (e.g., resizing, normalization)
         if self.transform:
             image = self.transform(image)
-        
-        return image, label
+
+        return image, label, image_path
 
 
 class ProGanDataset(Dataset):
@@ -103,7 +107,7 @@ class ProGanDataset(Dataset):
         image = Image.open(image_path).convert('RGB')  # Load image and convert to RGB
         if self.transform:
             image = self.transform(image)  # Apply transformations if provided
-        return image, label
+        return image, label, image_path
 
 
 class CocoDataset(Dataset):
@@ -141,7 +145,7 @@ class CocoDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        return image, self.label
+        return image, self.label, image_path
     
 
 class GlobalPatchDataset(Dataset):
@@ -155,7 +159,7 @@ class GlobalPatchDataset(Dataset):
         return len(self.original_dataset)
 
     def __getitem__(self, idx):
-        image, label = self.original_dataset[idx]  # Get the image and label from the original dataset
+        image, label, path = self.original_dataset[idx]  # Get the image, label and path from the original dataset
 
         # Calculate number of patches along height and width
         h_patches = image.shape[1] // self.patch_size
@@ -172,11 +176,12 @@ class GlobalPatchDataset(Dataset):
             col_idx * self.patch_size:(col_idx + 1) * self.patch_size
         ]
 
-        return patch, label  # Return the patch and label
+        return patch, label, path  # Return the patch, label, and path
     
 
 class SelfPatchDataset(Dataset):
     """Extract all patches from each image in the dataset."""
+
     def __init__(self, original_dataset, patch_size):
         """
         Args:
@@ -195,7 +200,7 @@ class SelfPatchDataset(Dataset):
             patches (torch.Tensor): All patches from the image (shape: N x C x H x W).
             label (int): Label corresponding to the image.
         """
-        image, label = self.original_dataset[idx]  # Load full image and label
+        image, label, path = self.original_dataset[idx]
 
         # Compute the number of patches along height and width
         h_patches = image.shape[1] // self.patch_size
@@ -211,7 +216,8 @@ class SelfPatchDataset(Dataset):
                 ]
                 patches.append(patch)
 
-        return torch.stack(patches), label  # Return all patches as a batch
+        patches_tensor = torch.stack(patches)
+        return patches_tensor, label, path  # Return all patches as a batch
 
 
 def create_inference_dataset(real_dir, fake_dir, num_samples_per_class, classes='both', shuffle=False):

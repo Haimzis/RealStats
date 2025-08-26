@@ -33,7 +33,6 @@ from utils import (
     remove_nans_from_tests,
     save_ensembled_pvalue_kde_and_images,
     save_per_image_kde_and_images,
-    save_population_histograms,
     plot_pvalue_histograms,
     plot_binned_histogram,
     plot_histograms,
@@ -69,37 +68,52 @@ def get_unique_id(patch_size, level, statistic, data_type: DataType, seed=42):
     return f"PatchProcessing_statistic={statistic}_level={level}_patch_size={patch_size}_{data_type.value}_seed={seed}"
 
 
-def preprocess_statistic(dataset, batch_size, statistic, level, num_data_workers, patch_size, pkl_dir, save_pkl, data_type: DataType, seed=42):
+def preprocess_statistic(dataset, batch_size, statistic, level, num_data_workers, patch_size, pkl_dir, data_type: DataType, seed=42):
     """Preprocess the dataset for a single statistic name and level using various histogram statistics."""
     set_seed(seed)
 
-    # Generate unique filename for saving results
-    pkl_filename = os.path.join(pkl_dir, f"{get_unique_id(patch_size, level, statistic, data_type, seed)}.pkl")
+    unique_id = get_unique_id(patch_size, level, statistic, data_type, seed)
 
-    # If not test data and file already exists, load cached histograms
-    # TODO: Haim's Change Uncomment this if you want to load existing histograms
-    if os.path.exists(pkl_filename) and data_type != DataType.TEST:
-        # pass
-        return load_population_histograms(pkl_filename)
-
-    # Create DataLoader for dataset
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_data_workers)
 
-    # Use the factory function to get the histogram generator
     histogram_generator = get_histogram_generator(statistic, level)
-
-    # If level is not valid, return None
     if histogram_generator is None:
         return None
 
-    # Generate histogram
-    result = histogram_generator.create_histogram(data_loader)
+    combo_dir = os.path.join(pkl_dir, unique_id)
+    results = []
 
-    # Save results if needed
-    if save_pkl:
-        save_population_histograms(result, pkl_filename)
+    for images, _, paths in data_loader:
+        B, P = images.shape[:2]
 
-    return result
+        cached = [None] * B
+        to_compute = []
+
+        for i, path in enumerate(paths):
+            stat_path = os.path.join(combo_dir, os.path.splitext(os.path.abspath(path).lstrip(os.sep))[0] + ".npy")
+            if os.path.exists(stat_path):
+                cached[i] = np.load(stat_path)
+            else:
+                to_compute.append((i, path, stat_path))
+
+        if to_compute:
+            idxs = [i for i, _, _ in to_compute]
+            imgs = images[idxs].view(len(idxs) * P, *images.shape[2:])
+            imgs = imgs.to(histogram_generator.device)
+            hist = histogram_generator.preprocess(imgs)
+            torch.cuda.empty_cache()
+            hist = hist.reshape(len(idxs), P)
+
+            for (i, _, stat_path), h in zip(to_compute, hist):
+                os.makedirs(os.path.dirname(stat_path), exist_ok=True)
+                np.save(stat_path, h)
+                cached[i] = h
+
+        results.extend(cached)
+
+    stacked = np.stack(results, axis=0)
+
+    return stacked
 
 
 def fdr_classification(pvalues, threshold=0.05):
@@ -191,14 +205,13 @@ def interpret_keys_to_combinations(independent_keys_group):
     return combinations
 
 
-def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_workers, num_data_workers, pkl_dir='pkls', save_pkl=False, data_type: DataType = DataType.TRAIN, sort=True, seed=42):
+def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_workers, num_data_workers, pkl_dir='pkls', data_type: DataType = DataType.TRAIN, sort=True, seed=42):
     """Preprocess the dataset for specific combinations in parallel."""
     results = {}
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_combination = {
-            executor.submit(preprocess_statistic, SelfPatchDataset(original_dataset, comb['patch_size']),
-                            batch_size, comb['statistic'], comb['level'], num_data_workers, comb['patch_size'], pkl_dir, save_pkl, data_type, seed): comb
+            executor.submit(preprocess_statistic, SelfPatchDataset(original_dataset, comb['patch_size']), batch_size, comb['statistic'], comb['level'], num_data_workers, comb['patch_size'], pkl_dir, data_type, seed): comb
             for comb in combinations
         }
 
@@ -257,7 +270,7 @@ def main_multiple_patch_test(
 
     # Load or compute reference histograms
     reference_histogram = patch_parallel_preprocess(
-        reference_dataset, batch_size, training_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, data_type=DataType.TRAIN, seed=seed
+        reference_dataset, batch_size, training_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, data_type=DataType.TRAIN, seed=seed
     )
 
     reference_histogram = compute_mean_std_dict(reference_histogram)
@@ -319,7 +332,7 @@ def main_multiple_patch_test(
 
     # Inference
     inference_histogram = patch_parallel_preprocess(
-        inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, data_type=DataType.TEST, seed=seed
+        inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, data_type=DataType.TEST, seed=seed
     )
 
     inference_histogram = compute_mean_std_dict(inference_histogram)
@@ -457,7 +470,7 @@ def inference_multiple_patch_test(
     
     # Inference
     inference_histogram = patch_parallel_preprocess(
-        inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, data_type=DataType.TEST, seed=seed
+        inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, data_type=DataType.TEST, seed=seed
     )
 
     inference_histogram = compute_mean_std_dict(inference_histogram)
@@ -645,7 +658,7 @@ def inference_multiple_patch_test_with_dependence(
 
     start_stat_extraction = time.time()
     all_inference_histogram = patch_parallel_preprocess(
-        inference_dataset, batch_size, all_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, data_type=DataType.TEST, seed=seed
+        inference_dataset, batch_size, all_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, data_type=DataType.TEST, seed=seed
     )
     end_stat_extraction = time.time()
     elapsed_stat_extraction = (end_stat_extraction - start_stat_extraction) * 1000  # ms

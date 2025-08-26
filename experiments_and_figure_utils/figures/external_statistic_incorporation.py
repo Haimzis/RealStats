@@ -107,8 +107,8 @@ def preprocess_and_plot():
         fake_ds = ImageDataset(fake_paths, [1]*len(fake_paths), transform)
         stat_combs = generate_combinations(patch_sizes, statistics, levels)
 
-        real_hist = patch_parallel_preprocess(real_ds, args.batch_size, stat_combs, args.max_workers, args.num_data_workers, pkl_dir, True, DataType.CALIB)
-        fake_hist = patch_parallel_preprocess(fake_ds, args.batch_size, stat_combs, args.max_workers, args.num_data_workers, pkl_dir, True, DataType.TEST)
+        real_hist = patch_parallel_preprocess(real_ds, args.batch_size, stat_combs, args.max_workers, args.num_data_workers, pkl_dir, DataType.CALIB)
+        fake_hist = patch_parallel_preprocess(fake_ds, args.batch_size, stat_combs, args.max_workers, args.num_data_workers, pkl_dir, DataType.TEST)
 
         real_hist_before, fake_hist_before = real_hist.copy(), fake_hist.copy()
 

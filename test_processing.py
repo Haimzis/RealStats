@@ -94,12 +94,12 @@ def preprocess_and_plot():
         # Process both real and fake from inference set
         real_histograms = patch_parallel_preprocess(
             real_dataset, args.batch_size, stat_combinations, args.max_workers,
-            args.num_data_workers, dataset_pkls_dir, True, DataType.CALIB
+            args.num_data_workers, dataset_pkls_dir, DataType.CALIB
         )
 
         fake_histograms = patch_parallel_preprocess(
             fake_dataset, args.batch_size, stat_combinations, args.max_workers,
-            args.num_data_workers, dataset_pkls_dir, True, DataType.TEST
+            args.num_data_workers, dataset_pkls_dir, DataType.TEST
         )
 
         for key in real_histograms.keys():
