@@ -14,10 +14,12 @@ import os
 import seaborn as sns
 import networkx as nx
 import numpy as np
-from scipy.stats import chi2, kstest, gaussian_kde
+from scipy.stats import chi2, kstest, gaussian_kde, combine_pvalues, norm
 from tqdm import tqdm
 from sklearn.metrics import roc_auc_score
 from PIL import Image, ImageDraw
+import json
+import sys
 
 
 def view_subgraph(subgraph, title="Subgraph Visualization", save_path='subgraph.png'):
@@ -1454,3 +1456,61 @@ def save_real_statistics_kde(statistics_dict, statistics_keys, output_dir):
         plt.tight_layout()
         plt.savefig(plot_path, bbox_inches="tight", pad_inches=0.1)
         plt.close()
+
+
+def ks_uniform_sanity_check(output_dir, uniform_p_threshold, logger,
+                            tuning_real_population_pvals, pvalue_distributions, keys):
+    """Filter tests with p-value distributions close to uniform."""
+    uniform_tests = []
+    ks_pvalues = []
+
+    for i, test_pvalues in tqdm(
+            enumerate(pvalue_distributions),
+            desc="Filtering uniform pvalues distributions",
+            total=len(keys)):
+        p_value = kstest(test_pvalues, 'uniform')[1]
+        ks_pvalues.append(p_value)
+        if p_value > uniform_p_threshold:
+            uniform_tests.append(i)
+
+    uniform_keys = [keys[i] for i in uniform_tests]
+    uniform_dists = tuning_real_population_pvals[:, uniform_tests]
+
+    plot_uniform_and_nonuniform(pvalue_distributions, uniform_tests, output_dir)
+    plot_histograms(ks_pvalues, os.path.join(output_dir, 'ks_pvalues.png'),
+                    title='Kolmogorov-Smirnov', bins=20)
+
+    if logger:
+        logger.log_param("num_uniform_tests", len(uniform_keys))
+        logger.log_param("non_uniform_proportion", (len(keys) - len(uniform_keys)) / len(keys))
+
+    return uniform_keys, uniform_dists
+
+
+def perform_ensemble_testing(pvalues, ensemble_test, output_dir='logs', plot=False):
+    """Perform ensemble testing using Stouffer's method."""
+    if ensemble_test == 'stouffer':
+        return [combine_pvalues(p, method='stouffer')[1] for p in pvalues]
+    elif ensemble_test == 'manual-stouffer':
+        pvalues = np.clip(pvalues, np.finfo(np.float32).eps, 1.0 - np.finfo(np.float32).eps)
+        inverse_z_scores = norm.ppf(pvalues)
+        stouffer_z = np.sum(inverse_z_scores, axis=1) / np.sqrt(pvalues.shape[1])
+        stouffer_pvalues = norm.cdf(stouffer_z)
+        if plot:
+            plot_stouffer_analysis(
+                pvalues, inverse_z_scores, stouffer_z, stouffer_pvalues, output_folder=output_dir
+            )
+        return stouffer_z, stouffer_pvalues
+    else:
+        raise ValueError(f"Unknown ensemble test: {ensemble_test}")
+
+
+def get_total_size_in_MB(obj):
+    """Estimate object size in megabytes using its serialized string length."""
+    try:
+        obj_str = json.dumps(obj)
+    except (TypeError, OverflowError):
+        obj_str = str(obj)
+
+    size_bytes = sys.getsizeof(obj_str)
+    return size_bytes / (1024 ** 2)
