@@ -12,8 +12,8 @@ from utils import build_backbones_statistics_list, plot_roc_curve, set_seed
 os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
 
 # Argument parser
-parser = argparse.ArgumentParser(description='Wavelet and Patch Testing Pipeline')
-parser.add_argument('--test_type', choices=['multiple_patches', 'multiple_wavelets'], default='multiple_wavelets', help='Choose which type of multiple tests to perform')
+parser = argparse.ArgumentParser(description='Statistic and Patch Testing Pipeline')
+parser.add_argument('--test_type', choices=['multiple_patches', 'multiple_statistics'], default='multiple_statistics', help='Choose which type of multiple tests to perform')
 parser.add_argument('--batch_size', type=int, default=8, help='Batch size for data loading')
 parser.add_argument('--sample_size', type=int, default=512, help='Sample input size after downscale')
 parser.add_argument('--threshold', type=float, default=0.05, help='P-value threshold for significance testing')
@@ -77,19 +77,19 @@ def main():
     inference_dataset = ImageDataset(image_paths, labels, transform=transform)
 
     threshold = args.threshold
-    # waves = ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier', 'dct', 'blurness', 'gabor', 'hsv', 'jpeg', 'sift', 'ssim', 'psnr']
-    # waves = ['edge5x5', 'smoothing', 'noise', 'sharpness', 'emboss', 'highpass', 'sobel', 'gauss_diff']
+    # statistics = ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier', 'dct', 'blurness', 'gabor', 'hsv', 'jpeg', 'sift', 'ssim', 'psnr']
+    # statistics = ['edge5x5', 'smoothing', 'noise', 'sharpness', 'emboss', 'highpass', 'sobel', 'gauss_diff']
 
     # models = ['CLIPBIGG', 'CLIPOPENAI', 'CONVNEXT', 'DINO', 'BEIT', 'CLIP', 'DEIT', 'RESNET']
     models = ['DINO', 'BEIT', 'CLIP', 'DEIT', 'RESNET']
     noise_levels = ['01', '05', '10', '50', '75', '100']
 
-    waves = build_backbones_statistics_list(models, noise_levels)
+    statistics = build_backbones_statistics_list(models, noise_levels)
     
     patch_sizes = [args.sample_size]
     wavelet_levels = [0]
-    
-    test_id = f"num_waves_{len(waves)}-{min(patch_sizes)}_{max(patch_sizes)}-max_level_{wavelet_levels[-1]}"
+
+    test_id = f"num_statistics_{len(statistics)}-{min(patch_sizes)}_{max(patch_sizes)}-max_level_{wavelet_levels[-1]}"
 
     results = main_multiple_patch_test(
             real_population_dataset=reference_real_dataset,
@@ -99,7 +99,7 @@ def main():
             batch_size=args.batch_size,
             threshold=threshold,
             patch_sizes=patch_sizes,
-            waves=waves,
+            statistics=statistics,
             wavelet_levels=wavelet_levels,
             save_independence_heatmaps=bool(args.save_independence_heatmaps),
             save_histograms=bool(args.save_histograms),

@@ -32,10 +32,10 @@ noise_levels_2 = ['05', '10']
 models_3 = ['BEIT']
 noise_levels_3 = ['05', '10']
 
-waves_choices = []
-waves_choices += build_backbones_statistics_list(models_1, noise_levels_1)
-waves_choices += build_backbones_statistics_list(models_2, noise_levels_2)
-waves_choices += build_backbones_statistics_list(models_3, noise_levels_3)
+statistics_choices = []
+statistics_choices += build_backbones_statistics_list(models_1, noise_levels_1)
+statistics_choices += build_backbones_statistics_list(models_2, noise_levels_2)
+statistics_choices += build_backbones_statistics_list(models_3, noise_levels_3)
 
 # patch_divisors_choices = ["0 1", "0 1", "0", "0", "0"]
 patch_divisors_choices = ["0"]
@@ -52,13 +52,13 @@ def generate_configurations(num_configs, runs_per_config):
     # Force each dataset_type to appear at least once
     for dataset_type in dataset_types:
         finetune_portion = random.choice(finetune_portion_range)
-        waves = waves_choices
+        statistics = statistics_choices
         patch_divisors = random.choice(patch_divisors_choices)
         chi2_bins = random.choice(chi2_bins_choices)
 
         base_config = (
             f"--finetune_portion {finetune_portion} "
-            f"--waves {' '.join(waves)} "
+            f"--statistics {' '.join(statistics)} "
             f"--ensemble_test {statistic_ensemble} "
             f"--patch_divisors {patch_divisors} "
             f"--chi2_bins {chi2_bins} "
@@ -77,13 +77,13 @@ def generate_configurations(num_configs, runs_per_config):
     # for _ in range(remaining_configs):
     #     dataset_type = random.choice(dataset_types)
     #     finetune_portion = random.choice(finetune_portion_range)
-    #     waves = random.sample(waves_choices, 15)
+    #     statistics = random.sample(statistics_choices, 15)
     #     patch_divisors = random.choice(patch_divisors_choices)
     #     chi2_bins = random.choice(chi2_bins_choices)
 
     #     base_config = (
     #         f"--finetune_portion {finetune_portion} "
-    #         f"--waves {' '.join(waves)} "
+    #         f"--statistics {' '.join(statistics)} "
     #         f"--patch_divisors {patch_divisors} "
     #         f"--chi2_bins {chi2_bins} "
     #         f"--dataset_type {dataset_type}"

@@ -540,7 +540,7 @@ def compute_dist_cdf(distribution="normal", size=10000, bins=1000):
 
 
 def compute_cdf(histogram_values, bins=1000, test_id=None):
-    """Compute CDFs from histogram values for each wavelet descriptor."""
+    """Compute CDFs from histogram values for each statistic descriptor."""
     hist, bin_edges = np.histogram(histogram_values, bins=bins, density=True)
     cdf = np.cumsum(hist) * np.diff(bin_edges)
     cdf_dict = (hist, bin_edges, cdf)  # Store both the histogram and the CDF
@@ -584,8 +584,8 @@ def calculate_metrics(test_labels, predictions):
     }
 
 
-def plot_sensitivity_specificity_by_patch_size(results, wavelet, threshold, output_dir):
-    """Plot sensitivity (recall) and specificity across wavelets and patches."""
+def plot_sensitivity_specificity_by_patch_size(results, statistic, threshold, output_dir):
+    """Plot sensitivity (recall) and specificity across statistics and patches."""
     patches = sorted(results.keys())
     recalls = [results[patch]['recall'] for patch in patches]
     specificities = [results[patch]['specificity'] for patch in patches]
@@ -594,12 +594,13 @@ def plot_sensitivity_specificity_by_patch_size(results, wavelet, threshold, outp
     plt.figure()
     plt.plot(patches, recalls, marker='o', label='Recall (Sensitivity)')
     plt.plot(patches, specificities, marker='x', label='Specificity')
-    plt.title(f'Sensitivity and Specificity for Wavelet: {wavelet} (Alpha={threshold})')
+    plt.title(f'Sensitivity and Specificity for Statistic: {statistic} (Alpha={threshold})')
     plt.xlabel('Patch Size')
     plt.ylabel('Value')
     plt.legend()
     plt.grid()
-    plt.savefig(os.path.join(output_dir, f'sensitivity_specificity_{wavelet}_alpha_{threshold}.png'))
+    os.makedirs(output_dir, exist_ok=True)
+    plt.savefig(os.path.join(output_dir, f'sensitivity_specificity_{statistic}_alpha_{threshold}.png'))
     plt.close()
 
 
@@ -928,7 +929,7 @@ def plot_pvalue_histograms_from_arrays(
 
 def build_backbones_statistics_list(models, noise_levels, prefix="RIGID"):
     """
-    Generates a list of wave names in the format RIGID.{MODEL}.{NOISE}.
+    Generates a list of statistic names in the format RIGID.{MODEL}.{NOISE}.
 
     Args:
         models (list of str): Model names, e.g. ['DINO', 'CLIP']
@@ -936,7 +937,7 @@ def build_backbones_statistics_list(models, noise_levels, prefix="RIGID"):
         prefix (str): Optional prefix, default is 'RIGID'
 
     Returns:
-        list of str: All wave combinations like RIGID.DINO.01, RIGID.CLIP.05, ...
+        list of str: All statistic combinations like RIGID.DINO.01, RIGID.CLIP.05, ...
     """
     return [f"{prefix}.{model}.{noise}" for model in models for noise in noise_levels]
 

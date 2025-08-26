@@ -28,12 +28,12 @@ histograms_stats_dir = os.path.join('histograms_stats', '29.07_adaptability')
 
 
 def extract_patch_processing_args(key: str):
-    match = re.match(r"PatchProcessing_wavelet=([\w.]+)_level=(\d+)_patch_size=(\d+)", key)
-    
+    match = re.match(r"PatchProcessing_statistic=([\w.]+)_level=(\d+)_patch_size=(\d+)", key)
+
     if match:
-        wavelet, level, patch_size = match.groups()
+        statistic, level, patch_size = match.groups()
         return {
-            'wavelet': wavelet,
+            'statistic': statistic,
             'level': int(level),
             'patch_size': int(patch_size),
         }
@@ -43,12 +43,12 @@ def preprocess_and_plot():
     set_seed(args.seed)
     patch_sizes = [args.sample_size]
     levels = [0]
-    # waves = ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier', 'jpeg', 'hsv']
+    # statistics = ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier', 'jpeg', 'hsv']
     models = ['DINO', 'BEIT', 'CLIP', 'RESNET']
     # noise_levels = ['01', '05', '10', '50', '75', '100']
     noise_levels = ['01', '05', '10']
-    waves = build_backbones_statistics_list(models, noise_levels)
-    # waves += ['LatentNoiseCriterion']
+    statistics = build_backbones_statistics_list(models, noise_levels)
+    # statistics += ['LatentNoiseCriterion']
 
     # dataset_types = [
     #     'BIGGAN_TEST_ONLY', 'CYCLEGAN_TEST_ONLY', 'GAUGAN_TEST_ONLY', 'PROGAN_TEST_ONLY',
@@ -89,7 +89,7 @@ def preprocess_and_plot():
         real_dataset = ImageDataset(real_paths, [0] * len(real_paths), transform=transform)
         fake_dataset = ImageDataset(fake_paths, [1] * len(fake_paths), transform=transform)
 
-        stat_combinations = generate_combinations(patch_sizes, waves, levels)
+        stat_combinations = generate_combinations(patch_sizes, statistics, levels)
 
         # Process both real and fake from inference set
         real_histograms = patch_parallel_preprocess(
@@ -104,11 +104,11 @@ def preprocess_and_plot():
 
         for key in real_histograms.keys():
             try:
-                wave = extract_patch_processing_args(key)['wavelet']
+                statistic = extract_patch_processing_args(key)['statistic']
                 if real_histograms[key] is None or fake_histograms[key] is None:
                     continue
 
-                artifact_path = os.path.join(histograms_stats_dir, dataset, f"{wave}_statistic.png")
+                artifact_path = os.path.join(histograms_stats_dir, dataset, f"{statistic}_statistic.png")
 
                 # plot_pvalue_histograms(
                 #     real_histograms[key],

@@ -21,9 +21,9 @@ mkdir -p "$LOGS_DIR"
         --experiment_id "plots" \
         --gpu "0" \
         --independent_keys \
-            PatchProcessing_wavelet=RIGID.DINO.05_level=0_patch_size=512_seed=72532 \
-            PatchProcessing_wavelet=RIGID.CLIP.05_level=0_patch_size=512_seed=72532 \
-            PatchProcessing_wavelet=RIGID.CLIP.01_level=0_patch_size=512_seed=72532 \
+            PatchProcessing_statistic=RIGID.DINO.05_level=0_patch_size=512_seed=72532 \
+            PatchProcessing_statistic=RIGID.CLIP.05_level=0_patch_size=512_seed=72532 \
+            PatchProcessing_statistic=RIGID.CLIP.01_level=0_patch_size=512_seed=72532 \
         --patch_divisors 0 \
         --chi2_bins 30 \
         --cdf_bins 400 \
