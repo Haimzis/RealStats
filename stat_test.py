@@ -20,6 +20,12 @@ from utils import (
     find_largest_independent_group_with_plot,
     find_largest_independent_group_iterative,
     find_largest_uncorrelated_group,
+    finding_optimal_independent_subgroup,
+    finding_optimal_uncorrelated_subgroup,
+    finding_optimal_independent_subgroup_deterministic,
+    ks_uniform_sanity_check,
+    perform_ensemble_testing,
+    get_total_size_in_MB,
     load_population_histograms,
     plot_ks_vs_pthreshold,
     plot_stouffer_analysis,
@@ -40,10 +46,7 @@ from utils import (
     save_real_statistics_kde
 )
 from statsmodels.stats.multitest import multipletests
-from scipy.stats import combine_pvalues
 from data_utils import GlobalPatchDataset, SelfPatchDataset
-from scipy.stats import norm, kstest
-import optuna
 from enum import Enum
 import time
 
@@ -217,8 +220,7 @@ def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_wo
 
 
 def main_multiple_patch_test(
-    real_population_dataset,
-    fake_population_dataset,
+    reference_dataset,
     inference_dataset,
     statistics,
     wavelet_levels,
@@ -253,33 +255,33 @@ def main_multiple_patch_test(
     # Generate all combinations for training
     training_combinations = generate_combinations(patch_sizes, statistics, wavelet_levels)
 
-    # Load or compute real population histograms
-    real_population_histogram = patch_parallel_preprocess(
-        real_population_dataset, batch_size, training_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, data_type=DataType.TRAIN, seed=seed
+    # Load or compute reference histograms
+    reference_histogram = patch_parallel_preprocess(
+        reference_dataset, batch_size, training_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, save_pkl=True, data_type=DataType.TRAIN, seed=seed
     )
 
-    real_population_histogram = compute_mean_std_dict(real_population_histogram)
-    real_population_histogram = remove_nans_from_tests(real_population_histogram)
+    reference_histogram = compute_mean_std_dict(reference_histogram)
+    reference_histogram = remove_nans_from_tests(reference_histogram)
 
     # Spliting 
-    # tuning_histogram, training_histogram = split_population_histogram(real_population_histogram, portion)
-    tuning_histogram, training_histogram = real_population_histogram, real_population_histogram
-    
+    # tuning_histogram, training_histogram = split_population_histogram(reference_histogram, portion)
+    tuning_histogram, training_histogram = reference_histogram, reference_histogram
+
     # CDF creation
-    real_population_cdfs = {test_id: compute_cdf(values, bins=cdf_bins, test_id=test_id) for test_id, values in training_histogram.items()}    
+    reference_cdfs = {test_id: compute_cdf(values, bins=cdf_bins, test_id=test_id) for test_id, values in training_histogram.items()}
 
     # Tuning Pvalues
-    tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, tuning_histogram, DataType.TUNING.name, test_type)
-    tuning_real_population_pvals = np.clip(tuning_real_population_pvals, 0, 1)
+    tuning_reference_pvals = calculate_pvals_from_cdf(reference_cdfs, tuning_histogram, DataType.TUNING.name, test_type)
+    tuning_reference_pvals = np.clip(tuning_reference_pvals, 0, 1)
 
-    keys = list(real_population_histogram.keys())
+    keys = list(reference_histogram.keys())
 
-    tuning_pvalue_distributions = tuning_real_population_pvals.T
+    tuning_pvalue_distributions = tuning_reference_pvals.T
  
     if uniform_sanity_check:
         # Ignore non uniform distributions
-        keys, tuning_real_population_pvals = ks_uniform_sanity_check(
-            output_dir, uniform_p_threshold, logger, tuning_real_population_pvals, tuning_pvalue_distributions, keys
+        keys, tuning_reference_pvals = ks_uniform_sanity_check(
+            output_dir, uniform_p_threshold, logger, tuning_reference_pvals, tuning_pvalue_distributions, keys
         )
 
     # Chi-Square and Correlation Matrix Computation
@@ -303,14 +305,14 @@ def main_multiple_patch_test(
     print(f'Relexation largest clique approximation: {largest_independent_clique_size_approximation}')
 
     if logger:
-        logger.log_param("num_tests", len(real_population_histogram.keys()))
+        logger.log_param("num_tests", len(reference_histogram.keys()))
         logger.log_param("Independent keys", independent_keys_group)
         logger.log_metric("largest_independent_clique_size_approximation", largest_independent_clique_size_approximation)
         logger.log_metrics(best_results)
 
     independent_keys_group_indices = [keys.index(value) for value in independent_keys_group]
     tuning_independent_pvals = tuning_pvalue_distributions[independent_keys_group_indices].T
-    perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)    
+    perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)
     
     # Convert independent keys to combinations
     independent_combinations = interpret_keys_to_combinations(independent_keys_group)
@@ -326,7 +328,7 @@ def main_multiple_patch_test(
         k: inference_histogram[k] for k in independent_keys_group if k in inference_histogram
     }
 
-    input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, DataType.TEST.name, test_type)
+    input_samples_pvalues = calculate_pvals_from_cdf(reference_cdfs, inference_histogram, DataType.TEST.name, test_type)
     independent_tests_pvalues = np.array(input_samples_pvalues)
     independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
         
@@ -539,23 +541,6 @@ def inference_multiple_patch_test(
         return metrics
 
 
-import sys
-import json
-def get_total_size_in_MB(obj):
-    """
-    Estimate object size in megabytes using its serialized string length.
-    Uses JSON if possible, falls back to str().
-    """
-    try:
-        # Try JSON serialization (works for basic types)
-        obj_str = json.dumps(obj)
-    except (TypeError, OverflowError):
-        # Fallback to string representation
-        obj_str = str(obj)
-
-    size_bytes = sys.getsizeof(obj_str)
-    return size_bytes / (1024 ** 2)  # Convert to megabytes
-
 
 def inference_multiple_patch_test_with_dependence(
     inference_dataset,
@@ -737,54 +722,7 @@ def inference_multiple_patch_test_with_dependence(
         metrics = calculate_metrics(test_labels, predictions)
         return metrics
 
-def ks_uniform_sanity_check(output_dir, uniform_p_threshold, logger, tuning_real_population_pvals, pvalue_distributions, keys):
-    uniform_tests = []
-    ks_pvalues = []
-
-    for i, test_pvalues in tqdm(enumerate(pvalue_distributions), desc="Filtering uniform pvalues distributions", total=len(keys)):
-        p_value = kstest(test_pvalues, 'uniform')[1]
-        ks_pvalues.append(p_value)
-        if p_value > uniform_p_threshold:
-            uniform_tests.append(i)
-
-    uniform_keys = [keys[i] for i in uniform_tests]
-    uniform_dists = tuning_real_population_pvals[:, uniform_tests]
-
-    # Plots
-    plot_uniform_and_nonuniform(pvalue_distributions, uniform_tests, output_dir)
-    plot_histograms(ks_pvalues, os.path.join(output_dir, 'ks_pvalues.png'), title='Kolmogorov-Smirnov', bins=20)
-     
-    if logger:
-        logger.log_param("num_uniform_tests", len(uniform_keys))
-        logger.log_param("non_uniform_proportion", (len(keys) - len(uniform_keys)) / len(keys))
-    return uniform_keys, uniform_dists 
-
-
-def perform_ensemble_testing(pvalues, ensemble_test, output_dir='logs', plot=False):
-    """Perform ensemble testing (Stouffer)."""
-    if ensemble_test == 'stouffer':
-        return [combine_pvalues(p, method='stouffer')[1] for p in pvalues]
-    elif ensemble_test == 'manual-stouffer':
-        pvalues = np.clip(pvalues, np.finfo(np.float32).eps, 1.0 - np.finfo(np.float32).eps)
-        inverse_z_scores = norm.ppf(pvalues)
-        stouffer_z = np.sum(inverse_z_scores, axis=1) / np.sqrt(pvalues.shape[1])
-        stouffer_pvalues = norm.cdf(stouffer_z)
-        if plot:
-            plot_stouffer_analysis(pvalues, inverse_z_scores, stouffer_z, stouffer_pvalues, num_plots_pvalues=5, num_plots_zscores=5, output_folder=output_dir)
-        return stouffer_z, stouffer_pvalues
-    elif ensemble_test == 'minp':
-        # Ensure p-values are within (0,1) for numerical stability
-        pvalues = np.clip(pvalues, np.finfo(np.float32).eps, 1.0 - np.finfo(np.float32).eps)
-        min_pvals = np.min(pvalues, axis=1)
-        n = pvalues.shape[1]
-        # Aggregate p-values using the CDF of the min of n uniform(0,1) variables
-        aggregated_pvals = 1 - (1 - min_pvals) ** n
-        return norm.ppf(aggregated_pvals), aggregated_pvals
-    else:
-        raise ValueError(f"Invalid ensemble test: {ensemble_test}")
-    
-
-def objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test):
+def _objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test):
     """
     Single-objective optimization: Minimize abs(ks_p_value - 0.5).
     """
@@ -816,13 +754,13 @@ def objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test):
     return deviation  # Return deviation to minimize
 
 
-def finding_optimal_independent_subgroup(keys, chi2_p_matrix, pvals_matrix, ensemble_test, n_trials=50):
+def _finding_optimal_independent_subgroup(keys, chi2_p_matrix, pvals_matrix, ensemble_test, n_trials=50):
     """
     Single-objective optimization to minimize abs(ks_p_value - 0.5) and maximize the number of independent tests.
     """
     # Create a study for single-objective optimization (minimize deviation)
     study = optuna.create_study(direction="minimize")
-    study.optimize(lambda trial: objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test), n_trials=n_trials, show_progress_bar=True)
+    study.optimize(lambda trial: _objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test), n_trials=n_trials, show_progress_bar=True)
 
     # Filter trials based on deviation (|ks_p_value - 0.5| <= 0.25)
     valid_trials = [
@@ -857,7 +795,7 @@ def finding_optimal_independent_subgroup(keys, chi2_p_matrix, pvals_matrix, ense
     return independent_keys_group, best_results, optimization_data
 
 
-def uncorrelation_objective(trial, keys, corr_matrix, pvals_matrix, ensemble_test):
+def _uncorrelation_objective(trial, keys, corr_matrix, pvals_matrix, ensemble_test):
     """
     Single-objective optimization: Minimize abs(ks_p_value - 0.5).
     """
@@ -889,7 +827,7 @@ def uncorrelation_objective(trial, keys, corr_matrix, pvals_matrix, ensemble_tes
     return deviation  # Return deviation to minimize
 
 
-def finding_optimal_uncorrelated_subgroup(keys, corr_matrix, pvals_matrix, ensemble_test, n_trials=50):
+def _finding_optimal_uncorrelated_subgroup(keys, corr_matrix, pvals_matrix, ensemble_test, n_trials=50):
     """
     Single-objective optimization to minimize abs(ks_p_value - 0.5) and maximize the number of independent tests.
     """
@@ -899,7 +837,7 @@ def finding_optimal_uncorrelated_subgroup(keys, corr_matrix, pvals_matrix, ensem
 
     # Create a study for single-objective optimization (minimize deviation)
     study = optuna.create_study(direction="minimize")
-    study.optimize(lambda trial: uncorrelation_objective(trial, keys, corr_matrix, pvals_matrix, ensemble_test), n_trials=n_trials, show_progress_bar=True)
+    study.optimize(lambda trial: _uncorrelation_objective(trial, keys, corr_matrix, pvals_matrix, ensemble_test), n_trials=n_trials, show_progress_bar=True)
 
     # Filter trials based on deviation (|ks_p_value - 0.5| <= 0.25)
     valid_trials = [
@@ -934,7 +872,7 @@ def finding_optimal_uncorrelated_subgroup(keys, corr_matrix, pvals_matrix, ensem
     return independent_keys_group, best_results, optimization_data
 
 
-def finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pvals_matrix, ensemble_test, fake_pvals_matrix, ks_pvalue_abs_threshold=0.25, minimal_p_threshold=0.05):
+def _finding_optimal_independent_subgroup_deterministic(keys, chi2_p_matrix, pvals_matrix, ensemble_test, fake_pvals_matrix, ks_pvalue_abs_threshold=0.25, minimal_p_threshold=0.05):
     """
     Deterministic optimization to find the largest independent subgroup
     by iterating over all possible cliques based on KS p-value range and maximum AUC.
