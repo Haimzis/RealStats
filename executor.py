@@ -71,7 +71,7 @@ def main():
         ])
 
         datasets = DatasetFactory.create_dataset(dataset_type=args.dataset_type, transform=transform)
-        real_population_dataset, fake_population_dataset = datasets['train_real'], datasets['train_fake']
+        reference_real_dataset = datasets['reference_real']
         inference_data = create_inference_dataset(paths['test_real']['path'], paths['test_fake']['path'], args.num_samples_per_class, classes='both', shuffle=False)
 
         # Prepare inference dataset
@@ -91,7 +91,7 @@ def main():
 
 
         results = main_multiple_patch_test(
-            real_population_dataset=real_population_dataset,
+            real_population_dataset=reference_real_dataset,
             fake_population_dataset=None,
             inference_dataset=inference_dataset,
             test_labels=labels,

@@ -23,7 +23,7 @@ def print_dataset_sample_counts():
                 counts[split] = len(dataset)
 
             print(f"Dataset: {name}")
-            print(f"  Train Real: {counts.get('train_real', 0):>5}  |  Train Fake: {counts.get('train_fake', 0):>5}")
+            print(f"  Reference Real: {counts.get('reference_real', 0):>5}")
             print(f"  Test  Real: {counts.get('test_real', 0):>5}  |  Test  Fake: {counts.get('test_fake', 0):>5}")
             print("-" * 60)
 
