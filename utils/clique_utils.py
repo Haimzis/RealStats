@@ -1,6 +1,6 @@
 """Utilities for clique finding and related optimizations."""
 
-from utils import (
+from .utils import (
     objective,
     finding_optimal_independent_subgroup,
     uncorrelation_objective,
