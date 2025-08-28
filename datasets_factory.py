@@ -90,7 +90,7 @@ class DatasetType(Enum):
 
     PROGAN_DALLE = {
         "reference_real": {"path": "data/CNNDetector/trainset", "class": ProGanDataset},
-        # "test_real": {"path": "data/CNNDetector/testset/biggan/0_real", "class": ProGanDataset},
+        "test_real": {"path": "data/CNNDetector/testset/biggan/0_real", "class": ProGanDataset},
         "test_fake": {"path": "data/CNNDetector/diffusion_datasets/dalle/1_fake", "class": ImageDataset}
     }
     
@@ -253,10 +253,11 @@ class DatasetType(Enum):
     }
 
     MANIFOLD_BIAS = {
-        "reference_real": {"path": "data/ManifoldBias", "class": lambda root, label, transform=None: ManifoldBiasDataset(root, "reference_paths.csv", label, transform)},
-        "test_real": {"path": "data/ManifoldBias", "class": lambda root, label, transform=None: ManifoldBiasDataset(root, "test_real_paths.csv", label, transform)},
-        "test_fake": {"path": "data/ManifoldBias", "class": lambda root, label, transform=None: ManifoldBiasDataset(root, "test_generated_paths.csv", label, transform)},
+        "reference_real": {"path": "data/ManifoldBiasDataset", "class": lambda root, label, transform=None: ManifoldBiasDataset(root, "reference_real_paths.csv", label, transform)},
+        "test_real": {"path": "data/ManifoldBiasDataset", "class": lambda root, label, transform=None: ManifoldBiasDataset(root, "test_real_paths.csv", label, transform)},
+        "test_fake": {"path": "data/ManifoldBiasDataset", "class": lambda root, label, transform=None: ManifoldBiasDataset(root, "test_fake_paths.csv", label, transform)},
     }
+    
     def get_paths(self):
         return self.value
 
