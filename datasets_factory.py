@@ -1,6 +1,6 @@
 from enum import Enum
 
-from data_utils import CocoDataset, ImageDataset, ProGanDataset
+from data_utils import CocoDataset, ImageDataset, ManifoldBiasDataset, ProGanDataset
 
 # DatasetType Enum with dataset paths and corresponding dataset classes
 class DatasetType(Enum):
@@ -252,6 +252,11 @@ class DatasetType(Enum):
         "test_fake": {"path": "data/CNNDetector/diffusion_datasets/ldm_200_cfg/1_fake", "class": ImageDataset}
     }
 
+    MANIFOLD_BIAS = {
+        "reference_real": {"path": "data/ManifoldBias", "class": lambda root, label, transform=None: ManifoldBiasDataset(root, "reference_paths.csv", label, transform)},
+        "test_real": {"path": "data/ManifoldBias", "class": lambda root, label, transform=None: ManifoldBiasDataset(root, "test_real_paths.csv", label, transform)},
+        "test_fake": {"path": "data/ManifoldBias", "class": lambda root, label, transform=None: ManifoldBiasDataset(root, "test_generated_paths.csv", label, transform)},
+    }
     def get_paths(self):
         return self.value
 

@@ -7,6 +7,7 @@ import mlflow
 from sklearn.metrics import average_precision_score
 from torchvision import transforms
 from datasets_factory import DatasetFactory, DatasetType
+from torch.utils.data import ConcatDataset
 from data_utils import ImageDataset, create_inference_dataset
 from stat_test import TestType, main_multiple_patch_test
 from utils import plot_roc_curve, set_seed
@@ -16,23 +17,23 @@ sys.setrecursionlimit(2000)
 # Argument parser (with only relevant arguments kept from the original script)
 parser = argparse.ArgumentParser(description='Statistic and Patch Testing Pipeline')
 parser.add_argument('--test_type', choices=['multiple_patches', 'multiple_statistics'], default='multiple_statistics', help='Choose which type of multiple tests to perform')
-parser.add_argument('--batch_size', type=int, default=512, help='Batch size for data loading.')
+parser.add_argument('--batch_size', type=int, default=128, help='Batch size for data loading.')
 parser.add_argument('--sample_size', type=int, default=256, help='Sample input size after downscale.')
-parser.add_argument('--patch_divisors', type=int, nargs='+', default=[2, 4, 8], help='Divisors to calculate patch sizes as sample_size // 2^i.')
+parser.add_argument('--patch_divisors', type=int, nargs='+', default=[0], help='Divisors to calculate patch sizes as sample_size // 2^i.')
 parser.add_argument('--threshold', type=float, default=0.05, help='P-value threshold for significance testing.')
 parser.add_argument('--save_histograms', type=int, choices=[0, 1], default=1, help='Save KDE plots for real and fake p-values.')
 parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm', 'minp'], default='manual-stouffer', help='Type of ensemble test to perform')
-parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=1, help='Save independence test heatmaps.')
+parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=0, help='Save independence test heatmaps.')
 parser.add_argument('--uniform_sanity_check', type=int, choices=[0, 1], default=0, help='Whether to perform uniform-KS sanity check.')
-parser.add_argument('--dataset_type', type=str, default='COCO', choices=[e.name for e in DatasetType], help='Type of dataset to use (CelebA, ProGan, COCO_LEAKAGE, COCO, COCO_ALL, PROGAN_FACES_BUT_CELEBA_AS_TRAIN)')
-parser.add_argument('--output_dir', type=str, required=True, help='Directory to save logs and artifacts.')
+parser.add_argument('--dataset_type', type=str, default='MANIFOLD_BIAS', choices=[e.name for e in DatasetType], help='Type of dataset to use (CelebA, ProGan, COCO_LEAKAGE, COCO, COCO_ALL, PROGAN_FACES_BUT_CELEBA_AS_TRAIN)')
+parser.add_argument('--output_dir', type=str, default='outputs', help='Directory to save logs and artifacts.')
 parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/rigid_pkls', help='Path where to save pkls.')
 parser.add_argument('--num_samples_per_class', type=int, default=-1, help='Number of samples per class for inference dataset.')
 parser.add_argument('--num_data_workers', type=int, default=4, help='Number of workers for data loading.')
 parser.add_argument('--max_workers', type=int, default=1, help='Maximum number of threads for parallel processing.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility.')
-parser.add_argument('--statistics', type=str, nargs='+', default=['haar', 'coif1', 'sym2', 'fourier', 'dct'], help='List of statistic types.')
-parser.add_argument('--wavelet_levels', type=int, nargs='+', default=[0, 1, 2, 3, 4], help='List of wavelet levels.')
+parser.add_argument('--statistics', type=str, nargs='+', default=['RIGID.CLIP.05', 'RIGID.DINO.05', 'RIGID.DINOV3.VIT7B16.05'], help='List of statistic types.')
+parser.add_argument('--wavelet_levels', type=int, nargs='+', default=[0], help='List of wavelet levels.')
 parser.add_argument('--finetune_portion', type=float, default=0.2, help='Portion of the dataset used for finetuning.')
 parser.add_argument('--chi2_bins', type=int, default=10, help='Number of bins for chi-square calculations.')
 parser.add_argument('--cdf_bins', type=int, default=1000, help='Number of bins for cdf.')
@@ -42,8 +43,8 @@ parser.add_argument('--calibration_auc_threshold', type=float, default=0.5, help
 parser.add_argument('--ks_pvalue_abs_threshold', type=float, default=0.4, help='Absolute KS p-value threshold for uniformity filtering.')
 parser.add_argument('--minimal_p_threshold', type=float, default=0.3, help='Minimum p-value threshold for chi-square filtering.')
 parser.add_argument('--gpu', type=str, default='0', help='GPU device(s) to use, e.g., "0", "1", or "0,1".')
-parser.add_argument('--run_id', type=str, required=True, help='Unique identifier for this MLflow run.')
-parser.add_argument('--experiment_id', type=str, required=True, help='Name or ID of the MLflow experiment.')
+parser.add_argument('--run_id', type=str, default='none', help='Unique identifier for this MLflow run.')
+parser.add_argument('--experiment_id', type=str, default='default', help='Name or ID of the MLflow experiment.')
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
@@ -72,12 +73,20 @@ def main():
 
         datasets = DatasetFactory.create_dataset(dataset_type=args.dataset_type, transform=transform)
         reference_dataset = datasets['reference_real']
-        inference_data = create_inference_dataset(paths['test_real']['path'], paths['test_fake']['path'], args.num_samples_per_class, classes='both', shuffle=False)
+        test_real_dataset = datasets['test_real']
+        test_fake_dataset = datasets['test_fake']
 
-        # Prepare inference dataset
-        image_paths = [x[0] for x in inference_data]
-        labels = [x[1] for x in inference_data]
-        inference_dataset = ImageDataset(image_paths, labels, transform=transform)
+        # Instead of create_inference_dataset, just combine them
+        inference_dataset = ConcatDataset([test_real_dataset, test_fake_dataset])
+        labels = [sample[1] for sample in inference_dataset]
+
+        # TODO: delete below if not needed
+        # inference_data = create_inference_dataset(paths['test_real']['path'], paths['test_fake']['path'], args.num_samples_per_class, classes='both', shuffle=False)
+
+        # # Prepare inference dataset
+        # image_paths = [x[0] for x in inference_data]
+        # labels = [x[1] for x in inference_data]
+        # inference_dataset = ImageDataset(image_paths, labels, transform=transform)
 
         # Compute patch sizes from divisors
         patch_sizes = [args.sample_size // (2 ** d) for d in args.patch_divisors]

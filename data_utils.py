@@ -148,6 +148,36 @@ class CocoDataset(Dataset):
         return image, self.label, image_path
     
 
+class ManifoldBiasDataset(Dataset):
+    """
+    Dataset class for loading samples from ManifoldBias CSVs.
+    """
+
+    def __init__(self, root_dir, csv_file, label=0, transform=None):
+        self.root_dir = root_dir
+        self.transform = transform
+        self.label = label
+
+        csv_path = os.path.join(root_dir, csv_file)
+        self.data = pd.read_csv(csv_path)
+
+        # full paths
+        self.image_paths = [
+            os.path.join(self.root_dir, row["dataset_name"], row["path"])
+            for _, row in self.data.iterrows()
+        ]
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        image_path = self.image_paths[idx]
+        image = Image.open(image_path).convert("RGB")
+        if self.transform:
+            image = self.transform(image)
+        return image, self.label
+    
+
 class GlobalPatchDataset(Dataset):
     """Dataset that extracts a specific patch from each image in the original dataset."""
     def __init__(self, original_dataset, patch_size, patch_index):

@@ -56,7 +56,7 @@ def view_independence_subgraph(
         *,
         k: float = 0.05,
         node_size: int = 2000,
-        save_path: str | None = None,
+        save_path: str = None,
         transparent: bool = True,
         edge_width: float = 2.25,
         highlight_width: float = 4.0,
