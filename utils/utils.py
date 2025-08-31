@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import pickle
 import random
 import warnings
+# from matplotlib.pylab import chisquare
 import optuna
 from matplotlib import pyplot as plt
 import pandas as pd
@@ -9,12 +10,12 @@ from scipy.stats import spearmanr
 import torch
 import numpy as np
 from pytorch_wavelets import DTCWTForward, DTCWTInverse
-from scipy.stats import chi2_contingency
-from sklearn.metrics import auc, confusion_matrix, precision_score, recall_score, f1_score, accuracy_score, roc_curve
+from scipy.stats import chi2_contingency, power_divergence
+from sklearn.metrics import auc, confusion_matrix, mutual_info_score, precision_score, recall_score, f1_score, accuracy_score, roc_curve
 import os
 import seaborn as sns
 import networkx as nx
-from scipy.stats import chi2, kstest, gaussian_kde, combine_pvalues, norm
+from scipy.stats import chi2, kstest, gaussian_kde, combine_pvalues, norm, chisquare
 from tqdm import tqdm
 from sklearn.metrics import roc_auc_score
 from PIL import Image, ImageDraw
@@ -188,13 +189,42 @@ def calculate_chi2_and_corr(i, j, dist_1, dist_2, bins):
         corr, p_value = spearmanr(dist_1, dist_2)
         # correlation = abs(np.corrcoef(dist_1, dist_2)[0, 1])
         correlation = abs(corr)
-        contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(bins, bins))
-        chi2_stat, chi2_p, df, expected = chi2_contingency(contingency_table)
+        contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(bins, bins), range=[[0, 1], [0, 1]])
+
+        expected = np.ones((bins, bins)) * (len(dist_1) / (bins ** 2))
+        chi2_stat, chi2_p = power_divergence(contingency_table.ravel(), expected.ravel(), ddof=bins**2 - (bins - 1) * (bins - 1) - 1)
+
+        # # Custom Marginal Distributions Chi2
+        # correlation = abs(corr)
+        # contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(bins, bins))
+
+        # N = contingency_table.sum()
+        # row_sums = contingency_table.sum(axis=1)
+        # col_sums = contingency_table.sum(axis=0)
+
+        # expected = np.outer(row_sums, col_sums) / (N*N)
+        # chi2_stat = ((contingency_table - expected) ** 2 / expected).sum()
+        # dof = (bins - 1) * (bins - 1)
+        # chi2_p = 1 - chi2.cdf(chi2_stat, dof)
+        
+        # TODO: maybe it isnt good.
+        # chi2_stat, chi2_p, df, expected = chi2_contingency(contingency_table)
         return i, j, chi2_p, correlation
     except ValueError:
         return i, j, -1, correlation
 
 
+def calculate_mi_and_corr(i, j, dist_1, dist_2, bins):
+    """Compute mutual information and correlation for two distributions."""
+    try:
+        corr, _ = spearmanr(dist_1, dist_2)
+        correlation = abs(corr)
+        contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(bins, bins))
+        mi = mutual_info_score(None, None, contingency=contingency_table)
+        return i, j, mi, correlation
+    except ValueError:
+        return i, j, -1, -1
+    
 def plot_contingency_table(contingency_table, save_path=None):
     """
     Plots a contingency table as a heatmap with cell values displayed.
@@ -294,6 +324,37 @@ def compute_chi2_and_corr_matrix(keys, distributions, max_workers=128, plot_inde
         create_heatmap(corr_matrix, keys, 'Correlation Matrix', output_dir, 'corr_heatmap.png', annot=len(keys) < 64)
 
     return chi2_p_matrix, corr_matrix
+
+
+def compute_mi_and_corr_matrix(keys, distributions, max_workers=128, plot_independence_heatmap=False, output_dir='logs', bins=10):
+    num_dists = len(distributions)
+    mi_matrix = np.zeros((num_dists, num_dists))
+    corr_matrix = np.zeros((num_dists, num_dists))
+
+    tasks = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for i, key1 in enumerate(keys):
+            dist_1 = distributions[i]
+            for j, key2 in enumerate(keys):
+                if i <= j:
+                    continue
+                dist_2 = distributions[j]
+                tasks.append(executor.submit(calculate_mi_and_corr, i, j, dist_1, dist_2, bins))
+
+        for future in tqdm(as_completed(tasks), total=len(tasks), desc="Processing MI and Correlation tests..."):
+            i, j, mi, corr = future.result()
+            if mi is not None:
+                mi_matrix[i, j] = mi
+                mi_matrix[j, i] = mi
+            if mi is not None:
+                corr_matrix[i, j] = corr
+                corr_matrix[j, i] = corr
+
+    if plot_independence_heatmap:
+        create_heatmap(mi_matrix, keys, 'Mutual Information', output_dir, 'mi_heatmap.png', annot=len(keys) < 64)
+        create_heatmap(corr_matrix, keys, 'Correlation Matrix', output_dir, 'corr_heatmap.png', annot=len(keys) < 64)
+
+    return mi_matrix, corr_matrix
 
 
 def find_largest_independent_group(keys, chi2_p_matrix, p_threshold=0.05):

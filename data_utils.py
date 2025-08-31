@@ -175,7 +175,7 @@ class ManifoldBiasDataset(Dataset):
         image = Image.open(image_path).convert("RGB")
         if self.transform:
             image = self.transform(image)
-        return image, self.label
+        return image, self.label, image_path
     
 
 class GlobalPatchDataset(Dataset):
@@ -221,6 +221,10 @@ class SelfPatchDataset(Dataset):
         self.original_dataset = original_dataset
         self.patch_size = patch_size
 
+    @property
+    def image_paths(self):
+        return self.original_dataset.image_paths
+    
     def __len__(self):
         return len(self.original_dataset)
 

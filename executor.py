@@ -2,6 +2,8 @@ import signal, sys, os
 import argparse
 from urllib.parse import urlparse
 import torch.multiprocessing as mp
+
+from statistics_factory import STATISTIC_HISTOGRAMS
 mp.set_start_method("spawn", force=True)
 import mlflow
 from sklearn.metrics import average_precision_score
@@ -26,30 +28,31 @@ signal.signal(signal.SIGTERM, shutdown)
 # Argument parser (with only relevant arguments kept from the original script)
 parser = argparse.ArgumentParser(description='Statistic and Patch Testing Pipeline')
 parser.add_argument('--test_type', choices=['multiple_patches', 'multiple_statistics'], default='multiple_statistics', help='Choose which type of multiple tests to perform')
-parser.add_argument('--batch_size', type=int, default=16, help='Batch size for data loading.')
-parser.add_argument('--sample_size', type=int, default=256, help='Sample input size after downscale.')
+parser.add_argument('--batch_size', type=int, default=32, help='Batch size for data loading.')
+parser.add_argument('--sample_size', type=int, default=512, help='Sample input size after downscale.')
 parser.add_argument('--patch_divisors', type=int, nargs='+', default=[0], help='Divisors to calculate patch sizes as sample_size // 2^i.')
 parser.add_argument('--threshold', type=float, default=0.05, help='P-value threshold for significance testing.')
 parser.add_argument('--save_histograms', type=int, choices=[0, 1], default=1, help='Save KDE plots for real and fake p-values.')
 parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm', 'minp'], default='manual-stouffer', help='Type of ensemble test to perform')
-parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=0, help='Save independence test heatmaps.')
+parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=1, help='Save independence test heatmaps.')
 parser.add_argument('--uniform_sanity_check', type=int, choices=[0, 1], default=0, help='Whether to perform uniform-KS sanity check.')
-parser.add_argument('--dataset_type', type=str, default='CRN_TEST_ONLY', choices=[e.name for e in DatasetType], help='Type of dataset to use (CelebA, ProGan, COCO_LEAKAGE, COCO, COCO_ALL, PROGAN_FACES_BUT_CELEBA_AS_TRAIN)')
+parser.add_argument('--dataset_type', type=str, default='MANIFOLD_BIAS', choices=[e.name for e in DatasetType], help='Type of dataset to use (CelebA, ProGan, COCO_LEAKAGE, COCO, COCO_ALL, PROGAN_FACES_BUT_CELEBA_AS_TRAIN)')
 parser.add_argument('--output_dir', type=str, default='outputs', help='Directory to save logs and artifacts.')
-parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/rigid_pkls', help='Path where to save pkls.')
+parser.add_argument('--pkls_dir', type=str, default='pkls/AIStats/new_stats', help='Path where to save pkls.')
 parser.add_argument('--num_samples_per_class', type=int, default=-1, help='Number of samples per class for inference dataset.')
 parser.add_argument('--num_data_workers', type=int, default=4, help='Number of workers for data loading.')
-parser.add_argument('--max_workers', type=int, default=2, help='Maximum number of threads for parallel processing.')
+parser.add_argument('--max_workers', type=int, default=3, help='Maximum number of threads for parallel processing.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility.')
-parser.add_argument('--statistics', type=str, nargs='+', default=['RIGID.DINOV3.VITS16.05', 'RIGID.CLIP.05', 'RIGID.DINO.05'], help='List of statistic types.')
+parser.add_argument('--statistics', type=str, nargs='+', default=[k for k in STATISTIC_HISTOGRAMS if k.startswith("RIGID.") and any(k.endswith(suffix) for suffix in [".05", ".10"]) and "BEIT" not in k]
+)#['RIGID.DINOV3.VITS16.05', 'RIGID.CLIP.05', 'RIGID.DINO.05'], help='List of statistic types.')
 parser.add_argument('--wavelet_levels', type=int, nargs='+', default=[0], help='List of wavelet levels.')
 parser.add_argument('--finetune_portion', type=float, default=0.2, help='Portion of the dataset used for finetuning.')
-parser.add_argument('--chi2_bins', type=int, default=30, help='Number of bins for chi-square calculations.')
-parser.add_argument('--cdf_bins', type=int, default=1000, help='Number of bins for cdf.')
+parser.add_argument('--chi2_bins', type=int, default=10, help='Number of bins for chi-square calculations.')
+parser.add_argument('--cdf_bins', type=int, default=400, help='Number of bins for cdf.')
 parser.add_argument('--n_trials', type=int, default=75, help='Number of trials for optimization.')
 parser.add_argument('--uniform_p_threshold', type=float, default=0.05, help='KS Threshold for uniform goodness of fit.')
 parser.add_argument('--calibration_auc_threshold', type=float, default=0.5, help='Threshold for calibration AUC to filter unreliable tests.')
-parser.add_argument('--ks_pvalue_abs_threshold', type=float, default=0.5, help='Absolute KS p-value threshold for uniformity filtering.')
+parser.add_argument('--ks_pvalue_abs_threshold', type=float, default=0.45, help='Absolute KS p-value threshold for uniformity filtering.')
 parser.add_argument('--minimal_p_threshold', type=float, default=0.05, help='Minimum p-value threshold for chi-square filtering.')
 parser.add_argument('--gpu', type=str, default='1', help='GPU device(s) to use, e.g., "0", "1", or "0,1".')
 parser.add_argument('--run_id', type=str, default='none', help='Unique identifier for this MLflow run.')
@@ -59,6 +62,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
 
 def main():
+
     set_seed(args.seed)
 
     # Get paths dynamically based on dataset_type
@@ -66,9 +70,11 @@ def main():
     paths = dataset_type_enum.get_paths()
 
     # Dynamically create a subdirectory in pkls_dir based on dataset type
-    dataset_pkls_dir = os.path.join(args.pkls_dir, args.dataset_type)
+    # dataset_pkls_dir = os.path.join(args.pkls_dir, args.dataset_type)
+    # os.makedirs(dataset_pkls_dir, exist_ok=True)
+    dataset_pkls_dir = args.pkls_dir
     os.makedirs(dataset_pkls_dir, exist_ok=True)
-    
+
     # Initialize MLflow experiment
     mlflow.set_experiment(args.experiment_id)
     with mlflow.start_run(run_name=args.run_id):

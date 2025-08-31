@@ -1,4 +1,5 @@
 import itertools
+import math
 import os
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import random
@@ -49,6 +50,8 @@ from data_utils import GlobalPatchDataset, SelfPatchDataset
 from enum import Enum
 import time
 
+from utils.utils import compute_mi_and_corr_matrix
+
 
 class DataType(Enum):
     TRAIN = "train"
@@ -63,27 +66,36 @@ class TestType(Enum):
     BOTH = "both"
     
 
-def get_unique_id(patch_size, level, statistic, data_type: DataType, seed=42):
+def get_unique_id(patch_size, level, statistic, seed=42):
     """Generate a unique ID for processing."""
-    return f"PatchProcessing_statistic={statistic}_level={level}_patch_size={patch_size}_{data_type.value}_seed={seed}"
+    return f"PatchProcessing_statistic={statistic}_level={level}_patch_size={patch_size}_seed={seed}"
 
 
 def preprocess_statistic(dataset, batch_size, statistic, level, num_data_workers, patch_size, pkl_dir, data_type: DataType, seed=42):
     """Preprocess the dataset for a single statistic name and level using various histogram statistics."""
     set_seed(seed)
 
-    unique_id = get_unique_id(patch_size, level, statistic, data_type, seed)
+    unique_id = get_unique_id(patch_size, level, statistic, seed)
+    combo_dir = os.path.join(pkl_dir, unique_id)
+    results = []
 
+    expected_stat_paths = [
+        os.path.join(combo_dir, os.path.splitext(os.path.abspath(p).lstrip(os.sep))[0] + ".npy")
+        for p in dataset.image_paths
+    ]
+
+    if all(os.path.exists(sp) for sp in expected_stat_paths):
+        results = [np.load(sp, mmap_mode="r") for sp in expected_stat_paths]
+        stacked = np.stack(results, axis=0)
+        return stacked
+    
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_data_workers)
 
     histogram_generator = get_histogram_generator(statistic, level)
     if histogram_generator is None:
         return None
 
-    combo_dir = os.path.join(pkl_dir, unique_id)
-    results = []
-
-    for images, _, paths in data_loader:
+    for images, _, paths in tqdm(data_loader, desc=f"Processing {statistic}-{level}", unit="batch", total=len(data_loader), leave=False):
         B, P = images.shape[:2]
 
         cached = [None] * B
@@ -217,14 +229,14 @@ def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_wo
 
         for future in tqdm(as_completed(future_to_combination), total=len(future_to_combination), desc="Processing..."):
             combination = future_to_combination[future]
-            unique_id = get_unique_id(combination['patch_size'], combination['level'], combination['statistic'], data_type, seed)
+            unique_id = get_unique_id(combination['patch_size'], combination['level'], combination['statistic'], seed)
             try:
                 results[unique_id] = future.result()
             except Exception as exc:
                 print(f"Combination {combination}, generated an exception: {exc}")
 
         results = {k: v for k, v in results.items() if v is not None}
-        results = {k.replace(f"_{data_type.value}", ""): v for k, v in results.items()}
+        # results = {k.replace(f"_{data_type.value}", ""): v for k, v in results.items()} # TODO: Check if datatype is needed
 
         if sort:
             results = {k: results[k] for k in sorted(results)}
@@ -303,6 +315,11 @@ def main_multiple_patch_test(
         plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir, bins=chi2_bins
     )
     
+    # chi2_p_matrix, corr_matrix = compute_mi_and_corr_matrix(
+    #     keys, tuning_pvalue_distributions, max_workers=max_workers,
+    #     plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir, bins=chi2_bins
+    # )
+
     largest_independent_clique_size_approximation = len(find_largest_independent_group(keys, chi2_p_matrix, 0.05))
 
     independent_keys_group, best_results, optimization_roc = finding_optimal_independent_subgroup_deterministic(
