@@ -15,7 +15,7 @@ from sklearn.metrics import auc, confusion_matrix, mutual_info_score, precision_
 import os
 import seaborn as sns
 import networkx as nx
-from scipy.stats import chi2, kstest, gaussian_kde, combine_pvalues, norm, chisquare
+from scipy.stats import chi2, kstest, gaussian_kde, combine_pvalues, norm, chisquare, permutation_test
 from tqdm import tqdm
 from sklearn.metrics import roc_auc_score
 from PIL import Image, ImageDraw
@@ -190,29 +190,82 @@ def calculate_chi2_and_corr(i, j, dist_1, dist_2, bins):
         # correlation = abs(np.corrcoef(dist_1, dist_2)[0, 1])
         correlation = abs(corr)
         contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(bins, bins), range=[[0, 1], [0, 1]])
-
-        expected = np.ones((bins, bins)) * (len(dist_1) / (bins ** 2))
-        chi2_stat, chi2_p = power_divergence(contingency_table.ravel(), expected.ravel(), ddof=bins**2 - (bins - 1) * (bins - 1) - 1)
-
-        # # Custom Marginal Distributions Chi2
-        # correlation = abs(corr)
-        # contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(bins, bins))
-
-        # N = contingency_table.sum()
-        # row_sums = contingency_table.sum(axis=1)
-        # col_sums = contingency_table.sum(axis=0)
-
-        # expected = np.outer(row_sums, col_sums) / (N*N)
-        # chi2_stat = ((contingency_table - expected) ** 2 / expected).sum()
-        # dof = (bins - 1) * (bins - 1)
-        # chi2_p = 1 - chi2.cdf(chi2_stat, dof)
-        
-        # TODO: maybe it isnt good.
-        # chi2_stat, chi2_p, df, expected = chi2_contingency(contingency_table)
+        chi2_stat, chi2_p, df, expected = chi2_contingency(contingency_table)
         return i, j, chi2_p, correlation
     except ValueError:
         return i, j, -1, correlation
 
+
+def calculate_chi2_cremer_v_perm_and_corr(i, j, dist_1, dist_2, bins, n_perm=1000, seed=0):
+    """
+    Empirical p-value for independence using Cramér's V statistic with permutations.
+    - Statistic: Cramér's V = sqrt(chi2 / (n * (min(bins_x, bins_y) - 1)))
+    - Permutation: shuffle dist_2 only (break pairing, keep marginals)
+
+    Returns: (i, j, p_empirical, |Spearman|)
+    """
+    # |Spearman|
+    corr, _ = spearmanr(dist_1, dist_2)
+    correlation = float(abs(corr)) if np.isfinite(corr) else 0.0
+
+    # Bin the data (assumes values in [0,1] as in your original code)
+    edges = np.linspace(0.0, 1.0, bins + 1)
+    bx = np.digitize(dist_1, edges) - 1
+    by = np.digitize(dist_2, edges) - 1
+    mask = (bx >= 0) & (bx < bins) & (by >= 0) & (by < bins)
+    bx = bx[mask].astype(np.int32)
+    by = by[mask].astype(np.int32)
+    n = bx.size
+    if n == 0:
+        return i, j, -1.0, correlation
+
+    # Row/col marginals and expected counts (fixed under permutations)
+    row = np.bincount(bx, minlength=bins).astype(np.float64)
+    col = np.bincount(by, minlength=bins).astype(np.float64)
+    E = (row[:, None] * col[None, :]) / float(n)
+    base_idx = bx * bins
+
+    def _cremer_v_from_indices(by_indices):
+        """Compute Cramér's V from permuted indices."""
+        idx = base_idx + by_indices
+        O = np.bincount(idx, minlength=bins * bins).astype(np.float64).reshape(bins, bins)
+        chi2 = ((O - E) ** 2 / E).sum()
+        return np.sqrt(chi2 / (n * (min(bins, bins) - 1)))
+
+    # Observed Cramér's V
+    cremer_v_obs = _cremer_v_from_indices(by)
+
+    # Permutation null distribution
+    rng = np.random.default_rng(seed)
+    perm = np.arange(n, dtype=np.int32)
+    ge = 0
+    for _ in range(n_perm):
+        rng.shuffle(perm)
+        cremer_v_t = _cremer_v_from_indices(by[perm])
+        if cremer_v_t >= cremer_v_obs:
+            ge += 1
+
+    # Empirical right-tailed p-value (add-one smoothing)
+    p_emp = (ge + 1) / (n_perm + 1)
+
+    return i, j, float(p_emp), correlation
+
+
+def calculate_chi2_cremer_v_and_corr(i, j, dist_1, dist_2, bins):
+    """Compute chi-square p-value and correlation for two distributions."""
+    try:
+        corr, p_value = spearmanr(dist_1, dist_2)
+        # correlation = abs(np.corrcoef(dist_1, dist_2)[0, 1])
+        correlation = abs(corr)
+        contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(bins, bins), range=[[0, 1], [0, 1]])
+        chi2_stat, chi2_p, df, expected = chi2_contingency(contingency_table)
+        n = contingency_table.sum()
+        k = min(contingency_table.shape)
+        cramers_v = np.sqrt(chi2_stat / (n * (k - 1)))
+        return i, j, cramers_v, correlation
+    except ValueError:
+        return i, j, -1, correlation
+    
 
 def calculate_mi_and_corr(i, j, dist_1, dist_2, bins):
     """Compute mutual information and correlation for two distributions."""
@@ -307,7 +360,7 @@ def compute_chi2_and_corr_matrix(keys, distributions, max_workers=128, plot_inde
                 if i <= j:  # Skip duplicates and diagonal
                     continue
                 dist_2 = distributions[j]
-                tasks.append(executor.submit(calculate_chi2_and_corr, i, j, dist_1, dist_2, bins))
+                tasks.append(executor.submit(calculate_chi2_cremer_v_and_corr, i, j, dist_1, dist_2, bins))
 
         for future in tqdm(as_completed(tasks), total=len(tasks), desc="Processing Chi2 and Correlation tests..."):
             i, j, chi2_p, corr = future.result()
@@ -363,7 +416,9 @@ def find_largest_independent_group(keys, chi2_p_matrix, p_threshold=0.05):
     G.add_nodes_from(keys)
     
     # Add edges where p-values are above the threshold
-    indices = np.triu(chi2_p_matrix, k=1) > p_threshold
+    # indices = np.triu(chi2_p_matrix, k=1) > p_threshold
+    indices = np.triu(chi2_p_matrix, k=1) < p_threshold
+
     rows, cols = np.where(indices)
     edges = np.column_stack((np.array(keys)[rows], np.array(keys)[cols]))
     G.add_edges_from(edges)
@@ -381,7 +436,7 @@ def find_largest_independent_group_with_plot(keys, chi2_p_matrix, p_threshold=0.
     G = nx.Graph()
     G.add_nodes_from(keys)
 
-    indices = np.triu(chi2_p_matrix, k=1) > p_threshold
+    indices = np.triu(chi2_p_matrix, k=1) < p_threshold
     rows, cols = np.where(indices)
     edges = np.column_stack((np.array(keys)[rows], np.array(keys)[cols]))
     G.add_edges_from(edges)
@@ -414,21 +469,66 @@ def find_largest_uncorrelated_group(keys, corr_matrix, p_threshold=0.05):
     return list(independent_set) if independent_set else [keys[0]]
 
 
-def find_largest_independent_group_iterative(keys, chi2_p_matrix, p_threshold=0.05):
-    """Find the largest independent group using the Chi-Square p-value matrix."""
+# def find_largest_independent_group_iterative(keys, chi2_p_matrix, p_threshold=0.05):
+#     """Find the largest independent group using the Chi-Square p-value matrix."""
+#     G = nx.Graph()
+#     G.add_nodes_from(keys)
+    
+#     # indices = np.triu(chi2_p_matrix, k=1) > p_threshold
+#     indices = np.triu(chi2_p_matrix, k=1) < p_threshold
+
+#     rows, cols = np.where(indices)
+#     edges = np.column_stack((np.array(keys)[rows], np.array(keys)[cols]))
+#     G.add_edges_from(edges)
+
+#     # Subgraph of nodes with edges (dependencies)
+#     subgraph = G.subgraph([node for node, degree in G.degree() if degree > 0])
+    
+#     # All maximal cliques for node
+#     cliques = list(nx.find_cliques(subgraph))
+#     return cliques
+
+
+def find_largest_independent_group_iterative(keys, p_matrix, p_threshold=0.05, test_type="chi2"):
+    """
+    Find the largest independent groups using a p-value matrix.
+
+    Args:
+        keys (list): Variable names.
+        p_matrix (np.ndarray): Matrix of p-values.
+        p_threshold (float): Threshold for dependency.
+        test_type (str): 
+            - "chi2" → keep original chi-square logic.
+            - "perm" or anything else → opposite direction (permutation test).
+
+    Returns:
+        list: A list of maximal cliques (independent groups).
+    """
     G = nx.Graph()
     G.add_nodes_from(keys)
-    
-    indices = np.triu(chi2_p_matrix, k=1) > p_threshold
+
+    # Build dependency mask based on test type
+    if test_type == "chi2":
+        # Chi-square: dependency = p < threshold (normal logic)
+        indices = np.triu(p_matrix < p_threshold, k=1)
+    else:
+        # Permutation test: dependency = p < threshold, 
+        # but mask lower triangle with 1 so it's ignored correctly
+        masked_p = p_matrix.copy()
+        masked_p[np.tril_indices_from(masked_p)] = 1
+        indices = masked_p < p_threshold
+
+    # Add edges based on dependency mask
     rows, cols = np.where(indices)
     edges = np.column_stack((np.array(keys)[rows], np.array(keys)[cols]))
     G.add_edges_from(edges)
 
-    # Subgraph of nodes with edges (dependencies)
+    # Get subgraph of nodes that actually have dependencies
     subgraph = G.subgraph([node for node, degree in G.degree() if degree > 0])
-    
-    # All maximal cliques for node
+
+    # Find all maximal cliques
     cliques = list(nx.find_cliques(subgraph))
+
     return cliques
 
 
@@ -1662,14 +1762,16 @@ def finding_optimal_independent_subgroup_deterministic(
     best_results = None
     optimization_data = {'thresholds': [], 'ks_pvalues': [], 'num_tests': []}
     cliques = find_largest_independent_group_iterative(keys, chi2_p_matrix,
-                                                       p_threshold=minimal_p_threshold)
+                                                       p_threshold=minimal_p_threshold,
+                                                       test_type="perm_test")
     for clique in tqdm(cliques, total=len(cliques), desc="Searching for optimial clique..."):
         independent_keys_group = list(clique)
         num_independent_tests = len(independent_keys_group)
         independent_indices = [keys.index(key) for key in independent_keys_group]
         independent_pvals = pvals_matrix[independent_indices].T
         ensembled_stats, ensembled_pvals = perform_ensemble_testing(independent_pvals, ensemble_test)
-        _, ks_pvalue = kstest(ensembled_stats, 'norm', args=(0, 1))
+        ensembled_pvals_subsampled = np.random.choice(ensembled_pvals, size=1000, replace=False)
+        _, ks_pvalue = kstest(ensembled_pvals_subsampled, 'uniform', args=(0, 1))
         if abs(ks_pvalue - 0.5) <= ks_pvalue_abs_threshold:
             optimization_data['thresholds'].append(minimal_p_threshold)
             optimization_data['ks_pvalues'].append(ks_pvalue)
