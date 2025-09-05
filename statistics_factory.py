@@ -152,16 +152,16 @@ STATISTIC_HISTOGRAMS = {
     'RIGID.CLIPOPENAI.75':  lambda level: RIGIDOpenAICLIPHistogram(noise_level=0.75)  if level == 0 else None,
     'RIGID.CLIPOPENAI.100': lambda level: RIGIDOpenAICLIPHistogram(noise_level=1.0)   if level == 0 else None,
 
-    # ===== LAION CLIP ViT-bigG-14 =====
-    'RIGID.CLIPBIGG.001': lambda level: RIGIDBigGCLIPHistogram(noise_level=0.001) if level == 0 else None,
-    'RIGID.CLIPBIGG.01':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.01)  if level == 0 else None,
-    'RIGID.CLIPBIGG.05':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.05)  if level == 0 else None,
-    'RIGID.CLIPBIGG.10':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.10)  if level == 0 else None,
-    'RIGID.CLIPBIGG.20':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.20)  if level == 0 else None,
-    'RIGID.CLIPBIGG.30':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.30)  if level == 0 else None,
-    'RIGID.CLIPBIGG.50':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.50)  if level == 0 else None,
-    'RIGID.CLIPBIGG.75':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.75)  if level == 0 else None,
-    'RIGID.CLIPBIGG.100': lambda level: RIGIDBigGCLIPHistogram(noise_level=1.0)   if level == 0 else None,
+    # # ===== LAION CLIP ViT-bigG-14 =====
+    # 'RIGID.CLIPBIGG.001': lambda level: RIGIDBigGCLIPHistogram(noise_level=0.001) if level == 0 else None,
+    # 'RIGID.CLIPBIGG.01':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.01)  if level == 0 else None,
+    # 'RIGID.CLIPBIGG.05':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.05)  if level == 0 else None,
+    # 'RIGID.CLIPBIGG.10':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.10)  if level == 0 else None,
+    # 'RIGID.CLIPBIGG.20':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.20)  if level == 0 else None,
+    # 'RIGID.CLIPBIGG.30':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.30)  if level == 0 else None,
+    # 'RIGID.CLIPBIGG.50':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.50)  if level == 0 else None,
+    # 'RIGID.CLIPBIGG.75':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.75)  if level == 0 else None,
+    # 'RIGID.CLIPBIGG.100': lambda level: RIGIDBigGCLIPHistogram(noise_level=1.0)   if level == 0 else None,
 
     # ===== ConvNeXt =====
     'RIGID.CONVNEXT.001': lambda level: RIGIDConvNeXtHistogram(noise_level=0.001) if level == 0 else None,

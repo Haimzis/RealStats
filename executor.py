@@ -28,7 +28,7 @@ signal.signal(signal.SIGTERM, shutdown)
 # Argument parser (with only relevant arguments kept from the original script)
 parser = argparse.ArgumentParser(description='Statistic and Patch Testing Pipeline')
 parser.add_argument('--test_type', choices=['multiple_patches', 'multiple_statistics'], default='multiple_statistics', help='Choose which type of multiple tests to perform')
-parser.add_argument('--batch_size', type=int, default=32, help='Batch size for data loading.')
+parser.add_argument('--batch_size', type=int, default=8, help='Batch size for data loading.')
 parser.add_argument('--sample_size', type=int, default=512, help='Sample input size after downscale.')
 parser.add_argument('--patch_divisors', type=int, nargs='+', default=[0], help='Divisors to calculate patch sizes as sample_size // 2^i.')
 parser.add_argument('--threshold', type=float, default=0.05, help='P-value threshold for significance testing.')
@@ -43,22 +43,22 @@ parser.add_argument('--num_samples_per_class', type=int, default=-1, help='Numbe
 parser.add_argument('--num_data_workers', type=int, default=4, help='Number of workers for data loading.')
 parser.add_argument('--max_workers', type=int, default=3, help='Maximum number of threads for parallel processing.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility.')
-parser.add_argument('--statistics', type=str, nargs='+', default=[k for k in STATISTIC_HISTOGRAMS if k.startswith("RIGID.") and any(k.endswith(suffix) for suffix in [".05", ".10"]) and "BEIT" not in k])
+parser.add_argument('--statistics', type=str, nargs='+', default=[k for k in STATISTIC_HISTOGRAMS if k.startswith("RIGID.") and any(k.endswith(suffix) for suffix in [".05", ".10"])])
 parser.add_argument('--wavelet_levels', type=int, nargs='+', default=[0], help='List of wavelet levels.')
 parser.add_argument('--finetune_portion', type=float, default=0.2, help='Portion of the dataset used for finetuning.')
-parser.add_argument('--chi2_bins', type=int, default=10, help='Number of bins for chi-square calculations.')
-parser.add_argument('--cdf_bins', type=int, default=400, help='Number of bins for cdf.')
+parser.add_argument('--chi2_bins', type=int, default=30, help='Number of bins for chi-square calculations.')
+parser.add_argument('--cdf_bins', type=int, default=500, help='Number of bins for cdf.')
 parser.add_argument('--n_trials', type=int, default=75, help='Number of trials for optimization.')
 parser.add_argument('--uniform_p_threshold', type=float, default=0.05, help='KS Threshold for uniform goodness of fit.')
 parser.add_argument('--calibration_auc_threshold', type=float, default=0.5, help='Threshold for calibration AUC to filter unreliable tests.')
-parser.add_argument('--ks_pvalue_abs_threshold', type=float, default=0.4, help='Absolute KS p-value threshold for uniformity filtering.')
-parser.add_argument('--minimal_p_threshold', type=float, default=0.05, help='Minimum p-value threshold for chi-square filtering.')
+parser.add_argument('--ks_pvalue_abs_threshold', type=float, default=0.35, help='Absolute KS p-value threshold for uniformity filtering.')
+parser.add_argument('--minimal_p_threshold', type=float, default=0.05  , help='Minimum p-value threshold for chi-square filtering.')
 parser.add_argument('--gpu', type=str, default='1', help='GPU device(s) to use, e.g., "0", "1", or "0,1".')
 parser.add_argument('--run_id', type=str, default='none', help='Unique identifier for this MLflow run.')
 parser.add_argument('--experiment_id', type=str, default='default', help='Name or ID of the MLflow experiment.')
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
-
+ 
 
 def main():
 
@@ -93,6 +93,10 @@ def main():
         # Instead of create_inference_dataset, just combine them
         inference_dataset = ConcatDataset([test_real_dataset, test_fake_dataset])
         labels = [0] * len(test_real_dataset) + [1] * len(test_fake_dataset) # TODO: this is not feasible # [sample[1] for sample in inference_dataset]
+        inference_dataset.image_paths = (
+            list(getattr(test_real_dataset, "image_paths", [])) +
+            list(getattr(test_fake_dataset, "image_paths", []))
+        )
 
         # Compute patch sizes from divisors
         patch_sizes = [args.sample_size // (2 ** d) for d in args.patch_divisors]
