@@ -149,17 +149,21 @@ class CocoDataset(Dataset):
     
 
 class ManifoldBiasDataset(Dataset):
-    """
-    Dataset class for loading samples from ManifoldBias CSVs.
-    """
+    """Dataset class for loading samples from ManifoldBias CSVs."""
 
-    def __init__(self, root_dir, csv_file, label=0, transform=None):
+    def __init__(self, root_dir, csv_file, label=0, transform=None, generator=None):
         self.root_dir = root_dir
         self.transform = transform
         self.label = label
 
         csv_path = os.path.join(root_dir, csv_file)
-        self.data = pd.read_csv(csv_path)
+        df = pd.read_csv(csv_path)
+
+        if generator is not None and "fake" in csv_file:
+            rel_paths = df["dataset_name"].astype(str) + "/" + df["path"].astype(str)
+            df = df[rel_paths.str.startswith(generator)]
+
+        self.data = df
 
         # full paths
         self.image_paths = [
