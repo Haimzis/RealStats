@@ -27,18 +27,19 @@ class ManifoldBiasGenerator(Enum):
     UNIVERSAL_FAKE_DETECT_LDM_200 = "Universal_Fake_Detect/diffusion_datasets/ldm_200"
 
 
-def _manifold_bias_entry(generator=None):
+def _manifold_bias_entry(generator=None, group_leakage=False):
+    suffix = "_group_leakage" if group_leakage else ""
     return {
         "reference_real": {
             "path": "data/ManifoldBiasDataset",
             "class": lambda root, label, transform=None: ManifoldBiasDataset(
-                root, "reference_real_paths.csv", label, transform
+                root, f"reference_real_paths{suffix}.csv", label, transform
             ),
         },
         "test_real": {
             "path": "data/ManifoldBiasDataset",
             "class": lambda root, label, transform=None: ManifoldBiasDataset(
-                root, "test_real_paths.csv", label, transform
+                root, f"test_real_paths{suffix}.csv", label, transform
             ),
         },
         "test_fake": {
@@ -299,71 +300,76 @@ class DatasetType(Enum):
         "test_fake": {"path": "data/CNNDetector/diffusion_datasets/ldm_200_cfg/1_fake", "class": ImageDataset}
     }
 
+    # === Base dataset ===
     MANIFOLD_BIAS = _manifold_bias_entry()
+    MANIFOLD_BIAS_GROUP_LEAKAGE = _manifold_bias_entry(group_leakage=True)
 
-    MANIFOLD_BIAS_CNNSPOTSET_BIGGAN = _manifold_bias_entry(
-        ManifoldBiasGenerator.CNNSPOTSET_BIGGAN.value
-    )
-    MANIFOLD_BIAS_CNNSPOTSET_CRN = _manifold_bias_entry(
-        ManifoldBiasGenerator.CNNSPOTSET_CRN.value
-    )
-    MANIFOLD_BIAS_CNNSPOTSET_CYCLEGAN = _manifold_bias_entry(
-        ManifoldBiasGenerator.CNNSPOTSET_CYCLEGAN.value
-    )
-    MANIFOLD_BIAS_CNNSPOTSET_GAUGAN = _manifold_bias_entry(
-        ManifoldBiasGenerator.CNNSPOTSET_GAUGAN.value
-    )
-    MANIFOLD_BIAS_CNNSPOTSET_IMLE = _manifold_bias_entry(
-        ManifoldBiasGenerator.CNNSPOTSET_IMLE.value
-    )
-    MANIFOLD_BIAS_CNNSPOTSET_SAN = _manifold_bias_entry(
-        ManifoldBiasGenerator.CNNSPOTSET_SAN.value
-    )
-    MANIFOLD_BIAS_CNNSPOTSET_STYLEGAN = _manifold_bias_entry(
-        ManifoldBiasGenerator.CNNSPOTSET_STYLEGAN.value
-    )
-    MANIFOLD_BIAS_CNNSPOTSET_STYLEGAN2 = _manifold_bias_entry(
-        ManifoldBiasGenerator.CNNSPOTSET_STYLEGAN2.value
-    )
-    MANIFOLD_BIAS_GENIMAGE_ADM_GENIMAGE = _manifold_bias_entry(
-        ManifoldBiasGenerator.GENIMAGE_ADM_GENIMAGE.value
-    )
-    MANIFOLD_BIAS_GENIMAGE_MIDJOURNEY_GENIMAGE = _manifold_bias_entry(
-        ManifoldBiasGenerator.GENIMAGE_MIDJOURNEY_GENIMAGE.value
-    )
-    MANIFOLD_BIAS_GENIMAGE_SD_V4_GENIMAGE = _manifold_bias_entry(
-        ManifoldBiasGenerator.GENIMAGE_SD_V4_GENIMAGE.value
-    )
-    MANIFOLD_BIAS_GENIMAGE_SD_V5_GENIMAGE = _manifold_bias_entry(
-        ManifoldBiasGenerator.GENIMAGE_SD_V5_GENIMAGE.value
-    )
-    MANIFOLD_BIAS_GENIMAGE_VDQM_GENIMAGE = _manifold_bias_entry(
-        ManifoldBiasGenerator.GENIMAGE_VDQM_GENIMAGE.value
-    )
-    MANIFOLD_BIAS_GENIMAGE_WUKONG_GENIMAGE = _manifold_bias_entry(
-        ManifoldBiasGenerator.GENIMAGE_WUKONG_GENIMAGE.value
-    )
-    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_DALLE = _manifold_bias_entry(
-        ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_DALLE.value
-    )
-    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_GLIDE_100_10 = _manifold_bias_entry(
-        ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GLIDE_100_10.value
-    )
-    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_GLIDE_100_27 = _manifold_bias_entry(
-        ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GLIDE_100_27.value
-    )
-    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_GLIDE_50_27 = _manifold_bias_entry(
-        ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GLIDE_50_27.value
-    )
-    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_GUIDED = _manifold_bias_entry(
-        ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GUIDED.value
-    )
-    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_LDM_100 = _manifold_bias_entry(
-        ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_LDM_100.value
-    )
-    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_LDM_200 = _manifold_bias_entry(
-        ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_LDM_200.value
-    )
+    # === CNNSpotset ===
+    MANIFOLD_BIAS_CNNSPOTSET_BIGGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_BIGGAN.value)
+    MANIFOLD_BIAS_CNNSPOTSET_BIGGAN_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_BIGGAN.value, group_leakage=True)
+
+    MANIFOLD_BIAS_CNNSPOTSET_CRN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_CRN.value)
+    MANIFOLD_BIAS_CNNSPOTSET_CRN_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_CRN.value, group_leakage=True)
+
+    MANIFOLD_BIAS_CNNSPOTSET_CYCLEGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_CYCLEGAN.value)
+    MANIFOLD_BIAS_CNNSPOTSET_CYCLEGAN_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_CYCLEGAN.value, group_leakage=True)
+
+    MANIFOLD_BIAS_CNNSPOTSET_GAUGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_GAUGAN.value)
+    MANIFOLD_BIAS_CNNSPOTSET_GAUGAN_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_GAUGAN.value, group_leakage=True)
+
+    MANIFOLD_BIAS_CNNSPOTSET_IMLE = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_IMLE.value)
+    MANIFOLD_BIAS_CNNSPOTSET_IMLE_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_IMLE.value, group_leakage=True)
+
+    MANIFOLD_BIAS_CNNSPOTSET_SAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_SAN.value)
+    MANIFOLD_BIAS_CNNSPOTSET_SAN_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_SAN.value, group_leakage=True)
+
+    MANIFOLD_BIAS_CNNSPOTSET_STYLEGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_STYLEGAN.value)
+    MANIFOLD_BIAS_CNNSPOTSET_STYLEGAN_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_STYLEGAN.value, group_leakage=True)
+
+    MANIFOLD_BIAS_CNNSPOTSET_STYLEGAN2 = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_STYLEGAN2.value)
+    MANIFOLD_BIAS_CNNSPOTSET_STYLEGAN2_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_STYLEGAN2.value, group_leakage=True)
+
+    # === GenImage ===
+    MANIFOLD_BIAS_GENIMAGE_ADM_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_ADM_GENIMAGE.value)
+    MANIFOLD_BIAS_GENIMAGE_ADM_GENIMAGE_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_ADM_GENIMAGE.value, group_leakage=True)
+
+    MANIFOLD_BIAS_GENIMAGE_MIDJOURNEY_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_MIDJOURNEY_GENIMAGE.value)
+    MANIFOLD_BIAS_GENIMAGE_MIDJOURNEY_GENIMAGE_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_MIDJOURNEY_GENIMAGE.value, group_leakage=True)
+
+    MANIFOLD_BIAS_GENIMAGE_SD_V4_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_SD_V4_GENIMAGE.value)
+    MANIFOLD_BIAS_GENIMAGE_SD_V4_GENIMAGE_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_SD_V4_GENIMAGE.value, group_leakage=True)
+
+    MANIFOLD_BIAS_GENIMAGE_SD_V5_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_SD_V5_GENIMAGE.value)
+    MANIFOLD_BIAS_GENIMAGE_SD_V5_GENIMAGE_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_SD_V5_GENIMAGE.value, group_leakage=True)
+
+    MANIFOLD_BIAS_GENIMAGE_VDQM_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_VDQM_GENIMAGE.value)
+    MANIFOLD_BIAS_GENIMAGE_VDQM_GENIMAGE_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_VDQM_GENIMAGE.value, group_leakage=True)
+
+    MANIFOLD_BIAS_GENIMAGE_WUKONG_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_WUKONG_GENIMAGE.value)
+    MANIFOLD_BIAS_GENIMAGE_WUKONG_GENIMAGE_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_WUKONG_GENIMAGE.value, group_leakage=True)
+
+    # === Universal Fake Detect ===
+    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_DALLE = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_DALLE.value)
+    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_DALLE_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_DALLE.value, group_leakage=True)
+
+    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_GLIDE_100_10 = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GLIDE_100_10.value)
+    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_GLIDE_100_10_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GLIDE_100_10.value, group_leakage=True)
+
+    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_GLIDE_100_27 = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GLIDE_100_27.value)
+    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_GLIDE_100_27_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GLIDE_100_27.value, group_leakage=True)
+
+    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_GLIDE_50_27 = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GLIDE_50_27.value)
+    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_GLIDE_50_27_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GLIDE_50_27.value, group_leakage=True)
+
+    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_GUIDED = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GUIDED.value)
+    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_GUIDED_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GUIDED.value, group_leakage=True)
+
+    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_LDM_100 = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_LDM_100.value)
+    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_LDM_100_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_LDM_100.value, group_leakage=True)
+
+    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_LDM_200 = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_LDM_200.value)
+    MANIFOLD_BIAS_UNIVERSAL_FAKE_DETECT_LDM_200_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_LDM_200.value, group_leakage=True)
+
     
     def get_paths(self):
         return self.value

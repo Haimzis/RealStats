@@ -410,15 +410,22 @@ def compute_mi_and_corr_matrix(keys, distributions, max_workers=128, plot_indepe
     return mi_matrix, corr_matrix
 
 
-def find_largest_independent_group(keys, chi2_p_matrix, p_threshold=0.05):
+def find_largest_independent_group(keys, chi2_p_matrix, p_threshold=0.05, test_type="chi2"):
     """Find the largest independent group using the Chi-Square p-value matrix."""
     G = nx.Graph()
     G.add_nodes_from(keys)
     
     # Add edges where p-values are above the threshold
-    # indices = np.triu(chi2_p_matrix, k=1) > p_threshold
-    indices = np.triu(chi2_p_matrix, k=1) < p_threshold
-
+    if test_type == "chi2":
+        # Chi-square: dependency = p < threshold (normal logic)
+        indices = np.triu(chi2_p_matrix < p_threshold, k=1)
+    else:
+        # Permutation test: dependency = p < threshold, 
+        # but mask lower triangle with 1 so it's ignored correctly
+        masked_p = chi2_p_matrix.copy()
+        masked_p[np.tril_indices_from(masked_p)] = 1
+        indices = masked_p < p_threshold
+    
     rows, cols = np.where(indices)
     edges = np.column_stack((np.array(keys)[rows], np.array(keys)[cols]))
     G.add_edges_from(edges)
@@ -1649,7 +1656,7 @@ def ks_uniform_sanity_check(output_dir, uniform_p_threshold, logger,
 
 
 def perform_ensemble_testing(pvalues, ensemble_test, output_dir='logs', plot=False):
-    """Perform ensemble testing using Stouffer's method."""
+    """Perform ensemble testing (Stouffer)."""
     if ensemble_test == 'stouffer':
         return [combine_pvalues(p, method='stouffer')[1] for p in pvalues]
     elif ensemble_test == 'manual-stouffer':
@@ -1658,12 +1665,18 @@ def perform_ensemble_testing(pvalues, ensemble_test, output_dir='logs', plot=Fal
         stouffer_z = np.sum(inverse_z_scores, axis=1) / np.sqrt(pvalues.shape[1])
         stouffer_pvalues = norm.cdf(stouffer_z)
         if plot:
-            plot_stouffer_analysis(
-                pvalues, inverse_z_scores, stouffer_z, stouffer_pvalues, output_folder=output_dir
-            )
+            plot_stouffer_analysis(pvalues, inverse_z_scores, stouffer_z, stouffer_pvalues, num_plots_pvalues=5, num_plots_zscores=5, output_folder=output_dir)
         return stouffer_z, stouffer_pvalues
+    elif ensemble_test == 'minp':
+        # Ensure p-values are within (0,1) for numerical stability
+        pvalues = np.clip(pvalues, np.finfo(np.float32).eps, 1.0 - np.finfo(np.float32).eps)
+        min_pvals = np.min(pvalues, axis=1)
+        n = pvalues.shape[1]
+        # Aggregate p-values using the CDF of the min of n uniform(0,1) variables
+        aggregated_pvals = 1 - (1 - min_pvals) ** n
+        return norm.ppf(aggregated_pvals), aggregated_pvals
     else:
-        raise ValueError(f"Unknown ensemble test: {ensemble_test}")
+        raise ValueError(f"Invalid ensemble test: {ensemble_test}")
 
 
 def get_total_size_in_MB(obj):
@@ -1675,6 +1688,8 @@ def get_total_size_in_MB(obj):
 
     size_bytes = sys.getsizeof(obj_str)
     return size_bytes / (1024 ** 2)
+
+
 def objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test):
     """Single-objective optimization: minimize |ks_p_value - 0.5|."""
     p_threshold = trial.suggest_float("p_threshold", 0.05, 0.5)
@@ -1763,7 +1778,7 @@ def finding_optimal_independent_subgroup_deterministic(
     optimization_data = {'thresholds': [], 'ks_pvalues': [], 'num_tests': []}
     cliques = find_largest_independent_group_iterative(keys, chi2_p_matrix,
                                                        p_threshold=minimal_p_threshold,
-                                                       test_type="perm_test")
+                                                       test_type="cramer_v")
     for clique in tqdm(cliques, total=len(cliques), desc="Searching for optimial clique..."):
         independent_keys_group = list(clique)
         num_independent_tests = len(independent_keys_group)

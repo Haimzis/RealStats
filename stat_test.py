@@ -320,7 +320,7 @@ def main_multiple_patch_test(
     #     plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir, bins=chi2_bins
     # )
 
-    largest_independent_clique_size_approximation = len(find_largest_independent_group(keys, chi2_p_matrix, 0.05))
+    largest_independent_clique_size_approximation = len(find_largest_independent_group(keys, chi2_p_matrix, 0.05, "cramer_v"))
 
     independent_keys_group, best_results, optimization_roc = finding_optimal_independent_subgroup_deterministic(
         keys=keys,

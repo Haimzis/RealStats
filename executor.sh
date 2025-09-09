@@ -31,24 +31,19 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
 
         python executor.py \
             --test_type multiple_patches \
-            --batch_size 4 \
+            --batch_size 16 \
             --sample_size 512 \
             --threshold 0.05 \
             --save_histograms 1 \
             --save_independence_heatmaps 1 \
             --uniform_sanity_check 0 \
             --output_dir "$LOGS_DIR" \
-            --pkls_dir pkls_experiments_II \
             --num_samples_per_class -1 \
             --num_data_workers 2 \
             --max_workers 3 \
             --wavelet_levels 0 \
-            --cdf_bins 400 \
-            --ks_pvalue_abs_threshold 0.4 \
-            --minimal_p_threshold 0.05 \
             --run_id "run_$TIMESTAMP" \
-            --experiment_id "R minp no patch all low - Completion with ManifoldBias" \
-            --gpu "0 2 3" \
+            --gpu "1" \
             $CONFIG
 
         echo "Run $((i + 1)) complete."
