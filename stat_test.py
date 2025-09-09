@@ -84,11 +84,15 @@ def preprocess_statistic(dataset, batch_size, statistic, level, num_data_workers
         for p in dataset.image_paths
     ]
 
-    if all(os.path.exists(sp) for sp in expected_stat_paths):
-        results = [np.load(sp, mmap_mode="r") for sp in expected_stat_paths]
-        stacked = np.stack(results, axis=0)
-        return stacked
-    
+    if all(os.path.exists(p) for p in expected_stat_paths):
+        first = np.load(expected_stat_paths[0], mmap_mode="r")
+        results = np.empty((len(expected_stat_paths),) + first.shape, dtype=first.dtype)
+        results[0] = first
+        for i, p in enumerate(expected_stat_paths[1:], 1):
+            results[i] = np.load(p, mmap_mode="r")
+        assert results.shape[0] == len(expected_stat_paths), f"Expected {len(expected_stat_paths)} samples, got {results.shape[0]}"
+        return results
+
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_data_workers)
 
     histogram_generator = get_histogram_generator(statistic, level)
@@ -104,7 +108,7 @@ def preprocess_statistic(dataset, batch_size, statistic, level, num_data_workers
         for i, path in enumerate(paths):
             stat_path = os.path.join(combo_dir, os.path.splitext(os.path.abspath(path).lstrip(os.sep))[0] + ".npy")
             if os.path.exists(stat_path):
-                cached[i] = np.load(stat_path)
+                cached[i] = np.load(stat_path, mmap_mode="r")
             else:
                 to_compute.append((i, path, stat_path))
 
@@ -113,7 +117,6 @@ def preprocess_statistic(dataset, batch_size, statistic, level, num_data_workers
             imgs = images[idxs].view(len(idxs) * P, *images.shape[2:])
             imgs = imgs.to(histogram_generator.device)
             hist = histogram_generator.preprocess(imgs)
-            torch.cuda.empty_cache()
             hist = hist.reshape(len(idxs), P)
 
             for (i, _, stat_path), h in zip(to_compute, hist):
@@ -123,8 +126,10 @@ def preprocess_statistic(dataset, batch_size, statistic, level, num_data_workers
 
         results.extend(cached)
 
+    torch.cuda.empty_cache()
     stacked = np.stack(results, axis=0)
 
+    assert stacked.shape[0] == len(expected_stat_paths), f"Expected {len(expected_stat_paths)} samples, got {stacked.shape[0]}"
     return stacked
 
 
