@@ -1,6 +1,10 @@
 import mlflow
 import numpy as np
 import pandas as pd
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 import os
 from enum import Enum
 
@@ -100,8 +104,9 @@ if __name__ == "__main__":
     experiments = [
         # ("R minp no patch - Experiments II - With AP", AggregationStrategy.AVERAGE),
         # ("R minp patch dino clip low - Experiments II - With AP", AggregationStrategy.AVERAGE),
-        ("Robustness minp - Jpeg", AggregationStrategy.AVERAGE),
-        ("Robustness minp - Blur", AggregationStrategy.AVERAGE),
+        # ("Robustness minp - Jpeg", AggregationStrategy.AVERAGE),
+        # ("Robustness minp - Blur", AggregationStrategy.AVERAGE),
+        ("AIStats/minp-no_patch-low-group-leakage-statistics-edit-1", AggregationStrategy.AVERAGE)
     ]
 
     metrics_to_export = ["AUC"]

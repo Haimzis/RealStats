@@ -24,7 +24,7 @@ finetune_portion_range = [0.1]  # treated as list for consistency
 
 dataset_types = [
     member for member in DatasetType
-    if "MANIFOLD_BIAS" in member.name
+    if "MANIFOLD_BIAS_GROUP_LEAKAGE" in member.name
 ]
 
 statistics_choices = [k for k in STATISTIC_HISTOGRAMS if k.startswith("RIGID.") and any(k.endswith(suffix) for suffix in [".05", ".10"])]
