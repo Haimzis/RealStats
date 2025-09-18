@@ -23,17 +23,17 @@ finetune_portion_range = [0.1]  # treated as list for consistency
 # ]
 
 dataset_types = [
-    member for member in DatasetType
-    if "MANIFOLD_BIAS_GROUP_LEAKAGE" in member.name
+    member.name for member in DatasetType
+    if "GROUP_LEAKAGE" in member.name
 ]
 
 statistics_choices = [k for k in STATISTIC_HISTOGRAMS if k.startswith("RIGID.") and any(k.endswith(suffix) for suffix in [".05", ".10"])]
 
 patch_divisors_choices = ["0"]
-chi2_bins_choices = [10, 30, 50]
+chi2_bins_choices = [15]
 statistic_ensemble = "minp" 
-kspvalue_abs_thresholds = [0.3, 0.35, 0.4, 0.45]  
-minimal_p_thresholds = [0.01, 0.03, 0.05]
+kspvalue_abs_thresholds = [0.45]  
+minimal_p_thresholds = [0.07]
 
 RUNS_PER_CONFIG = 15
 
@@ -58,7 +58,7 @@ def generate_configurations(runs_per_config):
             f"--chi2_bins {chi2_bins} "
             f"--dataset_type {dataset_type} "
             f"--pkls_dir pkls/AIStats/new_stats "
-            f"--cdf_bins 500 "
+            f"--cdf_bins 400 "
             f"--ks_pvalue_abs_threshold {kspvalue_abs_threshold} "
             f"--minimal_p_threshold {minimal_p_threshold} "
             f"--experiment_id AIStats/minp-no_patch-low" 

@@ -106,7 +106,8 @@ if __name__ == "__main__":
         # ("R minp patch dino clip low - Experiments II - With AP", AggregationStrategy.AVERAGE),
         # ("Robustness minp - Jpeg", AggregationStrategy.AVERAGE),
         # ("Robustness minp - Blur", AggregationStrategy.AVERAGE),
-        ("AIStats/minp-no_patch-low-group-leakage-statistics-edit-1", AggregationStrategy.AVERAGE)
+        # ("AIStats/minp-no_patch-low-group-leakage-statistics-edit-1", AggregationStrategy.AVERAGE)
+        ("AIStats/minp-no_patch-low_extended", AggregationStrategy.AVERAGE)
     ]
 
     metrics_to_export = ["AUC"]
