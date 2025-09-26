@@ -9,6 +9,7 @@ from datasets_factory import DatasetFactory, DatasetType
 from data_utils import ImageDataset, create_inference_dataset
 from stat_test import TestType, inference_multiple_patch_test_with_dependence
 from utils import plot_fakeness_score_distribution, plot_fakeness_score_histogram, plot_roc_curve, set_seed
+from utils.transform_cache import build_transform_cache_suffix
 
 sys.setrecursionlimit(2000)
 
@@ -60,6 +61,7 @@ def main():
             transforms.Resize((args.sample_size, args.sample_size)),
             transforms.ToTensor()
         ])
+        transform_cache_suffix = build_transform_cache_suffix(transform)
 
         inference_data = create_inference_dataset(paths['test_real']['path'], paths['test_fake']['path'], args.num_samples_per_class, classes='both')
 
@@ -76,6 +78,7 @@ def main():
         mlflow.log_param("test_id", test_id)
         mlflow.log_param("num_statistics_keys", len(args.statistics_keys))
         mlflow.log_param("p_threshold", args.p_threshold)
+        mlflow.log_param("transform_cache_suffix", transform_cache_suffix or "none")
 
         # Run inference-only flow
         results = inference_multiple_patch_test_with_dependence(
@@ -98,7 +101,8 @@ def main():
             p_threshold=args.p_threshold,
             logger=mlflow,
             seed=args.seed,
-            preferred_statistics=args.preferred_statistics
+            preferred_statistics=args.preferred_statistics,
+            cache_suffix=transform_cache_suffix
         )
 
         results['labels'] = labels

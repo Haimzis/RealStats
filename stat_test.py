@@ -71,12 +71,13 @@ def get_unique_id(patch_size, level, statistic, seed=42):
     return f"PatchProcessing_statistic={statistic}_level={level}_patch_size={patch_size}_seed={seed}"
 
 
-def preprocess_statistic(dataset, batch_size, statistic, level, num_data_workers, patch_size, pkl_dir, data_type: DataType, seed=42):
+def preprocess_statistic(dataset, batch_size, statistic, level, num_data_workers, patch_size, pkl_dir, data_type: DataType, seed=42, cache_suffix=""):
     """Preprocess the dataset for a single statistic name and level using various histogram statistics."""
     set_seed(seed)
 
     unique_id = get_unique_id(patch_size, level, statistic, seed)
-    combo_dir = os.path.join(pkl_dir, unique_id)
+    combo_dir_name = f"{unique_id}{cache_suffix}" if cache_suffix else unique_id
+    combo_dir = os.path.join(pkl_dir, combo_dir_name)
     results = []
 
     expected_stat_paths = [
@@ -223,13 +224,13 @@ def interpret_keys_to_combinations(independent_keys_group):
     return combinations
 
 
-def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_workers, num_data_workers, pkl_dir='pkls', data_type: DataType = DataType.TRAIN, sort=True, seed=42):
+def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_workers, num_data_workers, pkl_dir='pkls', data_type: DataType = DataType.TRAIN, sort=True, seed=42, cache_suffix=""):
     """Preprocess the dataset for specific combinations in parallel."""
     results = {}
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_combination = {
-            executor.submit(preprocess_statistic, SelfPatchDataset(original_dataset, comb['patch_size']), batch_size, comb['statistic'], comb['level'], num_data_workers, comb['patch_size'], pkl_dir, data_type, seed): comb
+            executor.submit(preprocess_statistic, SelfPatchDataset(original_dataset, comb['patch_size']), batch_size, comb['statistic'], comb['level'], num_data_workers, comb['patch_size'], pkl_dir, data_type, seed, cache_suffix): comb
             for comb in combinations
         }
 
@@ -421,7 +422,8 @@ def inference_multiple_patch_test(
     test_type=TestType.LEFT,
     logger=None,
     seed=42,
-    draw_pvalues_trend_figure=False
+    draw_pvalues_trend_figure=False,
+    cache_suffix="",
 ):
     """
     Simplified version of patch test for inference: no tuning, no clique finding.
@@ -496,9 +498,7 @@ def inference_multiple_patch_test(
     _, tuning_ensembled_pvalues = perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)    
     
     # Inference
-    inference_histogram = patch_parallel_preprocess(
-        inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, data_type=DataType.TEST, seed=seed
-    )
+    inference_histogram = patch_parallel_preprocess(inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, data_type=DataType.TEST, seed=seed, cache_suffix=cache_suffix)
 
     inference_histogram = compute_mean_std_dict(inference_histogram)
     inference_histogram = {
@@ -602,7 +602,8 @@ def inference_multiple_patch_test_with_dependence(
     test_type=TestType.LEFT,
     logger=None,
     seed=42,
-    preferred_statistics=None
+    preferred_statistics=None,
+    cache_suffix="",
 ):
     """Inference pipeline that automatically finds an independent subset using max clique."""
     print(f"[INFO] Running inference with dependence analysis: {statistics_keys_group}")
@@ -691,9 +692,7 @@ def inference_multiple_patch_test_with_dependence(
     all_combinations = interpret_keys_to_combinations(statistics_keys_group)
 
     start_stat_extraction = time.time()
-    all_inference_histogram = patch_parallel_preprocess(
-        inference_dataset, batch_size, all_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, data_type=DataType.TEST, seed=seed
-    )
+    all_inference_histogram = patch_parallel_preprocess(inference_dataset, batch_size, all_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, data_type=DataType.TEST, seed=seed, cache_suffix=cache_suffix)
     end_stat_extraction = time.time()
     elapsed_stat_extraction = (end_stat_extraction - start_stat_extraction) * 1000  # ms
 

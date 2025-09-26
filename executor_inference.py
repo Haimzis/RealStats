@@ -9,6 +9,7 @@ from datasets_factory import DatasetFactory, DatasetType
 from data_utils import ImageDataset, JPEGCompressionTransform, create_inference_dataset
 from stat_test import TestType, inference_multiple_patch_test
 from utils import plot_fakeness_score_distribution, plot_fakeness_score_histogram, plot_roc_curve, set_seed
+from utils.transform_cache import build_transform_cache_suffix
 from torchvision.utils import save_image
 
 sys.setrecursionlimit(2000)
@@ -64,6 +65,7 @@ def main():
             inference_transform_list.append(transforms.GaussianBlur(kernel_size=(3, 3), sigma=1.0))
         inference_transform_list.append(transforms.ToTensor())
         inference_transform = transforms.Compose(inference_transform_list)
+        transform_cache_suffix = build_transform_cache_suffix(inference_transform)
 
         inference_data = create_inference_dataset(paths['test_real']['path'], paths['test_fake']['path'], args.num_samples_per_class, classes='both')
 
@@ -82,6 +84,7 @@ def main():
         mlflow.log_param("patch_sizes", patch_sizes)
         mlflow.log_param("test_id", test_id)
         mlflow.log_param("num_independent_keys", len(args.independent_keys))
+        mlflow.log_param("transform_cache_suffix", transform_cache_suffix or "none")
 
         # Run inference-only flow
         results = inference_multiple_patch_test(
@@ -103,7 +106,8 @@ def main():
             test_type=TestType.BOTH,
             logger=mlflow,
             seed=args.seed,
-            draw_pvalues_trend_figure=bool(args.draw_pvalues_trend_figure)
+            draw_pvalues_trend_figure=bool(args.draw_pvalues_trend_figure),
+            cache_suffix=transform_cache_suffix,
 
         )
 
