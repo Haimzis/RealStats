@@ -53,7 +53,7 @@ parser.add_argument('--uniform_p_threshold', type=float, default=0.05, help='KS 
 parser.add_argument('--calibration_auc_threshold', type=float, default=0.5, help='Threshold for calibration AUC to filter unreliable tests.')
 parser.add_argument('--ks_pvalue_abs_threshold', type=float, default=0.4, help='Absolute KS p-value threshold for uniformity filtering.')
 parser.add_argument('--minimal_p_threshold', type=float, default=0.05, help='Minimum p-value threshold for chi-square filtering.')
-parser.add_argument('--preferred_statistics', type=str, nargs='*', default=None, help='Statistics to prioritize when selecting the independent clique.')
+parser.add_argument('--preferred_statistics', type=str, nargs='*', default=["RIGID.DINO.05", "RIGID.CLIPOPENAI.05", "RIGID.DINO.10", "RIGID.CLIPOPENAI.10"], help='Statistics to prioritize when selecting the independent clique.')
 parser.add_argument('--gpu', type=str, default='1', help='GPU device(s) to use, e.g., "0", "1", or "0,1".')
 parser.add_argument('--run_id', type=str, default='none', help='Unique identifier for this MLflow run.')
 parser.add_argument('--experiment_id', type=str, default='default', help='Name or ID of the MLflow experiment.')
@@ -65,13 +65,6 @@ def main():
 
     set_seed(args.seed)
 
-    # Get paths dynamically based on dataset_type
-    dataset_type_enum = DatasetType[args.dataset_type.upper()]
-    paths = dataset_type_enum.get_paths()
-
-    # Dynamically create a subdirectory in pkls_dir based on dataset type
-    # dataset_pkls_dir = os.path.join(args.pkls_dir, args.dataset_type)
-    # os.makedirs(dataset_pkls_dir, exist_ok=True)
     dataset_pkls_dir = args.pkls_dir
     os.makedirs(dataset_pkls_dir, exist_ok=True)
 

@@ -313,8 +313,8 @@ class DatasetType_AAAI(Enum):
 # DatasetType Enum with dataset paths and corresponding dataset classes
 class DatasetType(Enum):
     # === Base dataset ===
-    # ALL = _manifold_bias_entry()
-    # ALL_GROUP_LEAKAGE = _manifold_bias_entry(group_leakage=True)
+    ALL = _manifold_bias_entry()
+    ALL_GROUP_LEAKAGE = _manifold_bias_entry(group_leakage=True)
 
     # === CNNSpotset ===
     CNNSPOTSET_BIGGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_BIGGAN.value)

@@ -3,12 +3,11 @@ import json
 import os
 import ast
 
-EXPERIMENT_ID = "363611449386840575"
-OUTPUT_JSON_PATH = "configs/robustness/no_patch_low_completion.json"
+EXPERIMENT_ID = "869866565155270511"
+OUTPUT_JSON_PATH = "configs/AIStats/robustness/final_jpeg.json"
 
 FIXED_ARGS = [
     "--patch_divisors",
-    "--chi2_bins",
     "--dataset_type",
     "--seed",
     "--sample_size",
@@ -16,8 +15,6 @@ FIXED_ARGS = [
     "--save_histograms",
     "--save_independence_heatmaps",
     "--pkls_dir",
-    "--num_samples_per_class",
-    "--cdf_bins",
     "--run_id",
 ]
 

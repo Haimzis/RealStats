@@ -31,7 +31,7 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
 
         python executor.py \
             --test_type multiple_patches \
-            --batch_size 32 \
+            --batch_size 16 \
             --sample_size 512 \
             --threshold 0.05 \
             --save_histograms 1 \
@@ -40,10 +40,10 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
             --output_dir "$LOGS_DIR" \
             --num_samples_per_class -1 \
             --num_data_workers 2 \
-            --max_workers 4 \
+            --max_workers 3 \
             --wavelet_levels 0 \
             --run_id "run_$TIMESTAMP" \
-            --gpu "3" \
+            --gpu "3,4" \
             $CONFIG
 
         echo "Run $((i + 1)) complete."

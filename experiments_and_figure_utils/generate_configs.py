@@ -12,7 +12,6 @@ from statistics_factory import STATISTIC_HISTOGRAMS
 from utils import build_backbones_statistics_list
 
 # Define parameter ranges
-finetune_portion_range = [0.1]  # treated as list for consistency
 # dataset_types = [
 #     'BIGGAN_TEST_ONLY', 'CYCLEGAN_TEST_ONLY', 'GAUGAN_TEST_ONLY', 'PROGAN_TEST_ONLY',
 #     'SEEINGDARK_TEST_ONLY', 'STYLEGAN_TEST_ONLY', 'CRN_TEST_ONLY', 'DEEPFAKE_TEST_ONLY',
@@ -27,7 +26,22 @@ dataset_types = [
     if "GROUP_LEAKAGE" in member.name
 ]
 
-statistics_choices = [k for k in STATISTIC_HISTOGRAMS if k.startswith("RIGID.") and any(k.endswith(suffix) for suffix in [".05", ".10"])]
+# statistics_choices = [k for k in STATISTIC_HISTOGRAMS if k.startswith("RIGID.") and any(k.endswith(suffix) for suffix in [".05", ".10"])]
+statistics_choices = [
+    k for k in STATISTIC_HISTOGRAMS
+    if k.startswith("RIGID.")
+    and any(k.endswith(suffix) for suffix in [".01", ".05", ".10", ".50"])
+    and (
+        k.startswith("RIGID.DINO.")
+        # or k.startswith("RIGID.DINOV3.VITH16.")
+        or k.startswith("RIGID.DINOV3.VITS16.")
+        # or k.startswith("RIGID.DINOV3.CONVNEXTSMALL.")
+        or k.startswith("RIGID.CLIPOPENAI.")
+        or k.startswith("RIGID.CLIP.")
+        or k.startswith("RIGID.CONVNEXTSMALL.")
+        # or k.startswith("RIGID.RESNET.")
+    )
+]
 
 patch_divisors_choices = ["0"]
 chi2_bins_choices = [15]
@@ -35,7 +49,7 @@ statistic_ensemble = "minp"
 kspvalue_abs_thresholds = [0.45]  
 minimal_p_thresholds = [0.07]
 
-RUNS_PER_CONFIG = 15
+RUNS_PER_CONFIG = 1
 
 def generate_configurations(runs_per_config):
     configs = []
@@ -43,15 +57,13 @@ def generate_configurations(runs_per_config):
 
     # Force each dataset_type to appear at least once
     for dataset_type in dataset_types:
-        finetune_portion = random.choice(finetune_portion_range)
-        statistics = statistics_choices
+        statistics = random.sample(statistics_choices, k=random.randint(6, 10))
         patch_divisors = random.choice(patch_divisors_choices)
         chi2_bins = random.choice(chi2_bins_choices)
         kspvalue_abs_threshold = random.choice(kspvalue_abs_thresholds)
         minimal_p_threshold = random.choice(minimal_p_thresholds)
 
         base_config = (
-            f"--finetune_portion {finetune_portion} "
             f"--statistics {' '.join(statistics)} "
             f"--ensemble_test {statistic_ensemble} "
             f"--patch_divisors {patch_divisors} "
@@ -61,7 +73,8 @@ def generate_configurations(runs_per_config):
             f"--cdf_bins 400 "
             f"--ks_pvalue_abs_threshold {kspvalue_abs_threshold} "
             f"--minimal_p_threshold {minimal_p_threshold} "
-            f"--experiment_id AIStats/minp-no_patch-low" 
+            f"--experiment_id AIStats/all_data_multiple_final_configs " 
+            f"--preferred_statistics RIGID.DINO.05" 
         )
 
         for i in range(runs_per_config):
@@ -75,7 +88,7 @@ def generate_configurations(runs_per_config):
 # CLI entry
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate config files for experiments.")
-    parser.add_argument("--configname", type=str, default="configs.json", help="Output JSON file name")
+    parser.add_argument("--configname", type=str, default="configs_AISTATS_50_per.json", help="Output JSON file name")
     args = parser.parse_args()
 
     configs = generate_configurations(RUNS_PER_CONFIG)

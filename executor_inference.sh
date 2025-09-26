@@ -34,7 +34,6 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
             --output_dir "$LOGS_DIR" \
             --num_data_workers 2 \
             --max_workers 3 \
-            --experiment_id "Robustness minp - Jpeg" \
             --gpu "0,1,2,3" \
             $CONFIG
 

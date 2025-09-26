@@ -107,11 +107,17 @@ if __name__ == "__main__":
         # ("Robustness minp - Jpeg", AggregationStrategy.AVERAGE),
         # ("Robustness minp - Blur", AggregationStrategy.AVERAGE),
         # ("AIStats/minp-no_patch-low-group-leakage-statistics-edit-1", AggregationStrategy.AVERAGE)
-        ("AIStats/minp-no_patch-low_extended", AggregationStrategy.AVERAGE)
+        # ("AIStats/minp-no_patch-low_extended", AggregationStrategy.AVERAGE)
+        # ("AIStats/minp-no_patch-low_extended-with-prefferation", AggregationStrategy.AVERAGE)
+        # ("AIStats/minp-no_patch-low_extended-with-prefferation-only-dino", AggregationStrategy.AVERAGE)
+        # ("AIStats/manual-stouffer-no_patch-low_extended-with-prefferation-only-dino", AggregationStrategy.AVERAGE)
+        # ("AIStats/minp-no_patch-low-prefer-dino-50per", AggregationStrategy.AVERAGE)
+        ("AIStats/minp-no_patch-low_extended-with-prefferation-only-dino-all-data-lower-perb", AggregationStrategy.AVERAGE),
+        ("AIStats/minp-no_patch-low_extended-with-prefferation-only-dino-all-data", AggregationStrategy.AVERAGE)
     ]
 
-    metrics_to_export = ["AUC"]
-    top_k = 10
+    metrics_to_export = ["AUC", "AP"]
+    top_k = 5
 
     os.makedirs("experiments/csvs", exist_ok=True)
 
