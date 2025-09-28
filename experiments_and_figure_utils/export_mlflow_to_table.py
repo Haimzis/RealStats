@@ -112,12 +112,14 @@ if __name__ == "__main__":
         # ("AIStats/minp-no_patch-low_extended-with-prefferation-only-dino", AggregationStrategy.AVERAGE)
         # ("AIStats/manual-stouffer-no_patch-low_extended-with-prefferation-only-dino", AggregationStrategy.AVERAGE)
         # ("AIStats/minp-no_patch-low-prefer-dino-50per", AggregationStrategy.AVERAGE)
-        ("AIStats/minp-no_patch-low_extended-with-prefferation-only-dino-all-data-lower-perb", AggregationStrategy.AVERAGE),
-        ("AIStats/minp-no_patch-low_extended-with-prefferation-only-dino-all-data", AggregationStrategy.AVERAGE)
+        # ("AIStats/final_all_data_fixed_fake", AggregationStrategy.AVERAGE),
+        # ("AIStats/final_all_data_fixed_fake_stf", AggregationStrategy.AVERAGE)
+        ("AIStats/final_all_data_new_partition_all_splits_stf", AggregationStrategy.AVERAGE),
+        ("AIStats/final_all_data_new_partition_all_splits", AggregationStrategy.AVERAGE)
     ]
 
     metrics_to_export = ["AUC", "AP"]
-    top_k = 5
+    top_k = 10
 
     os.makedirs("experiments/csvs", exist_ok=True)
 

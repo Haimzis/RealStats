@@ -11,7 +11,7 @@ from torchvision import transforms
 from datasets_factory import DatasetFactory, DatasetType
 from torch.utils.data import ConcatDataset
 from stat_test import TestType, main_multiple_patch_test
-from utils import plot_roc_curve, set_seed
+from utils import plot_roc_curve, set_seed, balanced_testset
 
 sys.setrecursionlimit(2000)
 
@@ -134,10 +134,11 @@ def main():
             seed=args.seed,
             preferred_statistics=args.preferred_statistics
         )
-
+  
         results['labels'] = labels
-        auc = plot_roc_curve(results, test_id, args.output_dir)
-        ap = average_precision_score(labels, results['scores'])
+        balance_labels, balance_scores = balanced_testset(labels, results['scores'], random_state=42)
+        auc = plot_roc_curve(balance_labels, balance_scores, test_id, args.output_dir)
+        ap = average_precision_score(balance_labels, balance_scores)
         mlflow.log_metric("AUC", auc)
         mlflow.log_metric("AP", ap)
 

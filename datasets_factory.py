@@ -39,13 +39,13 @@ def _manifold_bias_entry(generator=None, group_leakage=False):
         "reference_real": {
             "path": "data/ManifoldBiasDataset",
             "class": lambda root, label, transform=None: ManifoldBiasDataset(
-                root, f"reference_real_paths{suffix}.csv", label, transform
+                root, f"reference_real_paths{suffix}_30.csv", label, transform
             ),
         },
         "test_real": {
             "path": "data/ManifoldBiasDataset",
             "class": lambda root, label, transform=None: ManifoldBiasDataset(
-                root, f"test_real_paths{suffix}.csv", label, transform
+                root, f"test_real_paths{suffix}_30.csv", label, transform
             ),
         },
         "test_fake": {
