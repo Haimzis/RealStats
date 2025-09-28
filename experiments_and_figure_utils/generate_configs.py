@@ -23,22 +23,23 @@ from utils import build_backbones_statistics_list
 
 dataset_types = [
     member.name for member in DatasetType
-    if "GROUP_LEAKAGE" in member.name
+    if "GROUP_LEAKAGE" in member.name and "ALL_" not in member.name
 ]
 
 # statistics_choices = [k for k in STATISTIC_HISTOGRAMS if k.startswith("RIGID.") and any(k.endswith(suffix) for suffix in [".05", ".10"])]
 statistics_choices = [
     k for k in STATISTIC_HISTOGRAMS
     if k.startswith("RIGID.")
-    and any(k.endswith(suffix) for suffix in [".01", ".05", ".10", ".50"])
+    and any(k.endswith(suffix) for suffix in [".05", ".10"])
     and (
         k.startswith("RIGID.DINO.")
         # or k.startswith("RIGID.DINOV3.VITH16.")
         or k.startswith("RIGID.DINOV3.VITS16.")
         # or k.startswith("RIGID.DINOV3.CONVNEXTSMALL.")
         or k.startswith("RIGID.CLIPOPENAI.")
-        or k.startswith("RIGID.CLIP.")
-        or k.startswith("RIGID.CONVNEXTSMALL.")
+        # or k.startswith("RIGID.CLIP.")
+        # or k.startswith("RIGID.CONVNEXTSMALL.")
+        or k.startswith("RIGID.CONVNEXT.")
         # or k.startswith("RIGID.RESNET.")
     )
 ]
@@ -49,7 +50,7 @@ statistic_ensemble = "minp"
 kspvalue_abs_thresholds = [0.45]  
 minimal_p_thresholds = [0.07]
 
-RUNS_PER_CONFIG = 1
+RUNS_PER_CONFIG = 20
 
 def generate_configurations(runs_per_config):
     configs = []
@@ -57,7 +58,7 @@ def generate_configurations(runs_per_config):
 
     # Force each dataset_type to appear at least once
     for dataset_type in dataset_types:
-        statistics = random.sample(statistics_choices, k=random.randint(6, 10))
+        statistics = statistics_choices
         patch_divisors = random.choice(patch_divisors_choices)
         chi2_bins = random.choice(chi2_bins_choices)
         kspvalue_abs_threshold = random.choice(kspvalue_abs_thresholds)
@@ -73,8 +74,8 @@ def generate_configurations(runs_per_config):
             f"--cdf_bins 400 "
             f"--ks_pvalue_abs_threshold {kspvalue_abs_threshold} "
             f"--minimal_p_threshold {minimal_p_threshold} "
-            f"--experiment_id AIStats/all_data_multiple_final_configs " 
-            f"--preferred_statistics RIGID.DINO.05" 
+            f"--experiment_id AIStats/final_all_splits " 
+            f"--preferred_statistics RIGID.DINO.05 RIGID.CLIPOPENAI.05" 
         )
 
         for i in range(runs_per_config):

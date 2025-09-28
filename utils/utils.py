@@ -11,13 +11,12 @@ import torch
 import numpy as np
 from pytorch_wavelets import DTCWTForward, DTCWTInverse
 from scipy.stats import chi2_contingency, power_divergence
-from sklearn.metrics import auc, confusion_matrix, mutual_info_score, precision_score, recall_score, f1_score, accuracy_score, roc_curve
+from sklearn.metrics import auc, roc_auc_score, average_precision_score, confusion_matrix, mutual_info_score, precision_score, recall_score, f1_score, accuracy_score, roc_curve
 import os
 import seaborn as sns
 import networkx as nx
 from scipy.stats import chi2, kstest, gaussian_kde, combine_pvalues, norm, chisquare, permutation_test
 from tqdm import tqdm
-from sklearn.metrics import roc_auc_score
 from PIL import Image, ImageDraw
 import json
 import sys
@@ -880,16 +879,14 @@ def plot_uniform_and_nonuniform(pvalue_distributions, uniform_indices, output_di
     plt.close()
 
 
-def plot_roc_curve(results, test_id, output_dir):
+def plot_roc_curve(labels, scores, test_id, output_dir):
     """Plot ROC curve for a specific test."""
-    labels = results['labels']
-    scores = results['scores']
     fpr, tpr, _ = roc_curve(labels, scores)
     roc_auc = auc(fpr, tpr)
 
     # Plot ROC curves
     plt.figure()
-    plt.plot(fpr, tpr, label=f"{results['n_tests']} Tests (AUC = {roc_auc:.2f})")
+    plt.plot(fpr, tpr, label=f"Tests (AUC = {roc_auc:.2f})")
 
     plt.title(f'ROC Curve for Test: {test_id}')
     plt.xlabel('False Positive Rate (1 - Specificity)')
@@ -1830,3 +1827,33 @@ def finding_optimal_independent_subgroup_deterministic(
         best_results['preferred_missing'] = preferred_total - preferred_hits
     return best_candidate['group'], best_results, optimization_data
 
+
+def balanced_testset(labels, scores, random_state=None):
+    labels = np.array(labels)
+    scores = np.array(scores)
+
+    # Separate positive and negative indices
+    pos_idx = np.where(labels == 1)[0]
+    neg_idx = np.where(labels == 0)[0]
+
+    rng = np.random.default_rng(random_state)
+
+    if len(neg_idx) > len(pos_idx):
+        # More negatives → downsample negatives without replacement
+        sampled_neg_idx = rng.choice(neg_idx, size=len(pos_idx), replace=False)
+        sampled_pos_idx = pos_idx
+    elif len(pos_idx) > len(neg_idx):
+        # More positives → upsample negatives with replacement
+        sampled_neg_idx = rng.choice(neg_idx, size=len(pos_idx), replace=True)
+        sampled_pos_idx = pos_idx
+    else:
+        # Already balanced
+        sampled_neg_idx = neg_idx
+        sampled_pos_idx = pos_idx
+
+    # Build balanced set
+    balanced_idx = np.concatenate([sampled_pos_idx, sampled_neg_idx])
+    balanced_labels = labels[balanced_idx]
+    balanced_scores = scores[balanced_idx]
+
+    return balanced_labels, balanced_scores

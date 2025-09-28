@@ -23,7 +23,7 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
     TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
     LOGS_DIR="$LOGS_BASE_DIR/run_$TIMESTAMP"
     mkdir -p "$LOGS_DIR"
-
+   s
     # Redirect all output to logs.txt
     {
         echo "Starting run $((i + 1))..."
@@ -43,7 +43,7 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
             --max_workers 3 \
             --wavelet_levels 0 \
             --run_id "run_$TIMESTAMP" \
-            --gpu "3,4" \
+            --gpu "1" \
             $CONFIG
 
         echo "Run $((i + 1)) complete."
