@@ -2,7 +2,9 @@ import os
 import sys
 import argparse
 from urllib.parse import urlparse
+import torch.multiprocessing as mp
 
+mp.set_start_method("spawn", force=True)
 import mlflow
 from sklearn.metrics import average_precision_score
 from torch.utils.data import ConcatDataset
@@ -52,8 +54,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 def main():
     set_seed(args.seed)
 
-    # Dynamically create a subdirectory in pkls_dir based on dataset type
-    dataset_pkls_dir = os.path.join(args.pkls_dir, args.dataset_type)
+    dataset_pkls_dir = args.pkls_dir
     os.makedirs(dataset_pkls_dir, exist_ok=True)
 
     # Initialize MLflow experiment
