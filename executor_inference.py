@@ -61,18 +61,27 @@ def main():
     with mlflow.start_run(run_name=args.run_id):
         args.output_dir = urlparse(mlflow.get_artifact_uri()).path
 
-        inference_transform_list = [transforms.Resize((args.sample_size, args.sample_size))]
-        if args.inference_aug == 'jpeg':
-            inference_transform_list.append(JPEGCompressionTransform())
-        elif args.inference_aug == 'blur':
-            inference_transform_list.append(transforms.GaussianBlur(kernel_size=(3, 3), sigma=1.0))
-        inference_transform_list.append(transforms.ToTensor())
-        inference_transform = transforms.Compose(inference_transform_list)
-        transform_cache_suffix = build_transform_cache_suffix(inference_transform)
+        base_transform_steps = [transforms.Resize((args.sample_size, args.sample_size))]
+        base_transform = transforms.Compose(base_transform_steps + [transforms.ToTensor()])
 
-        datasets = DatasetFactory.create_dataset(dataset_type=args.dataset_type, transform=inference_transform)
+        inference_transform_steps = list(base_transform_steps)
+        if args.inference_aug == 'jpeg':
+            inference_transform_steps.append(JPEGCompressionTransform())
+        elif args.inference_aug == 'blur':
+            inference_transform_steps.append(transforms.GaussianBlur(kernel_size=(3, 3), sigma=1.0))
+        inference_transform = transforms.Compose(inference_transform_steps + [transforms.ToTensor()])
+
+        reference_cache_suffix = build_transform_cache_suffix(base_transform)
+        inference_cache_suffix = build_transform_cache_suffix(inference_transform)
+
+        datasets = DatasetFactory.create_dataset(dataset_type=args.dataset_type, transform=base_transform)
+        reference_dataset = datasets['reference_real']
         test_real_dataset = datasets['test_real']
         test_fake_dataset = datasets['test_fake']
+
+        # Apply the inference-time augmentation only to the evaluation splits.
+        test_real_dataset.transform = inference_transform
+        test_fake_dataset.transform = inference_transform
 
         inference_dataset = ConcatDataset([test_real_dataset, test_fake_dataset])
 
@@ -82,7 +91,11 @@ def main():
 
         labels = [0] * len(test_real_dataset) + [1] * len(test_fake_dataset)
 
-        img_tensor, label = inference_dataset[0]
+        first_sample = inference_dataset[0]
+        if isinstance(first_sample, tuple) and len(first_sample) == 3:
+            img_tensor, label, _ = first_sample
+        else:
+            img_tensor, label = first_sample
         save_image(img_tensor, os.path.join(args.output_dir, "example_image.png"))
 
         patch_sizes = [args.sample_size // (2 ** d) for d in args.patch_divisors]
@@ -93,10 +106,12 @@ def main():
         mlflow.log_param("patch_sizes", patch_sizes)
         mlflow.log_param("test_id", test_id)
         mlflow.log_param("num_independent_keys", len(args.independent_keys))
-        mlflow.log_param("transform_cache_suffix", transform_cache_suffix or "none")
+        mlflow.log_param("reference_transform_cache_suffix", reference_cache_suffix or "none")
+        mlflow.log_param("inference_transform_cache_suffix", inference_cache_suffix or "none")
 
         # Run inference-only flow
         results = inference_multiple_patch_test(
+            reference_dataset=reference_dataset,
             inference_dataset=inference_dataset,
             independent_statistics_keys_group=args.independent_keys,
             test_labels=labels,
@@ -116,7 +131,8 @@ def main():
             logger=mlflow,
             seed=args.seed,
             draw_pvalues_trend_figure=bool(args.draw_pvalues_trend_figure),
-            cache_suffix=transform_cache_suffix,
+            reference_cache_suffix=reference_cache_suffix,
+            cache_suffix=inference_cache_suffix,
 
         )
 
