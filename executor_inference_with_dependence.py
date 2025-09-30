@@ -5,10 +5,16 @@ from urllib.parse import urlparse
 
 import mlflow
 from torchvision import transforms
+from torch.utils.data import ConcatDataset
 from datasets_factory import DatasetFactory, DatasetType
-from data_utils import ImageDataset, create_inference_dataset
 from stat_test import TestType, inference_multiple_patch_test_with_dependence
-from utils import plot_fakeness_score_distribution, plot_fakeness_score_histogram, plot_roc_curve, set_seed
+from utils import (
+    balanced_testset,
+    plot_fakeness_score_distribution,
+    plot_fakeness_score_histogram,
+    plot_roc_curve,
+    set_seed,
+)
 from utils.transform_cache import build_transform_cache_suffix
 
 sys.setrecursionlimit(2000)
@@ -44,9 +50,6 @@ def main():
     set_seed(args.seed)
 
     # Get paths dynamically based on dataset_type
-    dataset_type_enum = DatasetType[args.dataset_type.upper()]
-    paths = dataset_type_enum.get_paths()
-
     # Dynamically create a subdirectory in pkls_dir based on dataset type
     dataset_pkls_dir = os.path.join(args.pkls_dir, args.dataset_type)
     os.makedirs(dataset_pkls_dir, exist_ok=True)
@@ -59,15 +62,23 @@ def main():
         # Load transforms and datasets
         transform = transforms.Compose([
             transforms.Resize((args.sample_size, args.sample_size)),
-            transforms.ToTensor()
+            transforms.ToTensor(),
         ])
-        transform_cache_suffix = build_transform_cache_suffix(transform)
+        reference_cache_suffix = build_transform_cache_suffix(transform)
 
-        inference_data = create_inference_dataset(paths['test_real']['path'], paths['test_fake']['path'], args.num_samples_per_class, classes='both')
+        datasets = DatasetFactory.create_dataset(dataset_type=args.dataset_type, transform=transform)
+        reference_dataset = datasets['reference_real']
+        test_real_dataset = datasets['test_real']
+        test_fake_dataset = datasets['test_fake']
 
-        image_paths = [x[0] for x in inference_data]
-        labels = [x[1] for x in inference_data]
-        inference_dataset = ImageDataset(image_paths, labels, transform=transform)
+        inference_dataset = ConcatDataset([test_real_dataset, test_fake_dataset])
+        labels = [0] * len(test_real_dataset) + [1] * len(test_fake_dataset)
+        inference_dataset.image_paths = (
+            list(getattr(test_real_dataset, 'image_paths', [])) +
+            list(getattr(test_fake_dataset, 'image_paths', []))
+        )
+
+        inference_cache_suffix = reference_cache_suffix
 
         patch_sizes = [args.sample_size // (2 ** d) for d in args.patch_divisors]
         test_id = f"inference_run_{args.run_id}"
@@ -78,10 +89,12 @@ def main():
         mlflow.log_param("test_id", test_id)
         mlflow.log_param("num_statistics_keys", len(args.statistics_keys))
         mlflow.log_param("p_threshold", args.p_threshold)
-        mlflow.log_param("transform_cache_suffix", transform_cache_suffix or "none")
+        mlflow.log_param("reference_transform_cache_suffix", reference_cache_suffix or "none")
+        mlflow.log_param("inference_transform_cache_suffix", inference_cache_suffix or "none")
 
         # Run inference-only flow
         results = inference_multiple_patch_test_with_dependence(
+            reference_dataset=reference_dataset,
             inference_dataset=inference_dataset,
             statistics_keys_group=args.statistics_keys,
             test_labels=labels,
@@ -102,11 +115,13 @@ def main():
             logger=mlflow,
             seed=args.seed,
             preferred_statistics=args.preferred_statistics,
-            cache_suffix=transform_cache_suffix
+            reference_cache_suffix=reference_cache_suffix,
+            cache_suffix=inference_cache_suffix
         )
 
         results['labels'] = labels
-        auc = plot_roc_curve(results, test_id, args.output_dir)
+        balance_labels, balance_scores = balanced_testset(labels, results['scores'], random_state=42)
+        auc = plot_roc_curve(balance_labels, balance_scores, test_id, args.output_dir)
         plot_fakeness_score_distribution(results, test_id, args.output_dir, args.threshold)
         plot_fakeness_score_histogram(results, test_id, args.output_dir, args.threshold)
         mlflow.log_metric("AUC", auc)

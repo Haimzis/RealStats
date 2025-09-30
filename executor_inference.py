@@ -4,11 +4,19 @@ import argparse
 from urllib.parse import urlparse
 
 import mlflow
+from sklearn.metrics import average_precision_score
+from torch.utils.data import ConcatDataset
 from torchvision import transforms
 from datasets_factory import DatasetFactory, DatasetType
-from data_utils import ImageDataset, JPEGCompressionTransform, create_inference_dataset
+from data_utils import JPEGCompressionTransform
 from stat_test import TestType, inference_multiple_patch_test
-from utils import plot_fakeness_score_distribution, plot_fakeness_score_histogram, plot_roc_curve, set_seed
+from utils import (
+    balanced_testset,
+    plot_fakeness_score_distribution,
+    plot_fakeness_score_histogram,
+    plot_roc_curve,
+    set_seed,
+)
 from utils.transform_cache import build_transform_cache_suffix
 from torchvision.utils import save_image
 
@@ -25,7 +33,6 @@ parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], de
 parser.add_argument('--dataset_type', type=str, default='COCO', choices=[e.name for e in DatasetType], help='Type of dataset to use')
 parser.add_argument('--output_dir', type=str, required=True, help='Directory to save logs and artifacts.')
 parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/rigid_pkls', help='Path where to save pkls.')
-parser.add_argument('--num_samples_per_class', type=int, default=-1, help='Number of samples per class for inference dataset.')
 parser.add_argument('--num_data_workers', type=int, default=4, help='Number of workers for data loading.')
 parser.add_argument('--max_workers', type=int, default=1, help='Maximum number of threads for parallel processing.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility.')
@@ -45,10 +52,6 @@ os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 def main():
     set_seed(args.seed)
 
-    # Get paths dynamically based on dataset_type
-    dataset_type_enum = DatasetType[args.dataset_type.upper()]
-    paths = dataset_type_enum.get_paths()
-
     # Dynamically create a subdirectory in pkls_dir based on dataset type
     dataset_pkls_dir = os.path.join(args.pkls_dir, args.dataset_type)
     os.makedirs(dataset_pkls_dir, exist_ok=True)
@@ -58,22 +61,41 @@ def main():
     with mlflow.start_run(run_name=args.run_id):
         args.output_dir = urlparse(mlflow.get_artifact_uri()).path
 
-        inference_transform_list = [transforms.Resize((args.sample_size, args.sample_size))]
+        base_transform_steps = [transforms.Resize((args.sample_size, args.sample_size))]
+        base_transform = transforms.Compose(base_transform_steps + [transforms.ToTensor()])
+
+        inference_transform_steps = list(base_transform_steps)
         if args.inference_aug == 'jpeg':
-            inference_transform_list.append(JPEGCompressionTransform())
+            inference_transform_steps.append(JPEGCompressionTransform())
         elif args.inference_aug == 'blur':
-            inference_transform_list.append(transforms.GaussianBlur(kernel_size=(3, 3), sigma=1.0))
-        inference_transform_list.append(transforms.ToTensor())
-        inference_transform = transforms.Compose(inference_transform_list)
-        transform_cache_suffix = build_transform_cache_suffix(inference_transform)
+            inference_transform_steps.append(transforms.GaussianBlur(kernel_size=(3, 3), sigma=1.0))
+        inference_transform = transforms.Compose(inference_transform_steps + [transforms.ToTensor()])
 
-        inference_data = create_inference_dataset(paths['test_real']['path'], paths['test_fake']['path'], args.num_samples_per_class, classes='both')
+        reference_cache_suffix = build_transform_cache_suffix(base_transform)
+        inference_cache_suffix = build_transform_cache_suffix(inference_transform)
 
-        image_paths = [x[0] for x in inference_data]
-        labels = [x[1] for x in inference_data]
-        inference_dataset = ImageDataset(image_paths, labels, transform=inference_transform)
+        datasets = DatasetFactory.create_dataset(dataset_type=args.dataset_type, transform=base_transform)
+        reference_dataset = datasets['reference_real']
+        test_real_dataset = datasets['test_real']
+        test_fake_dataset = datasets['test_fake']
 
-        img_tensor, label = inference_dataset[0]
+        # Apply the inference-time augmentation only to the evaluation splits.
+        test_real_dataset.transform = inference_transform
+        test_fake_dataset.transform = inference_transform
+
+        inference_dataset = ConcatDataset([test_real_dataset, test_fake_dataset])
+
+        real_image_paths = list(getattr(test_real_dataset, 'image_paths', []))
+        fake_image_paths = list(getattr(test_fake_dataset, 'image_paths', []))
+        inference_dataset.image_paths = real_image_paths + fake_image_paths
+
+        labels = [0] * len(test_real_dataset) + [1] * len(test_fake_dataset)
+
+        first_sample = inference_dataset[0]
+        if isinstance(first_sample, tuple) and len(first_sample) == 3:
+            img_tensor, label, _ = first_sample
+        else:
+            img_tensor, label = first_sample
         save_image(img_tensor, os.path.join(args.output_dir, "example_image.png"))
 
         patch_sizes = [args.sample_size // (2 ** d) for d in args.patch_divisors]
@@ -84,10 +106,12 @@ def main():
         mlflow.log_param("patch_sizes", patch_sizes)
         mlflow.log_param("test_id", test_id)
         mlflow.log_param("num_independent_keys", len(args.independent_keys))
-        mlflow.log_param("transform_cache_suffix", transform_cache_suffix or "none")
+        mlflow.log_param("reference_transform_cache_suffix", reference_cache_suffix or "none")
+        mlflow.log_param("inference_transform_cache_suffix", inference_cache_suffix or "none")
 
         # Run inference-only flow
         results = inference_multiple_patch_test(
+            reference_dataset=reference_dataset,
             inference_dataset=inference_dataset,
             independent_statistics_keys_group=args.independent_keys,
             test_labels=labels,
@@ -107,15 +131,21 @@ def main():
             logger=mlflow,
             seed=args.seed,
             draw_pvalues_trend_figure=bool(args.draw_pvalues_trend_figure),
-            cache_suffix=transform_cache_suffix,
+            reference_cache_suffix=reference_cache_suffix,
+            cache_suffix=inference_cache_suffix,
 
         )
 
         results['labels'] = labels
-        auc = plot_roc_curve(results, test_id, args.output_dir)
+        # Match executor metric computation by balancing the test set before measuring AUC/AP.
+        # (Previously the ROC computation consumed the raw `results` dict directly.)
+        balance_labels, balance_scores = balanced_testset(labels, results['scores'], random_state=42)
+        auc = plot_roc_curve(balance_labels, balance_scores, test_id, args.output_dir)
+        ap = average_precision_score(balance_labels, balance_scores)
         # plot_fakeness_score_distribution(results, test_id, args.output_dir, args.threshold)
         plot_fakeness_score_histogram(results, test_id, args.output_dir, args.threshold)
         mlflow.log_metric("AUC", auc)
+        mlflow.log_metric("AP", ap)
 
 
 if __name__ == "__main__":
