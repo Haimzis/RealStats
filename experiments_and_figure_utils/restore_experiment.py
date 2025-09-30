@@ -3,12 +3,13 @@ import json
 import os
 import ast
 
-EXPERIMENT_ID = "869866565155270511"
-OUTPUT_JSON_PATH = "configs/AIStats/robustness/final_jpeg.json"
+EXPERIMENT_ID = "289254821595641663"
+OUTPUT_JSON_PATH = "configs/AIStats/robustness/final_jpeg_stf.json"
 
 FIXED_ARGS = [
     "--patch_divisors",
     "--dataset_type",
+    "--ensemble_test",
     "--seed",
     "--sample_size",
     "--threshold",
