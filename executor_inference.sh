@@ -30,11 +30,11 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
         echo "Command: python executor.py $CONFIG"
 
         python executor_inference.py \
-            --batch_size 4 \
+            --batch_size 16 \
             --output_dir "$LOGS_DIR" \
-            --num_data_workers 2 \
+            --num_data_workers 0 \
             --max_workers 3 \
-            --gpu "0,1,2,3" \
+            --gpu "0,2,3" \
             $CONFIG
 
         echo "Run $((i + 1)) complete."

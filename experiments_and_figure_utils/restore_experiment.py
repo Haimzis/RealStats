@@ -4,7 +4,7 @@ import os
 import ast
 
 EXPERIMENT_ID = "289254821595641663"
-OUTPUT_JSON_PATH = "configs/AIStats/robustness/final_jpeg_stf.json"
+OUTPUT_JSON_PATH = "configs/AIStats/adaptability/final_mb_adapted_stf.json"
 
 FIXED_ARGS = [
     "--patch_divisors",

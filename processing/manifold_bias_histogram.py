@@ -8,11 +8,12 @@ import torchvision.transforms.functional as F
 from transformers import AutoImageProcessor, CLIPModel, pipeline as pipeline_caption
 import pandas as pd
 from pathlib import Path
-from typing import Dict, Iterable, List, Union
+from typing import Dict, Iterable, List, Set, Union
 from tqdm import tqdm
 
 from processing.histograms import BaseHistogram
 
+PATH_BASED_STATISTICS: Set[str] = {"LatentNoiseCriterion_original"}
 
 def clip_preprocess(img_t, siz, do_resize=False):
     """
