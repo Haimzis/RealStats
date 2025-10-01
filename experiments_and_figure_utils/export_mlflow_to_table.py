@@ -114,12 +114,12 @@ if __name__ == "__main__":
         # ("AIStats/minp-no_patch-low-prefer-dino-50per", AggregationStrategy.AVERAGE)
         # ("AIStats/final_all_data_fixed_fake", AggregationStrategy.AVERAGE),
         # ("AIStats/final_all_data_fixed_fake_stf", AggregationStrategy.AVERAGE)
-        ("AIStats/final_all_data_new_partition_all_splits_stf", AggregationStrategy.AVERAGE),
-        ("AIStats/final_all_data_new_partition_all_splits", AggregationStrategy.AVERAGE)
+        ("AIStats/final_all_data_all_splits_stf", AggregationStrategy.AVERAGE),
+        ("AIStats/final_all_data_all_splits_minp", AggregationStrategy.AVERAGE)
     ]
 
     metrics_to_export = ["AUC", "AP"]
-    top_k = 10
+    top_k = 5
 
     os.makedirs("experiments/csvs", exist_ok=True)
 

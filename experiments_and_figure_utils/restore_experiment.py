@@ -3,8 +3,8 @@ import json
 import os
 import ast
 
-EXPERIMENT_ID = "289254821595641663"
-OUTPUT_JSON_PATH = "configs/AIStats/adaptability/final_mb_adapted_stf.json"
+EXPERIMENT_ID = "575446836186752123"
+OUTPUT_JSON_PATH = "configs/AIStats/adaptability/final_mb_minp.json"
 
 FIXED_ARGS = [
     "--patch_divisors",

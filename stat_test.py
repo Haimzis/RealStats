@@ -462,10 +462,8 @@ def inference_multiple_patch_test(
     real_population_histogram = compute_mean_std_dict(real_population_histogram)
     real_population_histogram = remove_nans_from_tests(real_population_histogram)
 
-    print(real_population_histogram.keys())
     real_population_histogram = {k: v for k, v in real_population_histogram.items() if k in independent_statistics_keys_group}
 
-    print(real_population_histogram.keys())
     # Plot raw statistic distributions as KDE
     save_real_statistics_kde(
         real_population_histogram,
