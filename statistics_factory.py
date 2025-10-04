@@ -154,6 +154,7 @@ STATISTIC_HISTOGRAMS = {
     'RIGID.CLIPOPENAI.100': lambda level: RIGIDOpenAICLIPHistogram(noise_level=1.0)   if level == 0 else None,
 
     # # ===== LAION CLIP ViT-bigG-14 =====
+    # TODO: too slow.
     # 'RIGID.CLIPBIGG.001': lambda level: RIGIDBigGCLIPHistogram(noise_level=0.001) if level == 0 else None,
     # 'RIGID.CLIPBIGG.01':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.01)  if level == 0 else None,
     # 'RIGID.CLIPBIGG.05':  lambda level: RIGIDBigGCLIPHistogram(noise_level=0.05)  if level == 0 else None,

@@ -39,7 +39,6 @@ from utils import (
     plot_histograms,
     save_to_csv,
     set_seed,
-    split_population_histogram,
     plot_cdf,
     compute_dist_cdf,
     plot_pvalue_histograms_from_arrays,
@@ -143,12 +142,6 @@ def preprocess_statistic(dataset, batch_size, statistic, level, num_data_workers
     return stacked
 
 
-def fdr_classification(pvalues, threshold=0.05):
-    """Perform FDR correction and return whether any p-values are significant."""
-    _, pvals_corrected, _, _ = multipletests(pvalues, method='fdr_bh', alpha=threshold)
-    return int(np.any(pvals_corrected < threshold))
-
-
 def calculate_cdfs_pvalues(real_population_cdfs, input_samples_values, test_type=TestType.LEFT):
     """
     Calculate p-values for input samples against real population CDFs.
@@ -191,10 +184,10 @@ def validate_real_population_cdfs(real_population_cdfs, input_samples):
         raise KeyError(f"Descriptors missing in real_population_cdfs: {missing_descriptors}")
 
 
-def calculate_pvals_from_cdf(real_population_cdfs, samples_histogram, split="Input's", test_type=TestType.LEFT):
+def calculate_pvals_from_cdf(real_population_cdfs, samples_histogram, test_type=TestType.LEFT):
     input_samples = [dict(zip(samples_histogram.keys(), values)) for values in zip(*samples_histogram.values())]
     validate_real_population_cdfs(real_population_cdfs, input_samples)
-    input_samples_pvalues = [calculate_cdfs_pvalues(real_population_cdfs, sample, test_type) for sample in tqdm(input_samples, desc=f"Calculating {split} P-values")]
+    input_samples_pvalues = [calculate_cdfs_pvalues(real_population_cdfs, sample, test_type) for sample in tqdm(input_samples, desc=f"Calculating P-values")]
     return input_samples_pvalues
 
 
@@ -251,7 +244,6 @@ def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_wo
                 print(f"Combination {combination}, generated an exception: {exc}")
 
         results = {k: v for k, v in results.items() if v is not None}
-        # results = {k.replace(f"_{data_type.value}", ""): v for k, v in results.items()} # TODO: Check if datatype is needed
 
         if sort:
             results = {k: results[k] for k in sorted(results)}
@@ -276,7 +268,6 @@ def main_multiple_patch_test(
     output_dir='logs',
     pkl_dir='pkls',
     return_logits=False,
-    portion=0.2,
     chi2_bins=10,
     cdf_bins=500,
     n_trials=100,
@@ -304,15 +295,11 @@ def main_multiple_patch_test(
     reference_histogram = compute_mean_std_dict(reference_histogram)
     reference_histogram = remove_nans_from_tests(reference_histogram)
 
-    # Spliting 
-    # tuning_histogram, training_histogram = split_population_histogram(reference_histogram, portion)
-    tuning_histogram, training_histogram = reference_histogram, reference_histogram
-
     # CDF creation
-    reference_cdfs = {test_id: compute_cdf(values, bins=cdf_bins, test_id=test_id) for test_id, values in training_histogram.items()}
+    reference_cdfs = {test_id: compute_cdf(values, bins=cdf_bins, test_id=test_id) for test_id, values in reference_histogram.items()}
 
     # Tuning Pvalues
-    tuning_reference_pvals = calculate_pvals_from_cdf(reference_cdfs, tuning_histogram, DataType.TUNING.name, test_type)
+    tuning_reference_pvals = calculate_pvals_from_cdf(reference_cdfs, reference_histogram, test_type)
     tuning_reference_pvals = np.clip(tuning_reference_pvals, 0, 1)
 
     keys = list(reference_histogram.keys())
@@ -377,7 +364,7 @@ def main_multiple_patch_test(
         k: inference_histogram[k] for k in independent_keys_group if k in inference_histogram
     }
 
-    input_samples_pvalues = calculate_pvals_from_cdf(reference_cdfs, inference_histogram, DataType.TEST.name, test_type)
+    input_samples_pvalues = calculate_pvals_from_cdf(reference_cdfs, inference_histogram, test_type)
     independent_tests_pvalues = np.array(input_samples_pvalues)
     independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
         
@@ -470,16 +457,12 @@ def inference_multiple_patch_test(
         independent_statistics_keys_group,
         output_dir,
     )
-
-    # Spliting 
-    # tuning_histogram, training_histogram = split_population_histogram(real_population_histogram, portion)
-    tuning_histogram, training_histogram = real_population_histogram, real_population_histogram
     
     # CDF creation
-    real_population_cdfs = {test_id: compute_cdf(values, bins=cdf_bins, test_id=test_id) for test_id, values in training_histogram.items()}    
+    real_population_cdfs = {test_id: compute_cdf(values, bins=cdf_bins, test_id=test_id) for test_id, values in real_population_histogram.items()}    
 
     # Tuning Pvalues
-    tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, tuning_histogram, DataType.TUNING.name, test_type)
+    tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, real_population_histogram, test_type)
     tuning_real_population_pvals = np.clip(tuning_real_population_pvals, 0, 1)
 
     keys = list(real_population_histogram.keys())
@@ -525,7 +508,7 @@ def inference_multiple_patch_test(
         key: inference_histogram[key] for key in independent_statistics_keys_group if key in inference_histogram
     }
 
-    input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, DataType.TEST.name, test_type)
+    input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, test_type)
     independent_tests_pvalues = np.array(input_samples_pvalues)
     independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
 
@@ -659,10 +642,8 @@ def inference_multiple_patch_test_with_dependence(
         output_dir,
     )
 
-    tuning_histogram, training_histogram = real_population_histogram, real_population_histogram
-
-    real_population_cdfs = {test_id: compute_cdf(values, bins=cdf_bins, test_id=test_id) for test_id, values in training_histogram.items()}
-    tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, tuning_histogram, DataType.TUNING.name, test_type)
+    real_population_cdfs = {test_id: compute_cdf(values, bins=cdf_bins, test_id=test_id) for test_id, values in real_population_histogram.items()}
+    tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, real_population_histogram, test_type)
     tuning_real_population_pvals = np.clip(tuning_real_population_pvals, 0, 1)
 
     keys = list(real_population_histogram.keys())
@@ -728,13 +709,13 @@ def inference_multiple_patch_test_with_dependence(
     all_inference_histogram = compute_mean_std_dict(all_inference_histogram)
 
     # P-values for all statistics
-    input_all_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, all_inference_histogram, DataType.TEST.name, test_type)
+    input_all_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, all_inference_histogram, test_type)
     all_tests_pvalues = np.clip(np.array(input_all_samples_pvalues), 0, 1)
 
     # Focus on the independent subset for inference
     inference_histogram = {key: all_inference_histogram[key] for key in independent_keys_group if key in all_inference_histogram}
 
-    input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, DataType.TEST.name, test_type)
+    input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, test_type)
     independent_tests_pvalues = np.clip(np.array(input_samples_pvalues), 0, 1)
 
     if test_labels and hasattr(inference_dataset, "image_paths"):

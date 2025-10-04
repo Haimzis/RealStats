@@ -31,25 +31,6 @@ parser.add_argument('--seed', type=int, default=42, help='Random seed for reprod
 args = parser.parse_args()
 
 
-# TO REMOVE
-for filename in os.listdir(args.output_dir):
-    file_path = os.path.join(args.output_dir, filename)
-    
-    # Check if it is a file (not a subdirectory)
-    if os.path.isfile(file_path):
-        os.remove(file_path)  # Remove the file\
-        print(f"Deleted file: {filename}")
-
-
-# Define datasets to evaluate: TODO: REMOVE
-DATASETS_TO_EVALUATE = [
-    'PROGAN_FACES', 'COCO', 'COCO_BIGGAN_256', 'COCO_STABLE_DIFFUSION_XL', 
-    'COCO_DALLE3_COCOVAL', 'COCO_SYNTH_MIDJOURNEY_V5', 'COCO_STABLE_DIFFUSION_2',
-    'BIGGAN_TEST_ONLY', 'CYCLEGAN_TEST_ONLY', 'GAUGAN_TEST_ONLY', 'PROGAN_TEST_ONLY',
-    'SEEINGDARK_TEST_ONLY', 'STYLEGAN_TEST_ONLY', 'CRN_TEST_ONLY', 'DEEPFAKE_TEST_ONLY',
-    'IMLE_TEST_ONLY', 'SAN_TEST_ONLY', 'STARGAN_TEST_ONLY', 'STYLEGAN2_TEST_ONLY', 'COCO_STABLE_DIFFUSION_2_768'
-]
-
 def main():
     set_seed(args.seed)
 
@@ -77,10 +58,7 @@ def main():
     inference_dataset = ImageDataset(image_paths, labels, transform=transform)
 
     threshold = args.threshold
-    # statistics = ['bior6.8', 'rbio6.8', 'bior1.1', 'bior3.1', 'sym2', 'haar', 'coif1', 'fourier', 'dct', 'blurness', 'gabor', 'hsv', 'jpeg', 'sift', 'ssim', 'psnr']
-    # statistics = ['edge5x5', 'smoothing', 'noise', 'sharpness', 'emboss', 'highpass', 'sobel', 'gauss_diff']
 
-    # models = ['CLIPBIGG', 'CLIPOPENAI', 'CONVNEXT', 'DINO', 'BEIT', 'CLIP', 'DEIT', 'RESNET']
     models = ['DINO', 'BEIT', 'CLIP', 'DEIT', 'RESNET']
     noise_levels = ['01', '05', '10', '50', '75', '100']
 
@@ -108,7 +86,6 @@ def main():
             output_dir=args.output_dir,
             pkl_dir=dataset_pkls_dir,
             return_logits=True,
-            portion=0.1,
             chi2_bins=10,
             cdf_bins=500,
             n_trials=75,
@@ -125,12 +102,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.setrecursionlimit(2000)
     main()
-    ## TODO: REMOVE and leave only main()
-    # for dataset in tqdm(DATASETS_TO_EVALUATE, desc="Running evaluations"):
-    #     try:
-    #         args.dataset_type = dataset
-    #         main()
-    #     except Exception as e:
-    #         print(f"Error with dataset {dataset}: {e}")

@@ -2,7 +2,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import pickle
 import random
 import warnings
-# from matplotlib.pylab import chisquare
 import optuna
 from matplotlib import pyplot as plt
 import pandas as pd
@@ -378,37 +377,6 @@ def compute_chi2_and_corr_matrix(keys, distributions, max_workers=128, plot_inde
     return chi2_p_matrix, corr_matrix
 
 
-def compute_mi_and_corr_matrix(keys, distributions, max_workers=128, plot_independence_heatmap=False, output_dir='logs', bins=10):
-    num_dists = len(distributions)
-    mi_matrix = np.zeros((num_dists, num_dists))
-    corr_matrix = np.zeros((num_dists, num_dists))
-
-    tasks = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        for i, key1 in enumerate(keys):
-            dist_1 = distributions[i]
-            for j, key2 in enumerate(keys):
-                if i <= j:
-                    continue
-                dist_2 = distributions[j]
-                tasks.append(executor.submit(calculate_mi_and_corr, i, j, dist_1, dist_2, bins))
-
-        for future in tqdm(as_completed(tasks), total=len(tasks), desc="Processing MI and Correlation tests..."):
-            i, j, mi, corr = future.result()
-            if mi is not None:
-                mi_matrix[i, j] = mi
-                mi_matrix[j, i] = mi
-            if mi is not None:
-                corr_matrix[i, j] = corr
-                corr_matrix[j, i] = corr
-
-    if plot_independence_heatmap:
-        create_heatmap(mi_matrix, keys, 'Mutual Information', output_dir, 'mi_heatmap.png', annot=len(keys) < 64)
-        create_heatmap(corr_matrix, keys, 'Correlation Matrix', output_dir, 'corr_heatmap.png', annot=len(keys) < 64)
-
-    return mi_matrix, corr_matrix
-
-
 def find_largest_independent_group(keys, chi2_p_matrix, p_threshold=0.05, test_type="chi2"):
     """Find the largest independent group using the Chi-Square p-value matrix."""
     G = nx.Graph()
@@ -572,48 +540,6 @@ def set_seed(seed=42):
     torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-
-
-def split_population_histogram(real_population_histogram, portion):
-    """
-    Split the population histogram into tuning and training portions.
-    - If portion <= 1.0: Use it as a fraction of the total population.
-    - If portion > 1.0: Split into two histograms of sizes `portion` and `N - portion`.
-    - If the population size is smaller than the portion, return a single split and None with a warning.
-    """
-
-    # Get the population length
-    population_length = len(list(real_population_histogram.values())[0])
-
-    # Ensure portion is valid
-    if portion <= 0:
-        raise ValueError(f"Invalid portion: {portion}. Must be greater than 0.")
-
-    # Handle case where portion is larger than population size
-    if (portion <= 1.0 and population_length * portion > population_length) or (portion > 1.0 and portion > population_length):
-        warnings.warn(f"Portion {portion} is larger than the population size {population_length}. Returning a single split.")
-        return real_population_histogram, None
-
-    # Generate shuffled indices
-    indices = list(range(population_length))
-    random.shuffle(indices)
-
-    if portion <= 1.0:
-        # Portion as a fraction
-        split_point = int(population_length * portion)
-    else:
-        # Portion as an absolute size
-        split_point = int(portion)
-
-    # Create the tuning and training histograms based on shuffled indices
-    tuning_histogram = {
-        k: [v[i] for i in indices[:split_point]] for k, v in real_population_histogram.items()
-    }
-    training_histogram = {
-        k: [v[i] for i in indices[split_point:]] for k, v in real_population_histogram.items()
-    }
-
-    return tuning_histogram, training_histogram
 
 
 def preprocess(image_batch, wavelet_decompose: DTCWTForward, wavelet_compose: DTCWTInverse):
