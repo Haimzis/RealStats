@@ -9,3 +9,6 @@ vgg_clustering/
 mlruns/
 logs/
 pkls/
+configs/
+experiments_and_figure_utils/
+histograms_stats/

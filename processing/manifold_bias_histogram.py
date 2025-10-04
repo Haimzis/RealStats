@@ -292,16 +292,8 @@ class PathBasedStatistic(BaseHistogram):
 class LatentNoiseCriterionOriginal(PathBasedStatistic):
     """Loads pre-computed Latent Noise Criterion scores from disk."""
 
-    def __init__(self, scores_csv: Union[str, Path, None] = None):
+    def __init__(self, scores_csv):
         super().__init__()
-        if scores_csv is None:
-            scores_csv = os.getenv("LATENT_NOISE_CRITERION_ORIGINAL_CSV")
-            if scores_csv is None:
-                raise ValueError(
-                    "Path to the LatentNoiseCriterion_original CSV must be provided via "
-                    "the constructor or the LATENT_NOISE_CRITERION_ORIGINAL_CSV environment variable."
-                )
-
         self.scores_csv = Path(scores_csv).expanduser().resolve()
         if not self.scores_csv.exists():
             raise FileNotFoundError(f"Could not find CSV with scores at {self.scores_csv}")
