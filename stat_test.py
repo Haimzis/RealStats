@@ -9,6 +9,7 @@ import torch
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from statistics_factory import get_histogram_generator
+from processing.manifold_bias_histogram import PathBasedStatistic
 from utils import (
     AUC_tests_filter,
     compute_cdf,
@@ -27,7 +28,6 @@ from utils import (
     ks_uniform_sanity_check,
     perform_ensemble_testing,
     get_total_size_in_MB,
-    load_population_histograms,
     plot_ks_vs_pthreshold,
     plot_stouffer_analysis,
     plot_uniform_and_nonuniform,
@@ -71,12 +71,13 @@ def get_unique_id(patch_size, level, statistic, seed=42):
     return f"PatchProcessing_statistic={statistic}_level={level}_patch_size={patch_size}_seed={seed}"
 
 
-def preprocess_statistic(dataset, batch_size, statistic, level, num_data_workers, patch_size, pkl_dir, data_type: DataType, seed=42):
+def preprocess_statistic(dataset, batch_size, statistic, level, num_data_workers, patch_size, pkl_dir, data_type: DataType, seed=42, cache_suffix=""):
     """Preprocess the dataset for a single statistic name and level using various histogram statistics."""
     set_seed(seed)
 
     unique_id = get_unique_id(patch_size, level, statistic, seed)
-    combo_dir = os.path.join(pkl_dir, unique_id)
+    combo_dir_name = f"{unique_id}{cache_suffix}" if cache_suffix else unique_id
+    combo_dir = os.path.join(pkl_dir, combo_dir_name)
     results = []
 
     expected_stat_paths = [
@@ -99,6 +100,8 @@ def preprocess_statistic(dataset, batch_size, statistic, level, num_data_workers
     if histogram_generator is None:
         return None
 
+    is_path_based = isinstance(histogram_generator, PathBasedStatistic)
+
     for images, _, paths in tqdm(data_loader, desc=f"Processing {statistic}-{level}", unit="batch", total=len(data_loader), leave=False):
         B, P = images.shape[:2]
 
@@ -114,10 +117,16 @@ def preprocess_statistic(dataset, batch_size, statistic, level, num_data_workers
 
         if to_compute:
             idxs = [i for i, _, _ in to_compute]
-            imgs = images[idxs].view(len(idxs) * P, *images.shape[2:])
-            imgs = imgs.to(histogram_generator.device)
-            hist = histogram_generator.preprocess(imgs)
-            hist = hist.reshape(len(idxs), P)
+
+            if is_path_based:
+                lookup_paths = [path for _, path, _ in to_compute]
+                scores = histogram_generator.lookup(lookup_paths)
+                hist = np.repeat(np.asarray(scores, dtype=np.float32)[:, None], P, axis=1)
+            else:
+                imgs = images[idxs].view(len(idxs) * P, *images.shape[2:])
+                imgs = imgs.to(histogram_generator.device)
+                hist = histogram_generator.preprocess(imgs)
+                hist = hist.reshape(len(idxs), P)
 
             for (i, _, stat_path), h in zip(to_compute, hist):
                 os.makedirs(os.path.dirname(stat_path), exist_ok=True)
@@ -223,13 +232,13 @@ def interpret_keys_to_combinations(independent_keys_group):
     return combinations
 
 
-def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_workers, num_data_workers, pkl_dir='pkls', data_type: DataType = DataType.TRAIN, sort=True, seed=42):
+def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_workers, num_data_workers, pkl_dir='pkls', data_type: DataType = DataType.TRAIN, sort=True, seed=42, cache_suffix=""):
     """Preprocess the dataset for specific combinations in parallel."""
     results = {}
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_combination = {
-            executor.submit(preprocess_statistic, SelfPatchDataset(original_dataset, comb['patch_size']), batch_size, comb['statistic'], comb['level'], num_data_workers, comb['patch_size'], pkl_dir, data_type, seed): comb
+            executor.submit(preprocess_statistic, SelfPatchDataset(original_dataset, comb['patch_size']), batch_size, comb['statistic'], comb['level'], num_data_workers, comb['patch_size'], pkl_dir, data_type, seed, cache_suffix): comb
             for comb in combinations
         }
 
@@ -403,6 +412,7 @@ def main_multiple_patch_test(
 
 
 def inference_multiple_patch_test(
+    reference_dataset,
     inference_dataset,
     independent_statistics_keys_group,
     test_labels=None,
@@ -421,7 +431,9 @@ def inference_multiple_patch_test(
     test_type=TestType.LEFT,
     logger=None,
     seed=42,
-    draw_pvalues_trend_figure=False
+    draw_pvalues_trend_figure=False,
+    reference_cache_suffix="",
+    cache_suffix="",
 ):
     """
     Simplified version of patch test for inference: no tuning, no clique finding.
@@ -432,22 +444,21 @@ def inference_multiple_patch_test(
     # Generate all combinations for training
     independent_combinations = interpret_keys_to_combinations(independent_statistics_keys_group)
 
-    real_population_histogram = {}
+    if reference_dataset is None:
+        raise ValueError("reference_dataset must be provided for inference")
 
-    # If not test data and file already exists, load cached histograms
-    for combination in independent_combinations:
-        statistic = combination['statistic']
-        level = combination['level']
-        patch_size = combination['patch_size']
-        stat_id = get_unique_id(patch_size, level, statistic, DataType.TRAIN, seed)
-        pkl_filename = os.path.join(pkl_dir, f"{stat_id}.pkl")
-        
-        assert os.path.exists(pkl_filename), "File not found. Please run full pipeline."
-        real_population_histogram[stat_id] = load_population_histograms(pkl_filename)
-    
-    real_population_histogram = {k.replace(f"_{DataType.TRAIN.value}", ""): v for k, v in real_population_histogram.items()}
+    real_population_histogram = patch_parallel_preprocess(
+        reference_dataset,
+        batch_size,
+        independent_combinations,
+        max_workers,
+        num_data_workers,
+        pkl_dir=pkl_dir,
+        data_type=DataType.TRAIN,
+        seed=seed,
+        cache_suffix=reference_cache_suffix,
+    )
 
-    # Load or compute real population histograms
     real_population_histogram = compute_mean_std_dict(real_population_histogram)
     real_population_histogram = remove_nans_from_tests(real_population_histogram)
 
@@ -491,13 +502,22 @@ def inference_multiple_patch_test(
         logger.log_param("Independent keys", independent_statistics_keys_group)
         logger.log_metric("largest_independent_clique_size_approximation", largest_independent_clique_size_approximation)
 
+    print(f'Independent keys: {independent_statistics_keys_group}')
     independent_keys_group_indices = [keys.index(value) for value in independent_statistics_keys_group]
     tuning_independent_pvals = tuning_pvalue_distributions[independent_keys_group_indices].T
     _, tuning_ensembled_pvalues = perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)    
     
     # Inference
     inference_histogram = patch_parallel_preprocess(
-        inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, data_type=DataType.TEST, seed=seed
+        inference_dataset,
+        batch_size,
+        independent_combinations,
+        max_workers,
+        num_data_workers,
+        pkl_dir=pkl_dir,
+        data_type=DataType.TEST,
+        seed=seed,
+        cache_suffix=cache_suffix,
     )
 
     inference_histogram = compute_mean_std_dict(inference_histogram)
@@ -583,6 +603,7 @@ def inference_multiple_patch_test(
 
 
 def inference_multiple_patch_test_with_dependence(
+    reference_dataset,
     inference_dataset,
     statistics_keys_group,
     test_labels=None,
@@ -602,24 +623,30 @@ def inference_multiple_patch_test_with_dependence(
     test_type=TestType.LEFT,
     logger=None,
     seed=42,
-    preferred_statistics=None
+    preferred_statistics=None,
+    reference_cache_suffix="",
+    cache_suffix="",
 ):
     """Inference pipeline that automatically finds an independent subset using max clique."""
     print(f"[INFO] Running inference with dependence analysis: {statistics_keys_group}")
 
+    if reference_dataset is None:
+        raise ValueError("reference_dataset must be provided for inference")
+
     all_combinations = interpret_keys_to_combinations(statistics_keys_group)
 
-    real_population_histogram = {}
-    for combination in all_combinations:
-        statistic = combination['statistic']
-        level = combination['level']
-        patch_size = combination['patch_size']
-        stat_id = get_unique_id(patch_size, level, statistic, DataType.TRAIN, seed)
-        pkl_filename = os.path.join(pkl_dir, f"{stat_id}.pkl")
-        assert os.path.exists(pkl_filename), "File not found. Please run full pipeline."
-        real_population_histogram[stat_id] = load_population_histograms(pkl_filename)
+    real_population_histogram = patch_parallel_preprocess(
+        reference_dataset,
+        batch_size,
+        all_combinations,
+        max_workers,
+        num_data_workers,
+        pkl_dir=pkl_dir,
+        data_type=DataType.TRAIN,
+        seed=seed,
+        cache_suffix=reference_cache_suffix,
+    )
 
-    real_population_histogram = {k.replace(f"_{DataType.TRAIN.value}", ""): v for k, v in real_population_histogram.items()}
     real_population_histogram = compute_mean_std_dict(real_population_histogram)
     real_population_histogram = remove_nans_from_tests(real_population_histogram)
 
@@ -691,9 +718,7 @@ def inference_multiple_patch_test_with_dependence(
     all_combinations = interpret_keys_to_combinations(statistics_keys_group)
 
     start_stat_extraction = time.time()
-    all_inference_histogram = patch_parallel_preprocess(
-        inference_dataset, batch_size, all_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, data_type=DataType.TEST, seed=seed
-    )
+    all_inference_histogram = patch_parallel_preprocess(inference_dataset, batch_size, all_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, data_type=DataType.TEST, seed=seed, cache_suffix=cache_suffix)
     end_stat_extraction = time.time()
     elapsed_stat_extraction = (end_stat_extraction - start_stat_extraction) * 1000  # ms
 

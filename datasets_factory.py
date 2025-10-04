@@ -51,7 +51,7 @@ def _manifold_bias_entry(generator=None, group_leakage=False):
         "test_fake": {
             "path": "data/ManifoldBiasDataset",
             "class": lambda root, label, transform=None: ManifoldBiasDataset(
-                root, "test_fake_paths_extended.csv", label, transform, generator=generator
+                root, "test_fake_paths_extended_old_clean.csv", label, transform, generator=generator
             ),
         },
     }
@@ -373,14 +373,14 @@ class DatasetType(Enum):
     UNIVERSAL_FAKE_DETECT_GLIDE_50_27 = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GLIDE_50_27.value)
     UNIVERSAL_FAKE_DETECT_GLIDE_50_27_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GLIDE_50_27.value, group_leakage=True)
 
-    UNIVERSAL_FAKE_DETECT_GUIDED = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GUIDED.value)
-    UNIVERSAL_FAKE_DETECT_GUIDED_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GUIDED.value, group_leakage=True)
+    # UNIVERSAL_FAKE_DETECT_GUIDED = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GUIDED.value)
+    # UNIVERSAL_FAKE_DETECT_GUIDED_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GUIDED.value, group_leakage=True)
 
-    UNIVERSAL_FAKE_DETECT_LDM_100 = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_LDM_100.value)
-    UNIVERSAL_FAKE_DETECT_LDM_100_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_LDM_100.value, group_leakage=True)
+    # UNIVERSAL_FAKE_DETECT_LDM_100 = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_LDM_100.value)
+    # UNIVERSAL_FAKE_DETECT_LDM_100_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_LDM_100.value, group_leakage=True)
 
-    UNIVERSAL_FAKE_DETECT_LDM_200 = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_LDM_200.value)
-    UNIVERSAL_FAKE_DETECT_LDM_200_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_LDM_200.value, group_leakage=True)
+    # UNIVERSAL_FAKE_DETECT_LDM_200 = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_LDM_200.value)
+    # UNIVERSAL_FAKE_DETECT_LDM_200_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_LDM_200.value, group_leakage=True)
 
     SYNTHBUSTER_MIDJOURNEY_V5 = _manifold_bias_entry(ManifoldBiasGenerator.SYNTHBUSTER_MIDJOURNEY_V5.value)
     SYNTHBUSTER_MIDJOURNEY_V5_GROUP_LEAKAGE = _manifold_bias_entry(ManifoldBiasGenerator.SYNTHBUSTER_MIDJOURNEY_V5.value, group_leakage=True)
