@@ -36,7 +36,7 @@ parser.add_argument('--save_histograms', type=int, choices=[0, 1], default=1, he
 parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm', 'minp'], default='manual-stouffer', help='Type of ensemble test to perform')
 parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=1, help='Save independence test heatmaps.')
 parser.add_argument('--uniform_sanity_check', type=int, choices=[0, 1], default=0, help='Whether to perform uniform-KS sanity check.')
-parser.add_argument('--dataset_type', type=str, default='MANIFOLD_BIAS_GROUP_LEAKAGE', choices=[e.name for e in DatasetType], help='Type of dataset to use (CelebA, ProGan, COCO_LEAKAGE, COCO, COCO_ALL, PROGAN_FACES_BUT_CELEBA_AS_TRAIN)')
+parser.add_argument('--dataset_type', type=str, default='ALL', choices=[e.name for e in DatasetType], help='Type of dataset configuration to use.')
 parser.add_argument('--output_dir', type=str, default='outputs', help='Directory to save logs and artifacts.')
 parser.add_argument('--pkls_dir', type=str, default='pkls/AIStats/new_stats', help='Path where to save pkls.')
 parser.add_argument('--num_samples_per_class', type=int, default=-1, help='Number of samples per class for inference dataset.')
