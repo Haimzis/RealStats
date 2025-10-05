@@ -2,7 +2,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import pickle
 import random
 import warnings
-import optuna
 from matplotlib import pyplot as plt
 import pandas as pd
 from scipy.stats import spearmanr
@@ -24,15 +23,6 @@ import sys
 def view_subgraph(subgraph, title="Subgraph Visualization", save_path='subgraph.png'):
     """
     Visualize the subgraph using networkx and matplotlib.
-    
-    Parameters:
-    -----------
-    subgraph : networkx.Graph
-        The subgraph to be visualized.
-    title : str
-        Title of the plot.
-    save_path : str or None
-        Path to save the plot as an image. If None, display interactively.
     """
     plt.figure(figsize=(10, 8))
     pos = nx.spring_layout(subgraph)  # Layout for positioning the nodes
@@ -61,36 +51,7 @@ def view_independence_subgraph(
         highlight_width: float = 4.0,
 ):
     """
-    Draw a NetworkX subgraph using a clean, publication‐ready style.
-
-    Features
-    --------
-    • All nodes are **circular** with a white fill.
-    • Nodes in `independent_nodes` keep an **orange outline**; others get blue.
-    • Edges within the independent set become **solid, thick orange**.
-    • All other edges are light-grey dashed.
-    • Background can be fully transparent (ideal for PNG overlays).
-    • Layout compactness controlled by `k` (Fruchterman–Reingold).
-
-    Parameters
-    ----------
-    subgraph : networkx.Graph
-        The graph (or subgraph) to draw.
-    independent_nodes : list | set | None, optional
-        Nodes to highlight.  Empty / None means “no special nodes”.
-    k : float, optional
-        Spring‐layout compactness (smaller ⇒ nodes closer).
-    node_size : int, optional
-        Size of each node (circles) in points².
-    save_path : str | None, optional
-        If provided, saves the figure to this path (PNG, 300 dpi).
-        If None, shows the figure interactively.
-    transparent : bool, optional
-        Makes the figure background transparent when saving.
-    edge_width : float, optional
-        Width of the regular (grey dashed) edges.
-    highlight_width : float, optional
-        Width of the solid orange edges inside the independent set.
+    Draw a NetworkX subgraph.
     """
     independent_nodes = set(independent_nodes) if independent_nodes else set()
 
@@ -179,13 +140,6 @@ def calculate_chi2_cremer_v_and_corr(i, j, dist_1, dist_2, bins):
 def plot_contingency_table(contingency_table, save_path=None):
     """
     Plots a contingency table as a heatmap with cell values displayed.
-
-    Args:
-        contingency_table (numpy.ndarray): The contingency table to plot.
-        save_path (str, optional): Path to save the plot. If None, the plot is not saved.
-
-    Returns:
-        None
     """
     plt.figure(figsize=(10, 10))
     plt.imshow(contingency_table, cmap='viridis', interpolation='nearest')
@@ -306,51 +260,19 @@ def find_largest_uncorrelated_group(keys, corr_matrix, p_threshold=0.05):
     return list(independent_set) if independent_set else [keys[0]]
 
 
-# def find_largest_independent_group_iterative(keys, chi2_p_matrix, p_threshold=0.05):
-#     """Find the largest independent group using the Chi-Square p-value matrix."""
-#     G = nx.Graph()
-#     G.add_nodes_from(keys)
-    
-#     # indices = np.triu(chi2_p_matrix, k=1) > p_threshold
-#     indices = np.triu(chi2_p_matrix, k=1) < p_threshold
-
-#     rows, cols = np.where(indices)
-#     edges = np.column_stack((np.array(keys)[rows], np.array(keys)[cols]))
-#     G.add_edges_from(edges)
-
-#     # Subgraph of nodes with edges (dependencies)
-#     subgraph = G.subgraph([node for node, degree in G.degree() if degree > 0])
-    
-#     # All maximal cliques for node
-#     cliques = list(nx.find_cliques(subgraph))
-#     return cliques
-
-
 def find_largest_independent_group_iterative(keys, p_matrix, p_threshold=0.05, test_type="chi2"):
     """
     Find the largest independent groups using a p-value matrix.
-
-    Args:
-        keys (list): Variable names.
-        p_matrix (np.ndarray): Matrix of p-values.
-        p_threshold (float): Threshold for dependency.
-        test_type (str): 
-            - "chi2" → keep original chi-square logic.
-            - "perm" or anything else → opposite direction (permutation test).
-
-    Returns:
-        list: A list of maximal cliques (independent groups).
     """
     G = nx.Graph()
     G.add_nodes_from(keys)
 
     # Build dependency mask based on test type
     if test_type == "chi2":
-        # Chi-square: dependency = p < threshold (normal logic)
-        indices = np.triu(p_matrix < p_threshold, k=1)
+        # Chi-square: independency = p >= threshold
+        indices = np.triu(p_matrix >= p_threshold, k=1)
     else:
-        # Permutation test: dependency = p < threshold, 
-        # but mask lower triangle with 1 so it's ignored correctly
+        # Permutation test: independency = p < threshold, 
         masked_p = p_matrix.copy()
         masked_p[np.tril_indices_from(masked_p)] = 1
         indices = masked_p < p_threshold
@@ -405,16 +327,6 @@ def set_seed(seed=42):
     torch.backends.cudnn.benchmark = False
 
 
-def preprocess(image_batch, wavelet_decompose: DTCWTForward, wavelet_compose: DTCWTInverse):
-    """Apply wavelet transform and reconstruction to a batch of images"""
-    Yl, Yh = wavelet_decompose(image_batch)  # Perform wavelet decomposition
-    Yh_zero = [torch.zeros_like(h) for h in Yh]  # Initialize all Yh components to zero
-    Yl = torch.zeros_like(Yl)  # Set Yl to zeros
-    Yh_zero[0] = Yh[0]  # Retain only the first Yh component
-    reconstructed_batch = wavelet_compose((Yl, Yh_zero))  # Reconstruct the image batch
-    return reconstructed_batch
-
-
 def plot_pvalues_vs_bh_threshold(p_values_per_test, alpha=0.05, figname='k_m_plot.png'):
     """
     Plots the p-values vs. their order along with the k/m line (Benjamini-Hochberg threshold).
@@ -462,12 +374,6 @@ def plot_cdf(cdf_data, title="Empirical CDF Plot", xlabel="Value", ylabel="CDF",
 def remove_nans_from_tests(tests_dict):
     """
     Filters out tests from a dictionary where any test contains NaN values.
-
-    Args:
-        tests_dict (dict): A dictionary where keys are test names and values are NumPy arrays.
-
-    Returns:
-        dict: A new dictionary with tests that do not contain NaN values.
     """
     cleaned_tests = {}
 
@@ -478,23 +384,6 @@ def remove_nans_from_tests(tests_dict):
             cleaned_tests[test_name] = values
 
     return cleaned_tests
-
-
-def compute_dist_cdf(distribution="normal", size=10000, bins=1000):
-    """
-    Compute and return the histogram, bin edges, and CDF for a given distribution.
-    """
-    # Generate data based on the specified distribution
-    if distribution == "normal":
-        data = np.random.normal(loc=0, scale=1, size=size)  # Standard normal
-    elif distribution == "uniform":
-        data = np.random.uniform(low=0, high=1, size=size)  # Standard uniform
-
-    # Compute the histogram and CDF
-    hist, bin_edges = np.histogram(data, bins=bins, density=True)
-    cdf = np.cumsum(hist) * np.diff(bin_edges)
-    
-    return hist, bin_edges, cdf
 
 
 def compute_cdf(histogram_values, bins=1000, test_id=None):
@@ -542,26 +431,6 @@ def calculate_metrics(test_labels, predictions):
     }
 
 
-def plot_sensitivity_specificity_by_patch_size(results, statistic, threshold, output_dir):
-    """Plot sensitivity (recall) and specificity across statistics and patches."""
-    patches = sorted(results.keys())
-    recalls = [results[patch]['recall'] for patch in patches]
-    specificities = [results[patch]['specificity'] for patch in patches]
-
-    # Plot recall and specificity
-    plt.figure()
-    plt.plot(patches, recalls, marker='o', label='Recall (Sensitivity)')
-    plt.plot(patches, specificities, marker='x', label='Specificity')
-    plt.title(f'Sensitivity and Specificity for Statistic: {statistic} (Alpha={threshold})')
-    plt.xlabel('Patch Size')
-    plt.ylabel('Value')
-    plt.legend()
-    plt.grid()
-    os.makedirs(output_dir, exist_ok=True)
-    plt.savefig(os.path.join(output_dir, f'sensitivity_specificity_{statistic}_alpha_{threshold}.png'))
-    plt.close()
-
-
 def plot_pvalue_histograms(
     real_pvalues,
     fake_pvalues,
@@ -586,7 +455,6 @@ def plot_pvalue_histograms(
     plt.tight_layout()
     plt.savefig(figname)
     plt.close()
-
 
 
 def plot_histograms(hist, figname='plot.png', title='histogram', density=True, bins=50):
@@ -775,56 +643,6 @@ def plot_ks_vs_pthreshold(thresholds, ks_pvalues, output_dir):
     plt.savefig(os.path.join(output_dir, "ks_pvalue_wrt_p_threshold.png"))
 
 
-def AUC_tests_filter(tuning_pvalue_distributions, fake_calibration_pvalue_distributions, auc_threshold=0.6):
-    """
-    Calculates AUC scores for each test and selects indices with AUC > threshold.
-    Adjusts for the relationship where smaller p-values indicate outliers.
-    
-    Parameters:
-    - tuning_pvalue_distributions (np.ndarray): P-value distributions for real data (shape: tests x samples).
-    - fake_calibration_pvalue_distributions (np.ndarray): P-value distributions for fake data (shape: tests x samples).
-    - auc_threshold (float): Threshold for selecting the best keys based on AUC (default: 0.6).
-    
-    Returns:
-    - auc_scores (np.ndarray): AUC scores for each test.
-    - best_keys (np.ndarray): Indices of tests with AUC > auc_threshold.
-    """
-    # Reverse the p-values
-    real_scores = 1 - tuning_pvalue_distributions
-    fake_scores = 1 - fake_calibration_pvalue_distributions
-    
-    # Combine distributions and labels
-    combined_pvalues = np.concatenate([real_scores, fake_scores], axis=1)
-    combined_labels = np.concatenate([
-        np.zeros_like(tuning_pvalue_distributions),
-        np.ones_like(fake_calibration_pvalue_distributions)
-    ], axis=1)
-    
-    # Remove entries with NaN values
-    # TODO: why are there NaN values? - check the input data
-    valid_indices = ~np.isnan(combined_pvalues).any(axis=1)
-    combined_pvalues = combined_pvalues[valid_indices]
-    combined_labels = combined_labels[valid_indices]
-
-    # Calculate AUC scores using list comprehension
-    auc_scores = np.array([roc_auc_score(combined_labels[i], combined_pvalues[i]) for i in range(combined_pvalues.shape[0])])
-    
-    # Select best keys with AUC > threshold
-    best_keys = np.where(auc_scores > auc_threshold)[0]
-    
-    return auc_scores, best_keys
-
-
-def save_to_csv(keys, auc_scores, filename="auc_scores.csv"):
-    # Create a DataFrame from the arrays
-    df = pd.DataFrame({"Keys": keys, "AUC Scores": auc_scores})
-    
-    # Save DataFrame to a CSV file
-    df.to_csv(filename, index=False)
-    
-    print(f"File saved as {filename}")
-
-
 def compute_mean_std_dict(input_dict):
     """
     Given a dictionary where each key maps to an array of shape (N, L),
@@ -897,10 +715,6 @@ def build_backbones_statistics_list(models, noise_levels, prefix="RIGID"):
     """
     return [f"{prefix}.{model}.{noise}" for model in models for noise in noise_levels]
 
-
-import os
-import numpy as np
-import matplotlib.pyplot as plt
 
 def plot_fakeness_score_distribution(results, test_id, output_dir, threshold=0.5):
     """
@@ -1474,85 +1288,6 @@ def get_total_size_in_MB(obj):
 
     size_bytes = sys.getsizeof(obj_str)
     return size_bytes / (1024 ** 2)
-
-
-def objective(trial, keys, chi2_p_matrix, pvals_matrix, ensemble_test):
-    """Single-objective optimization: minimize |ks_p_value - 0.5|."""
-    p_threshold = trial.suggest_float("p_threshold", 0.05, 0.5)
-    independent_keys_group = find_largest_independent_group(keys, chi2_p_matrix, p_threshold)
-    num_independent_tests = len(independent_keys_group)
-    independent_indices = [keys.index(key) for key in independent_keys_group]
-    independent_pvals = pvals_matrix[independent_indices].T
-    ensembled_stats, _ = perform_ensemble_testing(independent_pvals, ensemble_test)
-    _, ks_pvalue = kstest(ensembled_stats, 'norm', args=(0, 1))
-    deviation = abs(ks_pvalue - 0.5)
-    trial.set_user_attr("independent_keys_group", independent_keys_group)
-    trial.set_user_attr("num_independent_tests", num_independent_tests)
-    trial.set_user_attr("ks_p_value", ks_pvalue)
-    return deviation
-
-
-def finding_optimal_independent_subgroup(keys, chi2_p_matrix, pvals_matrix, ensemble_test, n_trials=50):
-    """Find independent subgroup minimizing KS deviation while maximizing size."""
-    study = optuna.create_study(direction="minimize")
-    study.optimize(lambda t: objective(t, keys, chi2_p_matrix, pvals_matrix, ensemble_test),
-                   n_trials=n_trials, show_progress_bar=True)
-    valid_trials = [t for t in study.trials if t.value is not None and t.value <= 0.25]
-    if not valid_trials:
-        raise ValueError("No valid trials found with deviation <= 0.25")
-    best_trial = max(valid_trials, key=lambda t: t.user_attrs["num_independent_tests"])
-    independent_keys_group = best_trial.user_attrs["independent_keys_group"]
-    best_results = {
-        'best_KS': best_trial.user_attrs["ks_p_value"],
-        'best_N': best_trial.user_attrs["num_independent_tests"],
-        'best_alpha_threshold': best_trial.params['p_threshold']
-    }
-    optimization_data = {
-        'thresholds': [t.params["p_threshold"] for t in study.trials if t.value is not None],
-        'ks_pvalues': [t.user_attrs["ks_p_value"] for t in study.trials if t.value is not None],
-        'num_tests': [t.user_attrs["num_independent_tests"] for t in study.trials if t.value is not None]
-    }
-    return independent_keys_group, best_results, optimization_data
-
-
-def uncorrelation_objective(trial, keys, corr_matrix, pvals_matrix, ensemble_test):
-    """Objective for uncorrelated subgroup search."""
-    p_threshold = trial.suggest_float("p_threshold", 0.0, 0.05)
-    independent_keys_group = find_largest_uncorrelated_group(keys, corr_matrix, p_threshold)
-    num_independent_tests = len(independent_keys_group)
-    independent_indices = [keys.index(key) for key in independent_keys_group]
-    independent_pvals = pvals_matrix[independent_indices].T
-    ensembled_stats, _ = perform_ensemble_testing(independent_pvals, ensemble_test)
-    _, ks_pvalue = kstest(ensembled_stats, 'norm', args=(0, 1))
-    deviation = abs(ks_pvalue - 0.5)
-    trial.set_user_attr("independent_keys_group", independent_keys_group)
-    trial.set_user_attr("num_independent_tests", num_independent_tests)
-    trial.set_user_attr("ks_p_value", ks_pvalue)
-    return deviation
-
-
-def finding_optimal_uncorrelated_subgroup(keys, corr_matrix, pvals_matrix, ensemble_test, n_trials=50):
-    """Find uncorrelated subgroup via optimization."""
-    independent_keys_group = find_largest_uncorrelated_group(keys, corr_matrix, 0.05)
-    study = optuna.create_study(direction="minimize")
-    study.optimize(lambda t: uncorrelation_objective(t, keys, corr_matrix, pvals_matrix, ensemble_test),
-                   n_trials=n_trials, show_progress_bar=True)
-    valid_trials = [t for t in study.trials if t.value is not None and t.value <= 0.25]
-    if not valid_trials:
-        raise ValueError("No valid trials found with deviation <= 0.25")
-    best_trial = max(valid_trials, key=lambda t: t.user_attrs["num_independent_tests"])
-    independent_keys_group = best_trial.user_attrs["independent_keys_group"]
-    best_results = {
-        'best_KS': best_trial.user_attrs["ks_p_value"],
-        'best_N': best_trial.user_attrs["num_independent_tests"],
-        'best_alpha_threshold': best_trial.params['p_threshold']
-    }
-    optimization_data = {
-        'thresholds': [t.params["p_threshold"] for t in study.trials if t.value is not None],
-        'ks_pvalues': [t.user_attrs["ks_p_value"] for t in study.trials if t.value is not None],
-        'num_tests': [t.user_attrs["num_independent_tests"] for t in study.trials if t.value is not None]
-    }
-    return independent_keys_group, best_results, optimization_data
 
 
 def finding_optimal_independent_subgroup_deterministic(
