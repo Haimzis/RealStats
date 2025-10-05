@@ -11,45 +11,28 @@ from torch.utils.data import DataLoader
 from statistics_factory import get_histogram_generator
 from processing.manifold_bias_histogram import PathBasedStatistic
 from utils import (
-    AUC_tests_filter,
     compute_cdf,
     calculate_metrics,
     compute_chi2_and_corr_matrix,
     compute_mean_std_dict,
     create_multiband_pvalue_grid_figure,
     create_pvalue_grid_figure,
-    find_largest_independent_group,
     find_largest_independent_group_with_plot,
-    find_largest_independent_group_iterative,
-    find_largest_uncorrelated_group,
-    finding_optimal_independent_subgroup,
-    finding_optimal_uncorrelated_subgroup,
     finding_optimal_independent_subgroup_deterministic,
-    ks_uniform_sanity_check,
     perform_ensemble_testing,
     get_total_size_in_MB,
-    plot_ks_vs_pthreshold,
-    plot_stouffer_analysis,
-    plot_uniform_and_nonuniform,
     remove_nans_from_tests,
     save_ensembled_pvalue_kde_and_images,
     save_per_image_kde_and_images,
     plot_pvalue_histograms,
-    plot_binned_histogram,
-    plot_histograms,
-    save_to_csv,
     set_seed,
-    plot_cdf,
-    compute_dist_cdf,
     plot_pvalue_histograms_from_arrays,
     save_real_statistics_kde
 )
-from statsmodels.stats.multitest import multipletests
 from data_utils import GlobalPatchDataset, SelfPatchDataset
 from enum import Enum
 import time
 import gc
-from utils.utils import compute_mi_and_corr_matrix
 
 
 class DataType(Enum):
@@ -270,10 +253,6 @@ def main_multiple_patch_test(
     return_logits=False,
     chi2_bins=10,
     cdf_bins=500,
-    n_trials=100,
-    uniform_p_threshold=0.05,
-    calibration_auc_threshold=0.3,
-    uniform_sanity_check=False,
     ks_pvalue_abs_threshold=0.25,
     test_type=TestType.LEFT,
     minimal_p_threshold=0.05,
@@ -305,25 +284,12 @@ def main_multiple_patch_test(
     keys = list(reference_histogram.keys())
 
     tuning_pvalue_distributions = tuning_reference_pvals.T
- 
-    if uniform_sanity_check:
-        # Ignore non uniform distributions
-        keys, tuning_reference_pvals = ks_uniform_sanity_check(
-            output_dir, uniform_p_threshold, logger, tuning_reference_pvals, tuning_pvalue_distributions, keys
-        )
 
     # Chi-Square and Correlation Matrix Computation
     chi2_p_matrix, corr_matrix = compute_chi2_and_corr_matrix(
         keys, tuning_pvalue_distributions, max_workers=max_workers,
         plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir, bins=chi2_bins
     )
-    
-    # chi2_p_matrix, corr_matrix = compute_mi_and_corr_matrix(
-    #     keys, tuning_pvalue_distributions, max_workers=max_workers,
-    #     plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir, bins=chi2_bins
-    # )
-
-    largest_independent_clique_size_approximation = len(find_largest_independent_group(keys, chi2_p_matrix, 0.05, "cramer_v"))
 
     independent_keys_group, best_results, optimization_roc = finding_optimal_independent_subgroup_deterministic(
         keys=keys,
@@ -336,14 +302,11 @@ def main_multiple_patch_test(
         preferred_statistics=preferred_statistics
     )
 
-    print(f'Relexation largest clique approximation: {largest_independent_clique_size_approximation}')
-
     if logger:
         logger.log_param("num_tests", len(reference_histogram.keys()))
         logger.log_param("Independent keys", independent_keys_group)
         if preferred_statistics:
             logger.log_param("preferred_statistics", preferred_statistics)
-        logger.log_metric("largest_independent_clique_size_approximation", largest_independent_clique_size_approximation)
         logger.log_metrics(best_results)
 
     independent_keys_group_indices = [keys.index(value) for value in independent_keys_group]
@@ -405,7 +368,6 @@ def inference_multiple_patch_test(
     test_labels=None,
     batch_size=128,
     threshold=0.05,
-    save_independence_heatmaps=False,
     save_histograms=False,
     ensemble_test='stouffer',
     max_workers=128,
@@ -413,7 +375,6 @@ def inference_multiple_patch_test(
     output_dir='logs',
     pkl_dir='pkls',
     return_logits=False,
-    chi2_bins=10,
     cdf_bins=500,
     test_type=TestType.LEFT,
     logger=None,
@@ -469,26 +430,15 @@ def inference_multiple_patch_test(
     keys = [k.replace(f"_{DataType.TRAIN}", "") for k in keys]
 
     tuning_pvalue_distributions = tuning_real_population_pvals.T
-
-    # Chi-Square and Correlation Matrix Computation
-    chi2_p_matrix, corr_matrix = compute_chi2_and_corr_matrix(
-        keys, tuning_pvalue_distributions, max_workers=max_workers,
-        plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir, bins=chi2_bins
-    )
-    
-    largest_independent_clique_size_approximation = len(find_largest_independent_group(keys, chi2_p_matrix, 0.05))
-    
-    print(f'Relexation largest clique approximation: {largest_independent_clique_size_approximation}')
-
+        
     if logger:
         logger.log_param("num_tests", len(real_population_histogram.keys()))
         logger.log_param("Independent keys", independent_statistics_keys_group)
-        logger.log_metric("largest_independent_clique_size_approximation", largest_independent_clique_size_approximation)
 
     print(f'Independent keys: {independent_statistics_keys_group}')
     independent_keys_group_indices = [keys.index(value) for value in independent_statistics_keys_group]
     tuning_independent_pvals = tuning_pvalue_distributions[independent_keys_group_indices].T
-    _, tuning_ensembled_pvalues = perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)    
+    perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)    
     
     # Inference
     inference_histogram = patch_parallel_preprocess(

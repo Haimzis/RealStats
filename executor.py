@@ -25,7 +25,6 @@ def shutdown(signum, frame):
 signal.signal(signal.SIGINT, shutdown)
 signal.signal(signal.SIGTERM, shutdown)
 
-# Argument parser (with only relevant arguments kept from the original script)
 parser = argparse.ArgumentParser(description='Statistic and Patch Testing Pipeline')
 parser.add_argument('--test_type', choices=['multiple_patches', 'multiple_statistics'], default='multiple_statistics', help='Choose which type of multiple tests to perform')
 parser.add_argument('--batch_size', type=int, default=128, help='Batch size for data loading.')
@@ -84,9 +83,8 @@ def main():
         test_real_dataset = datasets['test_real']
         test_fake_dataset = datasets['test_fake']
 
-        # Instead of create_inference_dataset, just combine them
         inference_dataset = ConcatDataset([test_real_dataset, test_fake_dataset])
-        labels = [0] * len(test_real_dataset) + [1] * len(test_fake_dataset) # TODO: this is not feasible # [sample[1] for sample in inference_dataset]
+        labels = [0] * len(test_real_dataset) + [1] * len(test_fake_dataset)
         inference_dataset.image_paths = (
             list(getattr(test_real_dataset, "image_paths", [])) +
             list(getattr(test_fake_dataset, "image_paths", []))

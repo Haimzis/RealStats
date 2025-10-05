@@ -153,7 +153,6 @@ def calculate_chi2_and_corr(i, j, dist_1, dist_2, bins):
     """Compute chi-square p-value and correlation for two distributions."""
     try:
         corr, p_value = spearmanr(dist_1, dist_2)
-        # correlation = abs(np.corrcoef(dist_1, dist_2)[0, 1])
         correlation = abs(corr)
         contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(bins, bins), range=[[0, 1], [0, 1]])
         chi2_stat, chi2_p, df, expected = chi2_contingency(contingency_table)
@@ -166,7 +165,6 @@ def calculate_chi2_cremer_v_and_corr(i, j, dist_1, dist_2, bins):
     """Compute chi-square p-value and correlation for two distributions."""
     try:
         corr, p_value = spearmanr(dist_1, dist_2)
-        # correlation = abs(np.corrcoef(dist_1, dist_2)[0, 1])
         correlation = abs(corr)
         contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(bins, bins), range=[[0, 1], [0, 1]])
         chi2_stat, chi2_p, df, expected = chi2_contingency(contingency_table)
@@ -207,43 +205,6 @@ def plot_contingency_table(contingency_table, save_path=None):
     if save_path:
         plt.savefig(save_path)
         print(f"Plot saved to {save_path}")
-    
-
-def calculate_chi2(i, j, dist_1, dist_2, bins):
-    """Compute chi-square p-value and correlation for two distributions."""
-    try:
-        contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(bins, bins))
-        chi2_stat, chi2_p, df, expected = chi2_contingency(contingency_table)
-        return i, j, chi2_p
-    except ValueError:
-        return i, j, -1
-    
-
-def compute_chi2_matrix(keys, distributions, max_workers=128, plot_independence_heatmap=False, output_dir='logs', bins=10):
-    """Compute Chi-Square p-value matrix and correlation matrix."""
-    num_dists = len(distributions)
-    chi2_p_matrix = np.zeros((num_dists, num_dists))
-
-    tasks = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        for i, key1 in enumerate(keys):
-            dist_1 = distributions[i]
-            for j, key2 in enumerate(keys):
-                if i <= j:  # Skip duplicates and diagonal
-                    continue
-                dist_2 = distributions[j]
-                tasks.append(executor.submit(calculate_chi2, i, j, dist_1, dist_2, bins))
-
-        for future in tqdm(as_completed(tasks), total=len(tasks), desc="Processing Chi2 and Correlation tests..."):
-            i, j, chi2_p = future.result()
-            if chi2_p is not None:
-                chi2_p_matrix[i, j] = chi2_p
-                chi2_p_matrix[j, i] = chi2_p  # Symmetry
-
-    if plot_independence_heatmap:
-        create_heatmap(chi2_p_matrix, keys, 'Chi-Square Test (P-values)', output_dir, 'chi2_heatmap.png', annot=len(keys) < 64)
-
-    return chi2_p_matrix, None
 
 
 def compute_chi2_and_corr_matrix(keys, distributions, max_workers=128, plot_independence_heatmap=False, output_dir='logs', bins=10):
