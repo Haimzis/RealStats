@@ -38,19 +38,19 @@ def _manifold_bias_entry(generator=None):
         "reference_real": {
             "path": "data/ManifoldBiasDataset",
             "class": lambda root, label, transform=None: ManifoldBiasDataset(
-                root, "reference_real_paths_30.csv", label, transform
+                root, "reference_real_paths.csv", label, transform
             ),
         },
         "test_real": {
             "path": "data/ManifoldBiasDataset",
             "class": lambda root, label, transform=None: ManifoldBiasDataset(
-                root, "test_real_paths_30.csv", label, transform
+                root, "test_real_paths.csv", label, transform
             ),
         },
         "test_fake": {
             "path": "data/ManifoldBiasDataset",
             "class": lambda root, label, transform=None: ManifoldBiasDataset(
-                root, "test_fake_paths_extended_old_clean.csv", label, transform, generator=generator
+                root, "test_fake_paths.csv", label, transform, generator=generator
             ),
         },
     }
@@ -73,7 +73,7 @@ class DatasetType(Enum):
 
     CNNSPOTSET_SAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_SAN.value)
 
-    CNNSPOTSET_STYLEGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_STYLEGAN.value)
+    # CNNSPOTSET_STYLEGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_STYLEGAN.value)
 
     CNNSPOTSET_STYLEGAN2 = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_STYLEGAN2.value)
 
@@ -93,7 +93,7 @@ class DatasetType(Enum):
     # === Universal Fake Detect ===
     UNIVERSAL_FAKE_DETECT_DALLE = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_DALLE.value)
 
-    UNIVERSAL_FAKE_DETECT_GLIDE_100_10 = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GLIDE_100_10.value)
+    # UNIVERSAL_FAKE_DETECT_GLIDE_100_10 = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GLIDE_100_10.value)
 
     UNIVERSAL_FAKE_DETECT_GLIDE_100_27 = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GLIDE_100_27.value)
 

@@ -9,14 +9,14 @@ from scipy.stats import spearmanr
 import torch
 import numpy as np
 from pytorch_wavelets import DTCWTForward, DTCWTInverse
-from scipy.stats import chi2_contingency, power_divergence
-from sklearn.metrics import auc, roc_auc_score, average_precision_score, confusion_matrix, mutual_info_score, precision_score, recall_score, f1_score, accuracy_score, roc_curve
+from scipy.stats import chi2_contingency
+from sklearn.metrics import auc, roc_auc_score, confusion_matrix, precision_score, recall_score, f1_score, accuracy_score, roc_curve
 import os
 import seaborn as sns
 import networkx as nx
-from scipy.stats import chi2, kstest, gaussian_kde, combine_pvalues, norm, chisquare, permutation_test
+from scipy.stats import kstest, gaussian_kde, combine_pvalues, norm
 from tqdm import tqdm
-from PIL import Image, ImageDraw
+from PIL import Image
 import json
 import sys
 
@@ -149,38 +149,6 @@ def view_independence_subgraph(
         print(f"Subgraph saved to {save_path}")
 
 
-def chi_square_independence_test(observed):
-    """
-    chi2_stat : float
-        Chi-square statistic.
-    df : int
-        Degrees of freedom.
-    p_value : float
-        P-value of the test.
-    expected : 2D array
-        Expected counts under null hypothesis of independence.
-    """
-    # Compute row and column sums
-    row_totals = observed.sum(axis=1)
-    col_totals = observed.sum(axis=0)
-    grand_total = observed.sum()
-
-    # Compute expected counts
-    expected = np.outer(row_totals, col_totals) / grand_total
-
-    # Compute the chi-square statistic
-    chi2_stat = ((observed - expected)**2 / (expected + np.finfo(np.float16).eps)).sum()
-
-    # Degrees of freedom
-    r, c = observed.shape
-    df = (r - 1) * (c - 1)
-
-    # Compute p-value
-    p_value = 1 - chi2.cdf(chi2_stat, df)
-
-    return chi2_stat, p_value, df, expected
-
-
 def calculate_chi2_and_corr(i, j, dist_1, dist_2, bins):
     """Compute chi-square p-value and correlation for two distributions."""
     try:
@@ -192,61 +160,6 @@ def calculate_chi2_and_corr(i, j, dist_1, dist_2, bins):
         return i, j, chi2_p, correlation
     except ValueError:
         return i, j, -1, correlation
-
-
-def calculate_chi2_cremer_v_perm_and_corr(i, j, dist_1, dist_2, bins, n_perm=1000, seed=0):
-    """
-    Empirical p-value for independence using Cramér's V statistic with permutations.
-    - Statistic: Cramér's V = sqrt(chi2 / (n * (min(bins_x, bins_y) - 1)))
-    - Permutation: shuffle dist_2 only (break pairing, keep marginals)
-
-    Returns: (i, j, p_empirical, |Spearman|)
-    """
-    # |Spearman|
-    corr, _ = spearmanr(dist_1, dist_2)
-    correlation = float(abs(corr)) if np.isfinite(corr) else 0.0
-
-    # Bin the data (assumes values in [0,1] as in your original code)
-    edges = np.linspace(0.0, 1.0, bins + 1)
-    bx = np.digitize(dist_1, edges) - 1
-    by = np.digitize(dist_2, edges) - 1
-    mask = (bx >= 0) & (bx < bins) & (by >= 0) & (by < bins)
-    bx = bx[mask].astype(np.int32)
-    by = by[mask].astype(np.int32)
-    n = bx.size
-    if n == 0:
-        return i, j, -1.0, correlation
-
-    # Row/col marginals and expected counts (fixed under permutations)
-    row = np.bincount(bx, minlength=bins).astype(np.float64)
-    col = np.bincount(by, minlength=bins).astype(np.float64)
-    E = (row[:, None] * col[None, :]) / float(n)
-    base_idx = bx * bins
-
-    def _cremer_v_from_indices(by_indices):
-        """Compute Cramér's V from permuted indices."""
-        idx = base_idx + by_indices
-        O = np.bincount(idx, minlength=bins * bins).astype(np.float64).reshape(bins, bins)
-        chi2 = ((O - E) ** 2 / E).sum()
-        return np.sqrt(chi2 / (n * (min(bins, bins) - 1)))
-
-    # Observed Cramér's V
-    cremer_v_obs = _cremer_v_from_indices(by)
-
-    # Permutation null distribution
-    rng = np.random.default_rng(seed)
-    perm = np.arange(n, dtype=np.int32)
-    ge = 0
-    for _ in range(n_perm):
-        rng.shuffle(perm)
-        cremer_v_t = _cremer_v_from_indices(by[perm])
-        if cremer_v_t >= cremer_v_obs:
-            ge += 1
-
-    # Empirical right-tailed p-value (add-one smoothing)
-    p_emp = (ge + 1) / (n_perm + 1)
-
-    return i, j, float(p_emp), correlation
 
 
 def calculate_chi2_cremer_v_and_corr(i, j, dist_1, dist_2, bins):
@@ -264,17 +177,6 @@ def calculate_chi2_cremer_v_and_corr(i, j, dist_1, dist_2, bins):
     except ValueError:
         return i, j, -1, correlation
     
-
-def calculate_mi_and_corr(i, j, dist_1, dist_2, bins):
-    """Compute mutual information and correlation for two distributions."""
-    try:
-        corr, _ = spearmanr(dist_1, dist_2)
-        correlation = abs(corr)
-        contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(bins, bins))
-        mi = mutual_info_score(None, None, contingency=contingency_table)
-        return i, j, mi, correlation
-    except ValueError:
-        return i, j, -1, -1
     
 def plot_contingency_table(contingency_table, save_path=None):
     """
