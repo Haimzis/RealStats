@@ -30,14 +30,12 @@ parser.add_argument('--patch_divisors', type=int, nargs='+', default=[2, 4, 8], 
 parser.add_argument('--threshold', type=float, default=0.05, help='P-value threshold for significance testing.')
 parser.add_argument('--save_histograms', type=int, choices=[0, 1], default=1, help='Save KDE plots for real and fake p-values.')
 parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm', 'minp'], default='manual-stouffer', help='Type of ensemble test to perform')
-parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=1, help='Save independence test heatmaps.')
 parser.add_argument('--dataset_type', type=str, default='ALL', choices=[e.name for e in DatasetType], help='Type of dataset to use')
 parser.add_argument('--output_dir', type=str, required=True, help='Directory to save logs and artifacts.')
 parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/rigid_pkls', help='Path where to save pkls.')
 parser.add_argument('--num_data_workers', type=int, default=4, help='Number of workers for data loading.')
 parser.add_argument('--max_workers', type=int, default=1, help='Maximum number of threads for parallel processing.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility.')
-parser.add_argument('--chi2_bins', type=int, default=10, help='Number of bins for chi-square calculations.')
 parser.add_argument('--cdf_bins', type=int, default=1000, help='Number of bins for cdf.')
 parser.add_argument('--gpu', type=str, default='0', help='GPU device(s) to use, e.g., "0", "1", or "0,1".')
 parser.add_argument('--run_id', type=str, required=True, help='Unique identifier for this MLflow run.')
@@ -121,7 +119,6 @@ def main():
             test_labels=labels,
             batch_size=args.batch_size,
             threshold=args.threshold,
-            save_independence_heatmaps=bool(args.save_independence_heatmaps),
             save_histograms=bool(args.save_histograms),
             ensemble_test=args.ensemble_test,
             max_workers=args.max_workers,
@@ -129,7 +126,6 @@ def main():
             output_dir=args.output_dir,
             pkl_dir=dataset_pkls_dir,
             return_logits=True,
-            chi2_bins=args.chi2_bins,
             cdf_bins=args.cdf_bins,
             test_type=TestType.BOTH,
             logger=mlflow,
