@@ -190,4 +190,4 @@ STATISTIC_HISTOGRAMS = {
 
 def get_histogram_generator(statistic: str) -> Optional[object]:
     """Returns the appropriate histogram generator based on statistic name and level."""
-    return STATISTIC_HISTOGRAMS.get(statistic)
+    return STATISTIC_HISTOGRAMS.get(statistic)()

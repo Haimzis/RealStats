@@ -1,7 +1,6 @@
 import itertools
-import math
 import os
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 import random
 import re
 import numpy as np
@@ -19,7 +18,6 @@ from utils import (
     create_pvalue_grid_figure,
     finding_optimal_independent_subgroup_deterministic,
     perform_ensemble_testing,
-    get_total_size_in_MB,
     remove_nans_from_tests,
     save_ensembled_pvalue_kde_and_images,
     save_per_image_kde_and_images,
@@ -30,7 +28,7 @@ from utils import (
 )
 from data_utils import GlobalPatchDataset, SelfPatchDataset
 from enum import Enum
-import time
+import traceback
 import gc
 
 
@@ -220,8 +218,10 @@ def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_wo
             unique_id = get_unique_id(combination['patch_size'], combination['statistic'], seed)
             try:
                 results[unique_id] = future.result()
+                
             except Exception as exc:
-                print(f"Combination {combination}, generated an exception: {exc}")
+                error_msg = traceback.format_exc()
+                print(f"Combination {combination}, generated an exception:\n{error_msg}")
 
         results = {k: v for k, v in results.items() if v is not None}
 

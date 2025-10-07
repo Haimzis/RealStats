@@ -31,7 +31,7 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
 
         python executor.py \
             --test_type multiple_patches \
-            --batch_size 32 \
+            --batch_size 64 \
             --sample_size 512 \
             --threshold 0.05 \
             --save_histograms 1 \
