@@ -17,7 +17,6 @@ from utils import (
     compute_mean_std_dict,
     create_multiband_pvalue_grid_figure,
     create_pvalue_grid_figure,
-    find_largest_independent_group_with_plot,
     finding_optimal_independent_subgroup_deterministic,
     perform_ensemble_testing,
     get_total_size_in_MB,
@@ -48,16 +47,16 @@ class TestType(Enum):
     BOTH = "both"
     
 
-def get_unique_id(patch_size, level, statistic, seed=42):
+def get_unique_id(patch_size, statistic, seed=42):
     """Generate a unique ID for processing."""
-    return f"PatchProcessing_statistic={statistic}_level={level}_patch_size={patch_size}_seed={seed}"
+    return f"PatchProcessing_statistic={statistic}_patch_size={patch_size}_seed={seed}"
 
 
-def preprocess_statistic(dataset, batch_size, statistic, level, num_data_workers, patch_size, pkl_dir, data_type: DataType, seed=42, cache_suffix=""):
-    """Preprocess the dataset for a single statistic name and level using various histogram statistics."""
+def preprocess_statistic(dataset, batch_size, statistic, num_data_workers, patch_size, pkl_dir, data_type: DataType, seed=42, cache_suffix=""):
+    """Preprocess the dataset for a single statistic name using various histogram statistics."""
     set_seed(seed)
 
-    unique_id = get_unique_id(patch_size, level, statistic, seed)
+    unique_id = get_unique_id(patch_size, statistic, seed)
     combo_dir_name = f"{unique_id}{cache_suffix}" if cache_suffix else unique_id
     combo_dir = os.path.join(pkl_dir, combo_dir_name)
     results = []
@@ -78,13 +77,13 @@ def preprocess_statistic(dataset, batch_size, statistic, level, num_data_workers
 
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_data_workers)
 
-    histogram_generator = get_histogram_generator(statistic, level)
+    histogram_generator = get_histogram_generator(statistic)
     if histogram_generator is None:
         return None
 
     is_path_based = isinstance(histogram_generator, PathBasedStatistic)
 
-    for images, _, paths in tqdm(data_loader, desc=f"Processing {statistic}-{level}", unit="batch", total=len(data_loader), leave=False):
+    for images, _, paths in tqdm(data_loader, desc=f"Processing {statistic}", unit="batch", total=len(data_loader), leave=False):
         B, P = images.shape[:2]
 
         cached = [None] * B
@@ -174,14 +173,13 @@ def calculate_pvals_from_cdf(real_population_cdfs, samples_histogram, test_type=
     return input_samples_pvalues
 
 
-def generate_combinations(patch_sizes, statistics, wavelet_levels):
+def generate_combinations(patch_sizes, statistics):
     """Generate all combinations for the training phase."""
     combinations = []
-    for patch_size, statistic, level in itertools.product(patch_sizes, statistics, wavelet_levels):
+    for patch_size, statistic in itertools.product(patch_sizes, statistics):
         combinations.append({
             'patch_size': patch_size,
             'statistic': statistic,
-            'level': level,
         })
     return combinations
 
@@ -192,15 +190,14 @@ def interpret_keys_to_combinations(independent_keys_group):
     combinations = []
 
     for key in independent_keys_group:
-        match = re.match(r"PatchProcessing_statistic=([\w.]+)_level=(\d+)_patch_size=(\d+)", key)
+        match = re.match(r"PatchProcessing_statistic=([\w.]+)_patch_size=(\d+)", key)
         if match:
-            statistic, level, patch_size = match.groups()
+            statistic, patch_size = match.groups()
             combination = {
                 'statistic': statistic,
-                'level': int(level),
                 'patch_size': int(patch_size),
             }
-            key_tuple = (statistic, int(level), int(patch_size))
+            key_tuple = (statistic, int(patch_size))
             if key_tuple not in seen:
                 seen.add(key_tuple)
                 combinations.append(combination)
@@ -214,13 +211,13 @@ def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_wo
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_combination = {
-            executor.submit(preprocess_statistic, SelfPatchDataset(original_dataset, comb['patch_size']), batch_size, comb['statistic'], comb['level'], num_data_workers, comb['patch_size'], pkl_dir, data_type, seed, cache_suffix): comb
+            executor.submit(preprocess_statistic, SelfPatchDataset(original_dataset, comb['patch_size']), batch_size, comb['statistic'], num_data_workers, comb['patch_size'], pkl_dir, data_type, seed, cache_suffix): comb
             for comb in combinations
         }
 
         for future in tqdm(as_completed(future_to_combination), total=len(future_to_combination), desc="Processing..."):
             combination = future_to_combination[future]
-            unique_id = get_unique_id(combination['patch_size'], combination['level'], combination['statistic'], seed)
+            unique_id = get_unique_id(combination['patch_size'], combination['statistic'], seed)
             try:
                 results[unique_id] = future.result()
             except Exception as exc:
@@ -238,7 +235,6 @@ def main_multiple_patch_test(
     reference_dataset,
     inference_dataset,
     statistics,
-    wavelet_levels,
     patch_sizes,
     test_labels=None,
     batch_size=128,
@@ -261,10 +257,10 @@ def main_multiple_patch_test(
     preferred_statistics=None
 ):
     """Run test for number of patches and collect sensitivity and specificity results."""
-    print(f"Running test with: \npatches sizes: {patch_sizes}\nstatistics: {statistics}\nlevels: {wavelet_levels}")
+    print(f"Running test with: \npatches sizes: {patch_sizes}\nstatistics: {statistics}")
 
     # Generate all combinations for training
-    training_combinations = generate_combinations(patch_sizes, statistics, wavelet_levels)
+    training_combinations = generate_combinations(patch_sizes, statistics)
 
     # Load or compute reference histograms
     reference_histogram = patch_parallel_preprocess(
@@ -528,197 +524,6 @@ def inference_multiple_patch_test(
         }
 
     # Evaluate predictions
-    if test_labels:
-        metrics = calculate_metrics(test_labels, predictions)
-        return metrics
-
-
-
-def inference_multiple_patch_test_with_dependence(
-    reference_dataset,
-    inference_dataset,
-    statistics_keys_group,
-    test_labels=None,
-    batch_size=128,
-    threshold=0.05,
-    save_independence_heatmaps=False,
-    save_histograms=False,
-    ensemble_test='stouffer',
-    max_workers=128,
-    num_data_workers=2,
-    output_dir='logs',
-    pkl_dir='pkls',
-    return_logits=False,
-    chi2_bins=10,
-    cdf_bins=500,
-    p_threshold=0.05,
-    test_type=TestType.LEFT,
-    logger=None,
-    seed=42,
-    preferred_statistics=None,
-    reference_cache_suffix="",
-    cache_suffix="",
-):
-    """Inference pipeline that automatically finds an independent subset using max clique."""
-    print(f"[INFO] Running inference with dependence analysis: {statistics_keys_group}")
-
-    if reference_dataset is None:
-        raise ValueError("reference_dataset must be provided for inference")
-
-    all_combinations = interpret_keys_to_combinations(statistics_keys_group)
-
-    real_population_histogram = patch_parallel_preprocess(
-        reference_dataset,
-        batch_size,
-        all_combinations,
-        max_workers,
-        num_data_workers,
-        pkl_dir=pkl_dir,
-        data_type=DataType.TRAIN,
-        seed=seed,
-        cache_suffix=reference_cache_suffix,
-    )
-
-    real_population_histogram = compute_mean_std_dict(real_population_histogram)
-    real_population_histogram = remove_nans_from_tests(real_population_histogram)
-
-    real_population_histogram = {k: v for k, v in real_population_histogram.items() if k in statistics_keys_group}
-
-    # Plot raw statistic distributions as KDE
-    save_real_statistics_kde(
-        real_population_histogram,
-        statistics_keys_group,
-        output_dir,
-    )
-
-    real_population_cdfs = {test_id: compute_cdf(values, bins=cdf_bins, test_id=test_id) for test_id, values in real_population_histogram.items()}
-    tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, real_population_histogram, test_type)
-    tuning_real_population_pvals = np.clip(tuning_real_population_pvals, 0, 1)
-
-    keys = list(real_population_histogram.keys())
-    keys = [k.replace(f"_{DataType.TRAIN}", "") for k in keys]
-
-    tuning_pvalue_distributions = tuning_real_population_pvals.T
-
-    start_time = time.time()
-    chi2_p_matrix, _ = compute_chi2_and_corr_matrix(
-        keys, tuning_pvalue_distributions, max_workers=max_workers,
-        plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir, bins=chi2_bins
-    )
-
-    chi2_duration = (time.time() - start_time) * 1000  # in ms
-
-    initial_independent_group = find_largest_independent_group_with_plot(keys, chi2_p_matrix, p_threshold, output_dir)
-
-    start_time = time.time()
-    independent_keys_group, best_results, _ = finding_optimal_independent_subgroup_deterministic(
-        keys=keys,
-        chi2_p_matrix=chi2_p_matrix,
-        pvals_matrix=tuning_pvalue_distributions,
-        ensemble_test=ensemble_test,
-        ks_pvalue_abs_threshold=0.5,
-        minimal_p_threshold=0.05,
-        preferred_statistics=preferred_statistics
-    )
-    clique_duration = (time.time() - start_time) * 1000  # in ms
-
-    # After real_population_histogram is ready
-    hist_size_mb = get_total_size_in_MB(real_population_histogram)
-    cdf_size_mb = get_total_size_in_MB(real_population_cdfs)
-    
-    if logger:
-        logger.log_param("num_tests", len(real_population_histogram.keys()))
-        logger.log_param("Independent keys", independent_keys_group)
-        if preferred_statistics:
-            logger.log_param("preferred_statistics", preferred_statistics)
-        logger.log_param("initial_clique_estimate", initial_independent_group)
-        logger.log_metric("graph_reconstruction_and_max_clique_timer", clique_duration)
-        logger.log_metric("chi2_pair_wise_timer", chi2_duration)
-        logger.log_metric("real_population_histogram_MB", round(hist_size_mb, 2))
-        logger.log_metric("real_population_cdfs_MB", round(cdf_size_mb, 2))
-        if best_results:
-            logger.log_metrics(best_results)
-
-    independent_indices = [keys.index(value) for value in independent_keys_group]
-    tuning_independent_pvals = tuning_pvalue_distributions[independent_indices].T
-    _, tuning_ensembled_pvalues = perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)
-
-    # Compute histograms for all statistics
-    all_combinations = interpret_keys_to_combinations(statistics_keys_group)
-
-    start_stat_extraction = time.time()
-    all_inference_histogram = patch_parallel_preprocess(inference_dataset, batch_size, all_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, data_type=DataType.TEST, seed=seed, cache_suffix=cache_suffix)
-    end_stat_extraction = time.time()
-    elapsed_stat_extraction = (end_stat_extraction - start_stat_extraction) * 1000  # ms
-
-    if logger:
-        logger.log_metric("statistic_extraction_timer", round(elapsed_stat_extraction, 2))
-
-    all_inference_histogram = compute_mean_std_dict(all_inference_histogram)
-
-    # P-values for all statistics
-    input_all_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, all_inference_histogram, test_type)
-    all_tests_pvalues = np.clip(np.array(input_all_samples_pvalues), 0, 1)
-
-    # Focus on the independent subset for inference
-    inference_histogram = {key: all_inference_histogram[key] for key in independent_keys_group if key in all_inference_histogram}
-
-    input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, test_type)
-    independent_tests_pvalues = np.clip(np.array(input_samples_pvalues), 0, 1)
-
-    if test_labels and hasattr(inference_dataset, "image_paths"):
-        save_per_image_kde_and_images(
-            image_paths=inference_dataset.image_paths,
-            test_labels=test_labels,
-            tuning_real_population_pvals=tuning_independent_pvals,
-            input_samples_pvalues=input_samples_pvalues,
-            independent_statistics_keys_group=independent_keys_group,
-            output_dir=output_dir,
-            max_per_class=10
-        )
-
-    ensembled_stats, ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
-    predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
-
-    if test_labels and hasattr(inference_dataset, "image_paths"):
-        save_ensembled_pvalue_kde_and_images(
-            image_paths=inference_dataset.image_paths,
-            test_labels=test_labels,
-            ensembled_pvalues=ensembled_pvalues,
-            tuning_ensembled_pvalues=tuning_ensembled_pvalues,
-            output_dir=output_dir,
-            max_per_class=10
-        )
-
-    # Plot per-statistic histograms for all tests
-    plot_pvalue_histograms_from_arrays(
-        np.array([p for p, l in zip(all_tests_pvalues, test_labels) if l == 0]),
-        np.array([p for p, l in zip(all_tests_pvalues, test_labels) if l == 1]),
-        os.path.join(output_dir, "all_statistics"),
-        statistics_keys_group
-    )
-
-    plot_pvalue_histograms_from_arrays(
-        np.array([p for p, l in zip(independent_tests_pvalues, test_labels) if l == 0]),
-        np.array([p for p, l in zip(independent_tests_pvalues, test_labels) if l == 1]),
-        os.path.join(output_dir, "inference_stat"),
-        independent_keys_group
-        )
-
-    if save_histograms and test_labels:
-        plot_pvalue_histograms(
-            [p for p, l in zip(ensembled_pvalues, test_labels) if l == 0],
-            [p for p, l in zip(ensembled_pvalues, test_labels) if l == 1],
-            os.path.join(output_dir, f"histogram_plot_{ensemble_test}_alpha_{threshold}.png"),
-            "Histogram of P-values",
-        )
-
-    if return_logits:
-        return {
-            'scores': 1 - np.array(ensembled_pvalues),
-            'n_tests': len(list(independent_keys_group))
-        }
-
     if test_labels:
         metrics = calculate_metrics(test_labels, predictions)
         return metrics

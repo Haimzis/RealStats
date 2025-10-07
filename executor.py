@@ -34,7 +34,6 @@ parser.add_argument('--threshold', type=float, default=0.05, help='P-value thres
 parser.add_argument('--save_histograms', type=int, choices=[0, 1], default=1, help='Save KDE plots for real and fake p-values.')
 parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm', 'minp'], default='manual-stouffer', help='Type of ensemble test to perform')
 parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=1, help='Save independence test heatmaps.')
-parser.add_argument('--uniform_sanity_check', type=int, choices=[0, 1], default=0, help='Whether to perform uniform-KS sanity check.')
 parser.add_argument('--dataset_type', type=str, default='ALL', choices=[e.name for e in DatasetType], help='Type of dataset configuration to use.')
 parser.add_argument('--output_dir', type=str, default='outputs', help='Directory to save logs and artifacts.')
 parser.add_argument('--pkls_dir', type=str, default='pkls/AIStats/new_stats', help='Path where to save pkls.')
@@ -43,13 +42,9 @@ parser.add_argument('--num_data_workers', type=int, default=2, help='Number of w
 parser.add_argument('--max_workers', type=int, default=3, help='Maximum number of threads for parallel processing.')
 parser.add_argument('--seed', type=int, default=0, help='Random seed for reproducibility.')
 parser.add_argument('--statistics', type=str, nargs='+', default=[k for k in STATISTIC_HISTOGRAMS if k.startswith("RIGID.") and any(k.endswith(suffix) for suffix in [".05", ".10"])])
-parser.add_argument('--wavelet_levels', type=int, nargs='+', default=[0], help='List of wavelet levels.')
-parser.add_argument('--finetune_portion', type=float, default=0.2, help='Portion of the dataset used for finetuning.')
 parser.add_argument('--chi2_bins', type=int, default=10, help='Number of bins for chi-square calculations.')
 parser.add_argument('--cdf_bins', type=int, default=500, help='Number of bins for cdf.')
-parser.add_argument('--n_trials', type=int, default=75, help='Number of trials for optimization.')
 parser.add_argument('--uniform_p_threshold', type=float, default=0.05, help='KS Threshold for uniform goodness of fit.')
-parser.add_argument('--calibration_auc_threshold', type=float, default=0.5, help='Threshold for calibration AUC to filter unreliable tests.')
 parser.add_argument('--ks_pvalue_abs_threshold', type=float, default=0.4, help='Absolute KS p-value threshold for uniformity filtering.')
 parser.add_argument('--minimal_p_threshold', type=float, default=0.05, help='Minimum p-value threshold for chi-square filtering.')
 parser.add_argument('--preferred_statistics', type=str, nargs='*', default=["RIGID.DINO.05", "RIGID.CLIPOPENAI.05", "RIGID.DINO.10", "RIGID.CLIPOPENAI.10"], help='Statistics to prioritize when selecting the independent clique.')
@@ -100,7 +95,6 @@ def main():
         mlflow.log_param("patch_sizes", patch_sizes)
         mlflow.log_param("test_id", test_id)
 
-
         results = main_multiple_patch_test(
             reference_dataset=reference_dataset,
             inference_dataset=inference_dataset,
@@ -109,7 +103,6 @@ def main():
             threshold=args.threshold,
             patch_sizes=patch_sizes,
             statistics=args.statistics,
-            wavelet_levels=args.wavelet_levels,
             save_independence_heatmaps=bool(args.save_independence_heatmaps),
             save_histograms=bool(args.save_histograms),
             ensemble_test=args.ensemble_test,
@@ -118,13 +111,8 @@ def main():
             output_dir=args.output_dir,
             pkl_dir=dataset_pkls_dir,
             return_logits=True,
-            portion=args.finetune_portion,
             chi2_bins=args.chi2_bins,
             cdf_bins=args.cdf_bins,
-            n_trials=args.n_trials,
-            uniform_p_threshold=args.uniform_p_threshold,
-            uniform_sanity_check=bool(args.uniform_sanity_check),
-            calibration_auc_threshold=args.calibration_auc_threshold,
             ks_pvalue_abs_threshold=args.ks_pvalue_abs_threshold,
             minimal_p_threshold=args.minimal_p_threshold,
             test_type=TestType.BOTH,
@@ -132,7 +120,7 @@ def main():
             seed=args.seed,
             preferred_statistics=args.preferred_statistics
         )
-  
+
         results['labels'] = labels
         balance_labels, balance_scores = balanced_testset(labels, results['scores'], random_state=42)
         auc = plot_roc_curve(balance_labels, balance_scores, test_id, args.output_dir)

@@ -220,44 +220,6 @@ def find_largest_independent_group(keys, chi2_p_matrix, p_threshold=0.05, test_t
     return list(independent_set) if independent_set else [keys[0]]
 
 
-def find_largest_independent_group_with_plot(keys, chi2_p_matrix, p_threshold=0.05, output_dir='logs'):
-    """Find and plot the largest independent group using the Chi-Square p-value matrix."""
-    G = nx.Graph()
-    G.add_nodes_from(keys)
-
-    indices = np.triu(chi2_p_matrix, k=1) < p_threshold
-    rows, cols = np.where(indices)
-    edges = np.column_stack((np.array(keys)[rows], np.array(keys)[cols]))
-    G.add_edges_from(edges)
-
-    subgraph = G.subgraph([node for node, degree in G.degree() if degree > 0])
-    independent_set = nx.algorithms.approximation.clique.max_clique(subgraph)
-
-    view_independence_subgraph(subgraph, save_path=os.path.join(output_dir, 'independence_graph.png'))
-    view_independence_subgraph(subgraph, independent_set, save_path=os.path.join(output_dir, 'independent_clique.png'))
-
-    return list(independent_set) if independent_set else [keys[0]]
-
-
-def find_largest_uncorrelated_group(keys, corr_matrix, p_threshold=0.05):
-    """Find the largest independent group using the Chi-Square p-value matrix."""
-    G = nx.Graph()
-    G.add_nodes_from(keys)
-    
-    # Add edges where p-values are below the threshold
-    indices = np.triu(corr_matrix, k=1) < p_threshold
-    rows, cols = np.where(indices)
-    edges = np.column_stack((np.array(keys)[rows], np.array(keys)[cols]))
-    G.add_edges_from(edges)
-
-    # Subgraph of nodes with edges (dependencies)
-    subgraph = G.subgraph([node for node, degree in G.degree() if degree > 0])
-    
-    # Find the largest independent set (nodes not connected to others)
-    independent_set = nx.algorithms.approximation.clique.max_clique(subgraph)
-    return list(independent_set) if independent_set else [keys[0]]
-
-
 def find_largest_independent_group_iterative(keys, p_matrix, p_threshold=0.05, test_type="chi2"):
     """
     Find the largest independent groups using a p-value matrix.

@@ -3,17 +3,17 @@ from data_utils import CocoDataset, ImageDataset, ManifoldBiasDataset, ProGanDat
 
 
 class ManifoldBiasGenerator(Enum):
-    CNNSPOTSET_BIGGAN = "CNNSpotset/biggan"
-    CNNSPOTSET_CRN = "CNNSpotset/crn"
-    CNNSPOTSET_CYCLEGAN = "CNNSpotset/cyclegan"
-    CNNSPOTSET_DEEPFAKE = "CNNSpotset/deepfake"
-    CNNSPOTSET_GAUGAN = "CNNSpotset/gaugan"
-    CNNSPOTSET_IMLE = "CNNSpotset/imle"
-    CNNSPOTSET_PROGAN = "CNNSpot/progan"
-    CNNSPOTSET_SAN = "CNNSpotset/san"
-    CNNSPOTSET_STARGAN = "CNNSpotset/stargan"
-    CNNSPOTSET_STYLEGAN2 = "CNNSpotset/stylegan2"
-    CNNSPOTSET_WHICHFACEISREAL = "CNNSpotset/whichfaceisreal"
+    CNNSPOT_BIGGAN = " CNNSpot_test/biggan"
+    CNNSPOT_CRN = " CNNSpot_test/crn"
+    CNNSPOT_CYCLEGAN = " CNNSpot_test/cyclegan"
+    CNNSPOT_DEEPFAKE = " CNNSpot_test/deepfake"
+    CNNSPOT_GAUGAN = " CNNSpot_test/gaugan"
+    CNNSPOT_IMLE = " CNNSpot_test/imle"
+    CNNSPOT_PROGAN = "CNNSpot/progan"
+    CNNSPOT_SAN = " CNNSpot_test/san"
+    CNNSPOT_STARGAN = " CNNSpot_test/stargan"
+    CNNSPOT_STYLEGAN2 = " CNNSpot_test/stylegan2"
+    CNNSPOT_WHICHFACEISREAL = " CNNSpot_test/whichfaceisreal"
     GENIMAGE_ADM_GENIMAGE = "GenImage/adm_genimage"
     GENIMAGE_MIDJOURNEY_GENIMAGE = "GenImage/midjourney_genimage"
     GENIMAGE_SD_V4_GENIMAGE = "GenImage/sd_v4_genimage"
@@ -57,18 +57,18 @@ class DatasetType(Enum):
     # === Base dataset ===
     ALL = _manifold_bias_entry()
 
-    # === CNNSpotset ===
-    CNNSPOTSET_BIGGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_BIGGAN.value)
-    CNNSPOTSET_CRN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_CRN.value)
-    CNNSPOTSET_CYCLEGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_CYCLEGAN.value)
-    CNNSPOTSET_DEEPFAKE = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_DEEPFAKE.value)
-    CNNSPOTSET_GAUGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_GAUGAN.value)
-    CNNSPOTSET_IMLE = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_IMLE.value)
-    CNNSPOTSET_PROGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_PROGAN.value) 
-    CNNSPOTSET_SAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_SAN.value)
-    CNNSPOTSET_STARGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_STARGAN.value) 
-    CNNSPOTSET_STYLEGAN2 = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_STYLEGAN2.value)
-    CNNSPOTSET_WHICHFACEISREAL = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOTSET_WHICHFACEISREAL.value) 
+    # ===  CNNSpot_test ===
+    CNNSPOT_BIGGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_BIGGAN.value)
+    CNNSPOT_CRN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_CRN.value)
+    CNNSPOT_CYCLEGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_CYCLEGAN.value)
+    CNNSPOT_DEEPFAKE = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_DEEPFAKE.value)
+    CNNSPOT_GAUGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_GAUGAN.value)
+    CNNSPOT_IMLE = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_IMLE.value)
+    CNNSPOT_PROGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_PROGAN.value) 
+    CNNSPOT_SAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_SAN.value)
+    CNNSPOT_STARGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_STARGAN.value) 
+    CNNSPOT_STYLEGAN2 = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_STYLEGAN2.value)
+    CNNSPOT_WHICHFACEISREAL = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_WHICHFACEISREAL.value) 
 
     # === GenImage ===
     GENIMAGE_ADM_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_ADM_GENIMAGE.value)
@@ -107,7 +107,7 @@ class DatasetFactory:
         Create datasets dynamically based on dataset type.
 
         Args:
-            dataset_type (str): The dataset type (e.g., 'ALL', 'CNNSPOTSET_BIGGAN').
+            dataset_type (str): The dataset type (e.g., 'ALL').
             transform (callable, optional): Transform to apply to the images.
 
         Returns:

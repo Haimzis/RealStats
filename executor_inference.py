@@ -14,7 +14,6 @@ from data_utils import JPEGCompressionTransform
 from stat_test import TestType, inference_multiple_patch_test
 from utils import (
     balanced_testset,
-    plot_fakeness_score_distribution,
     plot_fakeness_score_histogram,
     plot_roc_curve,
     set_seed,
@@ -32,7 +31,7 @@ parser.add_argument('--threshold', type=float, default=0.05, help='P-value thres
 parser.add_argument('--save_histograms', type=int, choices=[0, 1], default=1, help='Save KDE plots for real and fake p-values.')
 parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm', 'minp'], default='manual-stouffer', help='Type of ensemble test to perform')
 parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=1, help='Save independence test heatmaps.')
-parser.add_argument('--dataset_type', type=str, default='COCO', choices=[e.name for e in DatasetType], help='Type of dataset to use')
+parser.add_argument('--dataset_type', type=str, default='ALL', choices=[e.name for e in DatasetType], help='Type of dataset to use')
 parser.add_argument('--output_dir', type=str, required=True, help='Directory to save logs and artifacts.')
 parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/rigid_pkls', help='Path where to save pkls.')
 parser.add_argument('--num_data_workers', type=int, default=4, help='Number of workers for data loading.')

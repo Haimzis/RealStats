@@ -1,8 +1,6 @@
 import os
 import argparse
-import sys
 
-from tqdm import tqdm
 from stat_test import TestType, main_multiple_patch_test
 from datasets_factory import DatasetFactory, DatasetType
 from data_utils import ImageDataset, create_inference_dataset
@@ -25,7 +23,6 @@ parser.add_argument('--output_dir', type=str, default='logs', help='Path where t
 parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/rigid_pkls', help='Path where to save pkls')
 parser.add_argument('--num_samples_per_class', type=int, default=-1, help='Number of samples per class for inference dataset')
 parser.add_argument('--num_data_workers', type=int, default=4, help='Number of workers for data loading')
-parser.add_argument('--max_wave_level', type=int, default=4, help='Maximum number of levels in DWT')
 parser.add_argument('--max_workers', type=int, default=10, help='Maximum number of threads for parallel processing')
 parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
 args = parser.parse_args()
@@ -65,9 +62,7 @@ def main():
     statistics = build_backbones_statistics_list(models, noise_levels)
     
     patch_sizes = [args.sample_size]
-    wavelet_levels = [0]
-
-    test_id = f"num_statistics_{len(statistics)}-{min(patch_sizes)}_{max(patch_sizes)}-max_level_{wavelet_levels[-1]}"
+    test_id = f"num_statistics_{len(statistics)}-{min(patch_sizes)}_{max(patch_sizes)}"
 
     results = main_multiple_patch_test(
             reference_dataset=reference_dataset,
@@ -77,7 +72,6 @@ def main():
             threshold=threshold,
             patch_sizes=patch_sizes,
             statistics=statistics,
-            wavelet_levels=wavelet_levels,
             save_independence_heatmaps=bool(args.save_independence_heatmaps),
             save_histograms=bool(args.save_histograms),
             ensemble_test=args.ensemble_test,
@@ -88,9 +82,6 @@ def main():
             return_logits=True,
             chi2_bins=10,
             cdf_bins=500,
-            n_trials=75,
-            uniform_p_threshold=0.05,
-            calibration_auc_threshold=0.4,
             ks_pvalue_abs_threshold=0.4,
             minimal_p_threshold=0.01,
             test_type=TestType.BOTH,
