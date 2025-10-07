@@ -9,7 +9,7 @@ class ManifoldBiasGenerator(Enum):
     CNNSPOTSET_DEEPFAKE = "CNNSpotset/deepfake"
     CNNSPOTSET_GAUGAN = "CNNSpotset/gaugan"
     CNNSPOTSET_IMLE = "CNNSpotset/imle"
-    CNNSPOTSET_PROGAN = "CNNSpot/train2"
+    CNNSPOTSET_PROGAN = "CNNSpot/progan"
     CNNSPOTSET_SAN = "CNNSpotset/san"
     CNNSPOTSET_STARGAN = "CNNSpotset/stargan"
     CNNSPOTSET_STYLEGAN2 = "CNNSpotset/stylegan2"
@@ -18,7 +18,7 @@ class ManifoldBiasGenerator(Enum):
     GENIMAGE_MIDJOURNEY_GENIMAGE = "GenImage/midjourney_genimage"
     GENIMAGE_SD_V4_GENIMAGE = "GenImage/sd_v4_genimage"
     GENIMAGE_SD_V5_GENIMAGE = "GenImage/sd_v5_genimage"
-    GENIMAGE_VDQM_GENIMAGE = "GenImage/vdqm_genimage"
+    GENIMAGE_VQDM_GENIMAGE = "GenImage/vqdm_genimage"
     GENIMAGE_WUKONG_GENIMAGE = "GenImage/wukong_genimage"
     STABLE_DIFFUSION_FACES_SD2 = "stable_diffusion_human_models/768_sdv2"
     STABLE_DIFFUSION_FACES_SDXL = "stable_diffusion_human_models/1024_sdxl"
@@ -75,7 +75,7 @@ class DatasetType(Enum):
     GENIMAGE_MIDJOURNEY_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_MIDJOURNEY_GENIMAGE.value)
     GENIMAGE_SD_V4_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_SD_V4_GENIMAGE.value)
     GENIMAGE_SD_V5_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_SD_V5_GENIMAGE.value)
-    GENIMAGE_VDQM_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_VDQM_GENIMAGE.value)
+    GENIMAGE_VQDM_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_VQDM_GENIMAGE.value)
     GENIMAGE_WUKONG_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_WUKONG_GENIMAGE.value)
 
     # === Stable Diffusion Faces Models ===

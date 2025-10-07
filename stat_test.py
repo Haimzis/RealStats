@@ -296,7 +296,6 @@ def main_multiple_patch_test(
         chi2_p_matrix=chi2_p_matrix,
         pvals_matrix=tuning_pvalue_distributions,
         ensemble_test=ensemble_test,
-        fake_pvals_matrix=None,
         ks_pvalue_abs_threshold=ks_pvalue_abs_threshold,
         minimal_p_threshold=minimal_p_threshold,
         preferred_statistics=preferred_statistics
@@ -617,7 +616,6 @@ def inference_multiple_patch_test_with_dependence(
         chi2_p_matrix=chi2_p_matrix,
         pvals_matrix=tuning_pvalue_distributions,
         ensemble_test=ensemble_test,
-        fake_pvals_matrix=None,
         ks_pvalue_abs_threshold=0.5,
         minimal_p_threshold=0.05,
         preferred_statistics=preferred_statistics

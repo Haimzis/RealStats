@@ -1,12 +1,7 @@
 """Utilities for deriving cache keys from torchvision transforms."""
-
-from __future__ import annotations
-
 import re
 from typing import Iterable
-
 from torchvision import transforms
-
 from data_utils import JPEGCompressionTransform
 
 

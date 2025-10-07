@@ -3,13 +3,11 @@ import pickle
 import random
 import warnings
 from matplotlib import pyplot as plt
-import pandas as pd
 from scipy.stats import spearmanr
 import torch
 import numpy as np
-from pytorch_wavelets import DTCWTForward, DTCWTInverse
 from scipy.stats import chi2_contingency
-from sklearn.metrics import auc, roc_auc_score, confusion_matrix, precision_score, recall_score, f1_score, accuracy_score, roc_curve
+from sklearn.metrics import auc, confusion_matrix, precision_score, recall_score, f1_score, accuracy_score, roc_curve
 import os
 import seaborn as sns
 import networkx as nx
@@ -968,7 +966,7 @@ def create_pvalue_grid_figure(
 
     fig, axes = plt.subplots(
         n_rows, n_cols + 1, figsize=figsize, 
-        gridspec_kw={'width_ratios': [0.5] + [1.0] * n_cols, 'wspace': 0.05}  # ⬅️ Shrink label column
+        gridspec_kw={'width_ratios': [0.5] + [1.0] * n_cols, 'wspace': 0.05}
     )
 
     for ax_row in axes:
@@ -1291,7 +1289,7 @@ def get_total_size_in_MB(obj):
 
 
 def finding_optimal_independent_subgroup_deterministic(
-    keys, chi2_p_matrix, pvals_matrix, ensemble_test, fake_pvals_matrix,
+    keys, chi2_p_matrix, pvals_matrix, ensemble_test,
     ks_pvalue_abs_threshold=0.25, minimal_p_threshold=0.05, preferred_statistics=None):
     """Deterministic search over cliques based on KS range and AUC, favoring preferred statistics."""
 
