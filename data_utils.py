@@ -148,8 +148,8 @@ class CocoDataset(Dataset):
         return image, self.label, image_path
     
 
-class ManifoldBiasDataset(Dataset):
-    """Dataset class for loading samples from ManifoldBias CSVs."""
+class RealStatsDataset(Dataset):
+    """Dataset class for loading samples from CSVs."""
 
     def __init__(self, root_dir, csv_file, label=0, transform=None, generator=None):
         self.root_dir = root_dir

@@ -1,8 +1,8 @@
 from enum import Enum
-from data_utils import CocoDataset, ImageDataset, ManifoldBiasDataset, ProGanDataset
+from data_utils import CocoDataset, ImageDataset, RealStatsDataset, ProGanDataset
 
 
-class ManifoldBiasGenerator(Enum):
+class RealStatsGenerators(Enum):
     CNNSPOT_BIGGAN = "CNNSpot_test/biggan"
     CNNSPOT_CRN = "CNNSpot_test/crn"
     CNNSPOT_CYCLEGAN = "CNNSpot_test/cyclegan"
@@ -31,23 +31,23 @@ class ManifoldBiasGenerator(Enum):
     UNIVERSAL_FAKE_DETECT_GLIDE_50_27 = "Universal_Fake_Detect/diffusion_datasets/glide_50_27"
 
 
-def _manifold_bias_entry(generator=None):
+def _dataset_entry(generator=None):
     return {
         "reference_real": {
-            "path": "data/ManifoldBiasDataset",
-            "class": lambda root, label, transform=None: ManifoldBiasDataset(
+            "path": "data/RealStatsDataset",
+            "class": lambda root, label, transform=None: RealStatsDataset(
                 root, "reference_real_paths.csv", label, transform
             ),
         },
         "test_real": {
-            "path": "data/ManifoldBiasDataset",
-            "class": lambda root, label, transform=None: ManifoldBiasDataset(
+            "path": "data/RealStatsDataset",
+            "class": lambda root, label, transform=None: RealStatsDataset(
                 root, "test_real_paths.csv", label, transform
             ),
         },
         "test_fake": {
-            "path": "data/ManifoldBiasDataset",
-            "class": lambda root, label, transform=None: ManifoldBiasDataset(
+            "path": "data/RealStatsDataset",
+            "class": lambda root, label, transform=None: RealStatsDataset(
                 root, "test_fake_paths.csv", label, transform, generator=generator
             ),
         },
@@ -55,43 +55,43 @@ def _manifold_bias_entry(generator=None):
 
 class DatasetType(Enum):
     # === Base dataset ===
-    ALL = _manifold_bias_entry()
+    ALL = _dataset_entry()
 
     # ===  CNNSpot_test ===
-    CNNSPOT_BIGGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_BIGGAN.value)
-    CNNSPOT_CRN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_CRN.value)
-    CNNSPOT_CYCLEGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_CYCLEGAN.value)
-    CNNSPOT_DEEPFAKE = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_DEEPFAKE.value)
-    CNNSPOT_GAUGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_GAUGAN.value)
-    CNNSPOT_IMLE = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_IMLE.value)
-    CNNSPOT_PROGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_PROGAN.value) 
-    CNNSPOT_SAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_SAN.value)
-    CNNSPOT_STARGAN = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_STARGAN.value) 
-    CNNSPOT_STYLEGAN2 = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_STYLEGAN2.value)
-    CNNSPOT_WHICHFACEISREAL = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_WHICHFACEISREAL.value) 
+    CNNSPOT_BIGGAN = _dataset_entry(RealStatsGenerators.CNNSPOT_BIGGAN.value)
+    CNNSPOT_CRN = _dataset_entry(RealStatsGenerators.CNNSPOT_CRN.value)
+    CNNSPOT_CYCLEGAN = _dataset_entry(RealStatsGenerators.CNNSPOT_CYCLEGAN.value)
+    CNNSPOT_DEEPFAKE = _dataset_entry(RealStatsGenerators.CNNSPOT_DEEPFAKE.value)
+    CNNSPOT_GAUGAN = _dataset_entry(RealStatsGenerators.CNNSPOT_GAUGAN.value)
+    CNNSPOT_IMLE = _dataset_entry(RealStatsGenerators.CNNSPOT_IMLE.value)
+    CNNSPOT_PROGAN = _dataset_entry(RealStatsGenerators.CNNSPOT_PROGAN.value) 
+    CNNSPOT_SAN = _dataset_entry(RealStatsGenerators.CNNSPOT_SAN.value)
+    CNNSPOT_STARGAN = _dataset_entry(RealStatsGenerators.CNNSPOT_STARGAN.value) 
+    CNNSPOT_STYLEGAN2 = _dataset_entry(RealStatsGenerators.CNNSPOT_STYLEGAN2.value)
+    CNNSPOT_WHICHFACEISREAL = _dataset_entry(RealStatsGenerators.CNNSPOT_WHICHFACEISREAL.value) 
 
     # === GenImage ===
-    GENIMAGE_ADM = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_ADM.value)
-    GENIMAGE_MIDJOURNEY = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_MIDJOURNEY.value)
-    GENIMAGE_SD_V4 = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_SD_V4.value)
-    GENIMAGE_SD_V5 = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_SD_V5.value)
-    GENIMAGE_VQDM = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_VQDM.value)
-    GENIMAGE_WUKONG = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_WUKONG.value)
+    GENIMAGE_ADM = _dataset_entry(RealStatsGenerators.GENIMAGE_ADM.value)
+    GENIMAGE_MIDJOURNEY = _dataset_entry(RealStatsGenerators.GENIMAGE_MIDJOURNEY.value)
+    GENIMAGE_SD_V4 = _dataset_entry(RealStatsGenerators.GENIMAGE_SD_V4.value)
+    GENIMAGE_SD_V5 = _dataset_entry(RealStatsGenerators.GENIMAGE_SD_V5.value)
+    GENIMAGE_VQDM = _dataset_entry(RealStatsGenerators.GENIMAGE_VQDM.value)
+    GENIMAGE_WUKONG = _dataset_entry(RealStatsGenerators.GENIMAGE_WUKONG.value)
 
     # === Stable Diffusion Faces Models ===
-    STABLE_DIFFUSION_FACES_SD2 = _manifold_bias_entry(ManifoldBiasGenerator.STABLE_DIFFUSION_FACES_SD2.value)
-    STABLE_DIFFUSION_FACES_SDXL = _manifold_bias_entry(ManifoldBiasGenerator.STABLE_DIFFUSION_FACES_SDXL.value)
+    STABLE_DIFFUSION_FACES_SD2 = _dataset_entry(RealStatsGenerators.STABLE_DIFFUSION_FACES_SD2.value)
+    STABLE_DIFFUSION_FACES_SDXL = _dataset_entry(RealStatsGenerators.STABLE_DIFFUSION_FACES_SDXL.value)
 
     # === SynthBuster ===
-    SYNTHBUSTER_DALLE3 = _manifold_bias_entry(ManifoldBiasGenerator.SYNTHBUSTER_DALLE3.value)
-    SYNTHBUSTER_MIDJOURNEY_V5 = _manifold_bias_entry(ManifoldBiasGenerator.SYNTHBUSTER_MIDJOURNEY_V5.value)
-    SYNTHBUSTER_STABLE_DIFFUSION_2 = _manifold_bias_entry(ManifoldBiasGenerator.SYNTHBUSTER_STABLE_DIFFUSION_2.value)
-    SYNTHBUSTER_STABLE_DIFFUSION_XL = _manifold_bias_entry(ManifoldBiasGenerator.SYNTHBUSTER_STABLE_DIFFUSION_XL.value)
+    SYNTHBUSTER_DALLE3 = _dataset_entry(RealStatsGenerators.SYNTHBUSTER_DALLE3.value)
+    SYNTHBUSTER_MIDJOURNEY_V5 = _dataset_entry(RealStatsGenerators.SYNTHBUSTER_MIDJOURNEY_V5.value)
+    SYNTHBUSTER_STABLE_DIFFUSION_2 = _dataset_entry(RealStatsGenerators.SYNTHBUSTER_STABLE_DIFFUSION_2.value)
+    SYNTHBUSTER_STABLE_DIFFUSION_XL = _dataset_entry(RealStatsGenerators.SYNTHBUSTER_STABLE_DIFFUSION_XL.value)
 
     # === Universal Fake Detect ===
-    UNIVERSAL_FAKE_DETECT_DALLE = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_DALLE.value)
-    UNIVERSAL_FAKE_DETECT_GLIDE_100_27 = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GLIDE_100_27.value)
-    UNIVERSAL_FAKE_DETECT_GLIDE_50_27 = _manifold_bias_entry(ManifoldBiasGenerator.UNIVERSAL_FAKE_DETECT_GLIDE_50_27.value)
+    UNIVERSAL_FAKE_DETECT_DALLE = _dataset_entry(RealStatsGenerators.UNIVERSAL_FAKE_DETECT_DALLE.value)
+    UNIVERSAL_FAKE_DETECT_GLIDE_100_27 = _dataset_entry(RealStatsGenerators.UNIVERSAL_FAKE_DETECT_GLIDE_100_27.value)
+    UNIVERSAL_FAKE_DETECT_GLIDE_50_27 = _dataset_entry(RealStatsGenerators.UNIVERSAL_FAKE_DETECT_GLIDE_50_27.value)
 
     def get_paths(self):
         return self.value

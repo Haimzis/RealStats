@@ -33,13 +33,6 @@ import traceback
 import gc
 
 
-class DataType(Enum):
-    TRAIN = "train"
-    CALIB = "calib"
-    TEST = "test"
-    TUNING = "tuning"
-
-
 class TestType(Enum):
     LEFT = "left"
     RIGHT = "right"
@@ -51,7 +44,7 @@ def get_unique_id(patch_size, statistic, seed=42):
     return f"PatchProcessing_statistic={statistic}_patch_size={patch_size}_seed={seed}"
 
 
-def preprocess_statistic(dataset, batch_size, statistic, num_data_workers, patch_size, pkl_dir, data_type: DataType, seed=42, cache_suffix=""):
+def preprocess_statistic(dataset, batch_size, statistic, num_data_workers, patch_size, pkl_dir, seed=42, cache_suffix=""):
     """Preprocess the dataset for a single statistic name using various histogram statistics."""
     set_seed(seed)
 
@@ -61,7 +54,7 @@ def preprocess_statistic(dataset, batch_size, statistic, num_data_workers, patch
     results = []
 
     expected_stat_paths = [
-        os.path.join(combo_dir, os.path.splitext(os.path.abspath(p).lstrip(os.sep))[0] + ".npy")
+        os.path.join(combo_dir, os.path.splitext(p.lstrip(os.sep))[0] + ".npy")
         for p in dataset.image_paths
     ]
 
@@ -89,7 +82,7 @@ def preprocess_statistic(dataset, batch_size, statistic, num_data_workers, patch
         to_compute = []
 
         for i, path in enumerate(paths):
-            stat_path = os.path.join(combo_dir, os.path.splitext(os.path.abspath(path).lstrip(os.sep))[0] + ".npy")
+            stat_path = os.path.join(combo_dir, os.path.splitext(path.lstrip(os.sep))[0] + ".npy")
             if os.path.exists(stat_path):
                 cached[i] = np.load(stat_path, mmap_mode=None)
             else:
@@ -204,7 +197,7 @@ def interpret_keys_to_combinations(independent_keys_group):
     return combinations
 
 
-def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_workers, num_data_workers, pkl_dir='pkls', data_type: DataType = DataType.TRAIN, sort=True, seed=42, cache_suffix=""):
+def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_workers, num_data_workers, pkl_dir='pkls', sort=True, seed=42, cache_suffix=""):
     """Preprocess the dataset for specific combinations in parallel."""
     results = {}
 
@@ -265,7 +258,7 @@ def main_multiple_patch_test(
 
     # Load or compute reference histograms
     reference_histogram = patch_parallel_preprocess(
-        reference_dataset, batch_size, training_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, data_type=DataType.TRAIN, seed=seed
+        reference_dataset, batch_size, training_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, seed=seed
     )
 
     reference_histogram = compute_mean_std_dict(reference_histogram)
@@ -314,7 +307,7 @@ def main_multiple_patch_test(
 
     # Inference
     inference_histogram = patch_parallel_preprocess(
-        inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, data_type=DataType.TEST, seed=seed
+        inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, seed=seed
     )
 
     inference_histogram = compute_mean_std_dict(inference_histogram)
@@ -392,15 +385,7 @@ def inference_multiple_patch_test(
         raise ValueError("reference_dataset must be provided for inference")
 
     real_population_histogram = patch_parallel_preprocess(
-        reference_dataset,
-        batch_size,
-        independent_combinations,
-        max_workers,
-        num_data_workers,
-        pkl_dir=pkl_dir,
-        data_type=DataType.TRAIN,
-        seed=seed,
-        cache_suffix=reference_cache_suffix,
+        reference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, seed=seed, cache_suffix=reference_cache_suffix,
     )
 
     real_population_histogram = compute_mean_std_dict(real_population_histogram)
@@ -423,8 +408,6 @@ def inference_multiple_patch_test(
     tuning_real_population_pvals = np.clip(tuning_real_population_pvals, 0, 1)
 
     keys = list(real_population_histogram.keys())
-    keys = [k.replace(f"_{DataType.TRAIN}", "") for k in keys]
-
     tuning_pvalue_distributions = tuning_real_population_pvals.T
         
     if logger:
@@ -438,15 +421,7 @@ def inference_multiple_patch_test(
     
     # Inference
     inference_histogram = patch_parallel_preprocess(
-        inference_dataset,
-        batch_size,
-        independent_combinations,
-        max_workers,
-        num_data_workers,
-        pkl_dir=pkl_dir,
-        data_type=DataType.TEST,
-        seed=seed,
-        cache_suffix=cache_suffix,
+        inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, seed=seed, cache_suffix=cache_suffix,
     )
 
     inference_histogram = compute_mean_std_dict(inference_histogram)

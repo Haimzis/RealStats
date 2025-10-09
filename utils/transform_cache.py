@@ -1,4 +1,3 @@
-"""Utilities for deriving cache keys from torchvision transforms."""
 import re
 from typing import Iterable
 from torchvision import transforms

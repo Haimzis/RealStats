@@ -1,5 +1,3 @@
-"""Visualization utilities re-exported from core statistical utilities."""
-
 from .utils import (
     view_subgraph,
     view_independence_subgraph,
