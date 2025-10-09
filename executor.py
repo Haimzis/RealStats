@@ -13,7 +13,6 @@ from torch.utils.data import ConcatDataset
 from stat_test import TestType, main_multiple_patch_test
 from utils import plot_roc_curve, set_seed, balanced_testset
 
-sys.setrecursionlimit(2000)
 
 def shutdown(signum, frame):
     print("Ctrl+C received, terminating workers...")

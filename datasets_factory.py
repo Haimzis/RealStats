@@ -14,12 +14,12 @@ class ManifoldBiasGenerator(Enum):
     CNNSPOT_STARGAN = "CNNSpot_test/stargan"
     CNNSPOT_STYLEGAN2 = "CNNSpot_test/stylegan2"
     CNNSPOT_WHICHFACEISREAL = "CNNSpot_test/whichfaceisreal"
-    GENIMAGE_ADM_GENIMAGE = "GenImage/adm_genimage"
-    GENIMAGE_MIDJOURNEY_GENIMAGE = "GenImage/midjourney_genimage"
-    GENIMAGE_SD_V4_GENIMAGE = "GenImage/sd_v4_genimage"
-    GENIMAGE_SD_V5_GENIMAGE = "GenImage/sd_v5_genimage"
-    GENIMAGE_VQDM_GENIMAGE = "GenImage/vqdm_genimage"
-    GENIMAGE_WUKONG_GENIMAGE = "GenImage/wukong_genimage"
+    GENIMAGE_ADM = "GenImage/adm_genimage"
+    GENIMAGE_MIDJOURNEY = "GenImage/midjourney_genimage"
+    GENIMAGE_SD_V4 = "GenImage/sd_v4_genimage"
+    GENIMAGE_SD_V5 = "GenImage/sd_v5_genimage"
+    GENIMAGE_VQDM = "GenImage/vqdm_genimage"
+    GENIMAGE_WUKONG = "GenImage/wukong_genimage"
     STABLE_DIFFUSION_FACES_SD2 = "stable_diffusion_human_models/768_sdv2"
     STABLE_DIFFUSION_FACES_SDXL = "stable_diffusion_human_models/1024_sdxl"
     SYNTHBUSTER_DALLE3 = "SynthBuster/dalle3"
@@ -71,12 +71,12 @@ class DatasetType(Enum):
     CNNSPOT_WHICHFACEISREAL = _manifold_bias_entry(ManifoldBiasGenerator.CNNSPOT_WHICHFACEISREAL.value) 
 
     # === GenImage ===
-    GENIMAGE_ADM_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_ADM_GENIMAGE.value)
-    GENIMAGE_MIDJOURNEY_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_MIDJOURNEY_GENIMAGE.value)
-    GENIMAGE_SD_V4_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_SD_V4_GENIMAGE.value)
-    GENIMAGE_SD_V5_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_SD_V5_GENIMAGE.value)
-    GENIMAGE_VQDM_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_VQDM_GENIMAGE.value)
-    GENIMAGE_WUKONG_GENIMAGE = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_WUKONG_GENIMAGE.value)
+    GENIMAGE_ADM = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_ADM.value)
+    GENIMAGE_MIDJOURNEY = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_MIDJOURNEY.value)
+    GENIMAGE_SD_V4 = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_SD_V4.value)
+    GENIMAGE_SD_V5 = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_SD_V5.value)
+    GENIMAGE_VQDM = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_VQDM.value)
+    GENIMAGE_WUKONG = _manifold_bias_entry(ManifoldBiasGenerator.GENIMAGE_WUKONG.value)
 
     # === Stable Diffusion Faces Models ===
     STABLE_DIFFUSION_FACES_SD2 = _manifold_bias_entry(ManifoldBiasGenerator.STABLE_DIFFUSION_FACES_SD2.value)

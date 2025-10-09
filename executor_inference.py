@@ -21,7 +21,6 @@ from utils import (
 from utils.transform_cache import build_transform_cache_suffix
 from torchvision.utils import save_image
 
-sys.setrecursionlimit(2000)
 
 parser = argparse.ArgumentParser(description='Inference-Only Statistic and Patch Testing Pipeline')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size for data loading.')
@@ -31,19 +30,19 @@ parser.add_argument('--threshold', type=float, default=0.05, help='P-value thres
 parser.add_argument('--save_histograms', type=int, choices=[0, 1], default=1, help='Save KDE plots for real and fake p-values.')
 parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm', 'minp'], default='manual-stouffer', help='Type of ensemble test to perform')
 parser.add_argument('--dataset_type', type=str, default='ALL', choices=[e.name for e in DatasetType], help='Type of dataset to use')
-parser.add_argument('--output_dir', type=str, required=True, help='Directory to save logs and artifacts.')
-parser.add_argument('--pkls_dir', type=str, default='/data/users/haimzis/rigid_pkls', help='Path where to save pkls.')
+parser.add_argument('--output_dir', type=str, default='outputs', help='Directory to save logs and artifacts.')
+parser.add_argument('--pkls_dir', type=str, default='pkls/AIStats/new_stats', help='Path where to save pkls.')
 parser.add_argument('--num_data_workers', type=int, default=4, help='Number of workers for data loading.')
 parser.add_argument('--max_workers', type=int, default=1, help='Maximum number of threads for parallel processing.')
-parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility.')
+parser.add_argument('--seed', type=int, default=38, help='Random seed for reproducibility.')
 parser.add_argument('--cdf_bins', type=int, default=1000, help='Number of bins for cdf.')
 parser.add_argument('--gpu', type=str, default='0', help='GPU device(s) to use, e.g., "0", "1", or "0,1".')
-parser.add_argument('--run_id', type=str, required=True, help='Unique identifier for this MLflow run.')
-parser.add_argument('--experiment_id', type=str, required=True, help='Name or ID of the MLflow experiment.')
-parser.add_argument('--independent_keys', type=str, nargs='+', required=True, help='Independent statistics keys group')
+parser.add_argument('--run_id', type=str, default='default', help='Unique identifier for this MLflow run.')
+parser.add_argument('--experiment_id', type=str, default='default', help='Name or ID of the MLflow experiment.')
+parser.add_argument('--independent_keys', type=str, nargs='+', default=["PatchProcessing_statistic=RIGID.DINO.05_patch_size=512_seed=38", "PatchProcessing_statistic=RIGID.CLIPOPENAI.05_patch_size=512_seed=38"], help='Independent statistics keys group')
 parser.add_argument('--inference_aug', type=str, default='none', choices=['none', 'jpeg', 'blur'], help='Apply augmentation to inference dataset (jpeg or blur).')
 parser.add_argument('--draw_pvalues_trend_figure', type=int, default=0, help='whether to draw p-values trend figure')
-parser.add_argument('--latent_noise_csv', type=str, default=None, help='Path to the CSV file with LatentNoiseCriterion_original scores.')
+parser.add_argument('--latent_noise_csv', type=str, default="manifold_bias_criterion.csv", help='Path to the CSV file with LatentNoiseCriterion_original scores.')
 
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu

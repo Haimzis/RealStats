@@ -16,7 +16,7 @@ from tqdm import tqdm
 from PIL import Image
 import json
 import sys
-
+import csv
 
 def view_subgraph(subgraph, title="Subgraph Visualization", save_path='subgraph.png'):
     """
@@ -1341,3 +1341,24 @@ def balanced_testset(labels, scores, random_state=None):
     balanced_scores = scores[balanced_idx]
 
     return balanced_labels, balanced_scores
+
+
+def export_combined_to_csv(combined, output_path):
+    """
+    Export a combined list of (image_path, pvalue, label) to CSV.
+
+    Parameters
+    ----------
+    combined : list of tuples
+        Each tuple must be (image_path, pvalue, label).
+    output_path : str
+        Path to save the CSV file.
+    """
+    with open(output_path, mode="w", newline="") as f:
+        writer = csv.writer(f)
+        # header
+        writer.writerow(["image_path", "pvalue", "label"])
+        # rows
+        writer.writerows(combined)
+
+    print(f"Results exported to {output_path}")

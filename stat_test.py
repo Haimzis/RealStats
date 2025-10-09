@@ -24,7 +24,8 @@ from utils import (
     plot_pvalue_histograms,
     set_seed,
     plot_pvalue_histograms_from_arrays,
-    save_real_statistics_kde
+    save_real_statistics_kde,
+    export_combined_to_csv
 )
 from data_utils import GlobalPatchDataset, SelfPatchDataset
 from enum import Enum
@@ -456,35 +457,13 @@ def inference_multiple_patch_test(
     input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, test_type)
     independent_tests_pvalues = np.array(input_samples_pvalues)
     independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
-
-    # # Save per-image KDE plots and images
-    # if test_labels and hasattr(inference_dataset, "image_paths"):
-    #     save_per_image_kde_and_images(
-    #         image_paths=inference_dataset.image_paths,
-    #         test_labels=test_labels,
-    #         tuning_real_population_pvals=tuning_independent_pvals,
-    #         input_samples_pvalues=input_samples_pvalues,
-    #         independent_statistics_keys_group=independent_statistics_keys_group,
-    #         output_dir=output_dir,
-    #         max_per_class=10
-    #     )
     
     ensembled_stats, ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
     predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
-
-    # if test_labels and hasattr(inference_dataset, "image_paths"):
-    #     save_ensembled_pvalue_kde_and_images(
-    #         image_paths=inference_dataset.image_paths,
-    #         test_labels=test_labels,
-    #         ensembled_pvalues=ensembled_pvalues,
-    #         tuning_ensembled_pvalues=tuning_ensembled_pvalues,
-    #         output_dir=output_dir,
-    #         max_per_class=10
-    #     )
     
     if test_labels and hasattr(inference_dataset, "image_paths") and draw_pvalues_trend_figure:
         combined = list(zip(inference_dataset.image_paths, ensembled_pvalues, test_labels))
-
+        export_combined_to_csv(combined, os.path.join(output_dir, "pvalue_dist.csv"))
         for i in range(30):
             random.shuffle(combined)  # New shuffle each time
 
@@ -495,7 +474,7 @@ def inference_multiple_patch_test(
                 pvalues=pvalues_shuffled,
                 test_labels=test_labels_shuffled,
                 thresholds=[0.01, 0.05, 0.10, 0.25, 0.5],
-                max_per_group=6,
+                max_per_group=7,
                 output_path=os.path.join(output_dir, f"significance_grid_{i}.png")
             )
 

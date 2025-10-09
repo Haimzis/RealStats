@@ -13,30 +13,28 @@ mkdir -p "$LOGS_DIR"
     echo "Starting run..."
 
     python executor_inference.py \
-        --ensemble_test "minp" \
-        --batch_size 4 \
+        --ensemble_test "manual-stouffer" \
+        --batch_size 16 \
         --output_dir "$LOGS_DIR" \
         --num_data_workers 3 \
         --max_workers 3 \
         --experiment_id "plots" \
         --gpu "0" \
         --independent_keys \
-            PatchProcessing_statistic=RIGID.DINO.05_patch_size=512_seed=72532 \
-            PatchProcessing_statistic=RIGID.CLIP.05_patch_size=512_seed=72532 \
-            PatchProcessing_statistic=RIGID.CLIP.01_patch_size=512_seed=72532 \
+            PatchProcessing_statistic=RIGID.DINO.05_patch_size=512_seed=38 \
+            PatchProcessing_statistic=LatentNoiseCriterion_original_patch_size=512_seed=38 \
+            PatchProcessing_statistic=RIGID.CLIPOPENAI.05_patch_size=512_seed=38 \
         --patch_divisors 0 \
-        --chi2_bins 30 \
         --cdf_bins 400 \
-        --dataset_type COCO_STABLE_DIFFUSION_XL_TEST_ONLY \
-        --seed 72532 \
+        --dataset_type ALL \
+        --seed 38 \
         --sample_size 512 \
         --threshold 0.9 \
         --save_histograms 1 \
-        --save_independence_heatmaps 1 \
-        --pkls_dir pkls_experiments_II \
-        --num_samples_per_class -1 \
-        --run_id plot_sdxl_jpeg_inference_plot_run_$TIMESTAMP \
-        --inference_aug jpeg
+        --draw_pvalues_trend_figure 1 \
+        --pkls_dir pkls/AIStats/new_stats \
+        --run_id inference_plot_run_$TIMESTAMP \
+        --inference_aug none
 
     echo "Run complete."
 } &> "$LOGS_DIR/logs.txt"

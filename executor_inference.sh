@@ -34,7 +34,7 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
             --output_dir "$LOGS_DIR" \
             --num_data_workers 0 \
             --max_workers 3 \
-            --gpu "0,2,3" \
+            --gpu "0" \
             $CONFIG
 
         echo "Run $((i + 1)) complete."
