@@ -1,6 +1,5 @@
 from pytorch_wavelets import DTCWTForward
 from sklearn.decomposition import PCA
-import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
@@ -36,27 +35,14 @@ class PCAOutlierDetector:
         
         return np.vstack(all_wavelets)
 
-    def run_pca_outlier_detection(self, real_loader, fake_loader, figname='pca.png'):
+    def run_pca_outlier_detection(self, real_loader, fake_loader):
         """Fit PCA on real data and detect outliers in fake data"""
         wavelets_real = self.extract_wavelets(real_loader)
         wavelets_fake = self.extract_wavelets(fake_loader)
 
-        # Fit PCA on real data
         self.pca_model = PCA(n_components=2)
-        # pca_results_real = self.pca_model.fit_transform(np.concatenate([wavelets_fake, wavelets_real], axis=0))
         pca_results_real = self.pca_model.fit_transform(wavelets_real)
-        
-        # Transform fake data
+
         pca_results_fake = self.pca_model.transform(wavelets_fake)
 
-        # Plot the results
-        self.plot_pca_results(pca_results_real, pca_results_fake, figname)
-
-    def plot_pca_results(self, pca_results_real, pca_results_fake, figname):
-        """Plot PCA results"""
-        plt.figure(figsize=(8, 6))
-        plt.scatter(pca_results_real[:, 0], pca_results_real[:, 1], label='Real', alpha=0.5, color='blue')
-        plt.scatter(pca_results_fake[:, 0], pca_results_fake[:, 1], label='Fake', alpha=0.5, color='red')
-        plt.title("PCA Outlier Detection (Fake Data)")
-        plt.legend()
-        plt.savefig(figname)
+        return pca_results_real, pca_results_fake

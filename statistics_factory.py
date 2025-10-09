@@ -75,16 +75,6 @@ STATISTIC_HISTOGRAMS = {
 
     # ===== DINOv3 =====
     # TODO: Not feasible.
-    # # --- ViT-7B/16 ---
-    # 'RIGID.DINOV3.VIT7B16.001': lambda: RIGIDDinoV3Histogram(model_name="facebook/dinov3-vit7b16-pretrain-lvd1689m", noise_level=0.001),
-    # 'RIGID.DINOV3.VIT7B16.01': lambda: RIGIDDinoV3Histogram(model_name="facebook/dinov3-vit7b16-pretrain-lvd1689m", noise_level=0.01),
-    # 'RIGID.DINOV3.VIT7B16.05': lambda: RIGIDDinoV3Histogram(model_name="facebook/dinov3-vit7b16-pretrain-lvd1689m", noise_level=0.05),
-    # 'RIGID.DINOV3.VIT7B16.10': lambda: RIGIDDinoV3Histogram(model_name="facebook/dinov3-vit7b16-pretrain-lvd1689m", noise_level=0.10),
-    # 'RIGID.DINOV3.VIT7B16.20': lambda: RIGIDDinoV3Histogram(model_name="facebook/dinov3-vit7b16-pretrain-lvd1689m", noise_level=0.20),
-    # 'RIGID.DINOV3.VIT7B16.30': lambda: RIGIDDinoV3Histogram(model_name="facebook/dinov3-vit7b16-pretrain-lvd1689m", noise_level=0.30),
-    # 'RIGID.DINOV3.VIT7B16.50': lambda: RIGIDDinoV3Histogram(model_name="facebook/dinov3-vit7b16-pretrain-lvd1689m", noise_level=0.50),
-    # 'RIGID.DINOV3.VIT7B16.75': lambda: RIGIDDinoV3Histogram(model_name="facebook/dinov3-vit7b16-pretrain-lvd1689m", noise_level=0.75),
-    # 'RIGID.DINOV3.VIT7B16.100': lambda: RIGIDDinoV3Histogram(model_name="facebook/dinov3-vit7b16-pretrain-lvd1689m", noise_level=1.0),
 
     # --- ViT-H/16 ---
     'RIGID.DINOV3.VITH16.001': lambda: RIGIDDinoV3Histogram(model_name="facebook/dinov3-vith16plus-pretrain-lvd1689m", noise_level=0.001),
@@ -152,17 +142,6 @@ STATISTIC_HISTOGRAMS = {
     'RIGID.CLIPOPENAI.75': lambda: RIGIDOpenAICLIPHistogram(noise_level=0.75),
     'RIGID.CLIPOPENAI.100': lambda: RIGIDOpenAICLIPHistogram(noise_level=1.0),
 
-    # # ===== LAION CLIP ViT-bigG-14 =====
-    # TODO: too slow.
-    # 'RIGID.CLIPBIGG.001': lambda: RIGIDBigGCLIPHistogram(noise_level=0.001),
-    # 'RIGID.CLIPBIGG.01': lambda: RIGIDBigGCLIPHistogram(noise_level=0.01),
-    # 'RIGID.CLIPBIGG.05': lambda: RIGIDBigGCLIPHistogram(noise_level=0.05),
-    # 'RIGID.CLIPBIGG.10': lambda: RIGIDBigGCLIPHistogram(noise_level=0.10),
-    # 'RIGID.CLIPBIGG.20': lambda: RIGIDBigGCLIPHistogram(noise_level=0.20),
-    # 'RIGID.CLIPBIGG.30': lambda: RIGIDBigGCLIPHistogram(noise_level=0.30),
-    # 'RIGID.CLIPBIGG.50': lambda: RIGIDBigGCLIPHistogram(noise_level=0.50),
-    # 'RIGID.CLIPBIGG.75': lambda: RIGIDBigGCLIPHistogram(noise_level=0.75),
-    # 'RIGID.CLIPBIGG.100': lambda: RIGIDBigGCLIPHistogram(noise_level=1.0),
 
     # ===== ConvNeXt =====
     'RIGID.CONVNEXT.001': lambda: RIGIDConvNeXtHistogram(noise_level=0.001),

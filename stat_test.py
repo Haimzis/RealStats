@@ -14,18 +14,10 @@ from utils import (
     calculate_metrics,
     compute_chi2_and_corr_matrix,
     compute_mean_std_dict,
-    create_multiband_pvalue_grid_figure,
-    create_pvalue_grid_figure,
     finding_optimal_independent_subgroup_deterministic,
     perform_ensemble_testing,
     remove_nans_from_tests,
-    save_ensembled_pvalue_kde_and_images,
-    save_per_image_kde_and_images,
-    plot_pvalue_histograms,
     set_seed,
-    plot_pvalue_histograms_from_arrays,
-    save_real_statistics_kde,
-    export_combined_to_csv
 )
 from data_utils import GlobalPatchDataset, SelfPatchDataset
 from enum import Enum
@@ -233,8 +225,6 @@ def main_multiple_patch_test(
     test_labels=None,
     batch_size=128,
     threshold=0.05,
-    save_independence_heatmaps=False,
-    save_histograms=False,
     ensemble_test='stouffer',
     max_workers=128,
     num_data_workers=2,
@@ -277,11 +267,10 @@ def main_multiple_patch_test(
 
     # Chi-Square and Correlation Matrix Computation
     chi2_p_matrix, corr_matrix = compute_chi2_and_corr_matrix(
-        keys, tuning_pvalue_distributions, max_workers=max_workers,
-        plot_independence_heatmap=save_independence_heatmaps, output_dir=output_dir, bins=chi2_bins
+        keys, tuning_pvalue_distributions, max_workers=max_workers, bins=chi2_bins
     )
 
-    independent_keys_group, best_results, optimization_roc = finding_optimal_independent_subgroup_deterministic(
+    independent_keys_group, best_results, _ = finding_optimal_independent_subgroup_deterministic(
         keys=keys,
         chi2_p_matrix=chi2_p_matrix,
         pvals_matrix=tuning_pvalue_distributions,
@@ -300,8 +289,6 @@ def main_multiple_patch_test(
 
     independent_keys_group_indices = [keys.index(value) for value in independent_keys_group]
     tuning_independent_pvals = tuning_pvalue_distributions[independent_keys_group_indices].T
-    perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)
-    
     # Convert independent keys to combinations
     independent_combinations = interpret_keys_to_combinations(independent_keys_group)
 
@@ -323,21 +310,6 @@ def main_multiple_patch_test(
     ensembled_stats, ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
     predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
 
-    plot_pvalue_histograms_from_arrays(
-        np.array([p for p, l in zip(independent_tests_pvalues, test_labels) if l == 0]),
-        np.array([p for p, l in zip(independent_tests_pvalues, test_labels) if l == 1]),
-        os.path.join(output_dir, "inference_stat"),
-        independent_keys_group
-        )
-    
-    if save_histograms and test_labels:
-        plot_pvalue_histograms(
-            [p for p, l in zip(ensembled_pvalues, test_labels) if l == 0],
-            [p for p, l in zip(ensembled_pvalues, test_labels) if l == 1],
-            os.path.join(output_dir, f"histogram_plot_{patch_sizes}_{ensemble_test}_alpha_{threshold}.png"),
-            "Histogram of P-values"
-        )
-    
     if return_logits:
         return {
             'scores': 1 - np.array(ensembled_pvalues),
@@ -357,7 +329,6 @@ def inference_multiple_patch_test(
     test_labels=None,
     batch_size=128,
     threshold=0.05,
-    save_histograms=False,
     ensemble_test='stouffer',
     max_workers=128,
     num_data_workers=2,
@@ -368,7 +339,6 @@ def inference_multiple_patch_test(
     test_type=TestType.LEFT,
     logger=None,
     seed=42,
-    draw_pvalues_trend_figure=False,
     reference_cache_suffix="",
     cache_suffix="",
 ):
@@ -393,15 +363,8 @@ def inference_multiple_patch_test(
 
     real_population_histogram = {k: v for k, v in real_population_histogram.items() if k in independent_statistics_keys_group}
 
-    # Plot raw statistic distributions as KDE
-    save_real_statistics_kde(
-        real_population_histogram,
-        independent_statistics_keys_group,
-        output_dir,
-    )
-    
     # CDF creation
-    real_population_cdfs = {test_id: compute_cdf(values, bins=cdf_bins, test_id=test_id) for test_id, values in real_population_histogram.items()}    
+    real_population_cdfs = {test_id: compute_cdf(values, bins=cdf_bins, test_id=test_id) for test_id, values in real_population_histogram.items()}
 
     # Tuning Pvalues
     tuning_real_population_pvals = calculate_pvals_from_cdf(real_population_cdfs, real_population_histogram, test_type)
@@ -417,8 +380,6 @@ def inference_multiple_patch_test(
     print(f'Independent keys: {independent_statistics_keys_group}')
     independent_keys_group_indices = [keys.index(value) for value in independent_statistics_keys_group]
     tuning_independent_pvals = tuning_pvalue_distributions[independent_keys_group_indices].T
-    perform_ensemble_testing(tuning_independent_pvals, ensemble_test, plot=True, output_dir=output_dir)    
-    
     # Inference
     inference_histogram = patch_parallel_preprocess(
         inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, seed=seed, cache_suffix=cache_suffix,
@@ -435,41 +396,6 @@ def inference_multiple_patch_test(
     
     ensembled_stats, ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
     predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
-    
-    if test_labels and hasattr(inference_dataset, "image_paths") and draw_pvalues_trend_figure:
-        combined = list(zip(inference_dataset.image_paths, ensembled_pvalues, test_labels))
-        export_combined_to_csv(combined, os.path.join(output_dir, "pvalue_dist.csv"))
-        for i in range(30):
-            random.shuffle(combined)  # New shuffle each time
-
-            image_paths_shuffled, pvalues_shuffled, test_labels_shuffled = zip(*combined)
-
-            success = create_multiband_pvalue_grid_figure(
-                image_paths=image_paths_shuffled,
-                pvalues=pvalues_shuffled,
-                test_labels=test_labels_shuffled,
-                thresholds=[0.01, 0.05, 0.10, 0.25, 0.5],
-                max_per_group=7,
-                output_path=os.path.join(output_dir, f"significance_grid_{i}.png")
-            )
-
-
-    plot_pvalue_histograms_from_arrays(
-        np.array([p for p, l in zip(independent_tests_pvalues, test_labels) if l == 0]),
-        np.array([p for p, l in zip(independent_tests_pvalues, test_labels) if l == 1]),
-        os.path.join(output_dir, "inference_stat"),
-        independent_statistics_keys_group
-        )
-    
-    if save_histograms and test_labels:
-        plot_pvalue_histograms(
-            [p for p, l in zip(ensembled_pvalues, test_labels) if l == 0],
-            [p for p, l in zip(ensembled_pvalues, test_labels) if l == 1],
-            os.path.join(output_dir, f"histogram_plot_{ensemble_test}_alpha_{threshold}.png"),
-            "Histogram of P-values", 
-            bins=50,
-            figsize=(6, 6), title_fontsize=16, label_fontsize=14, legend_fontsize=12
-        )
     
     if return_logits:
         return {

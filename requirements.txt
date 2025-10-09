@@ -1,6 +1,5 @@
 diffusers
 facenet_pytorch
-matplotlib
 mlflow
 networkx
 numpy
@@ -13,7 +12,6 @@ pytorch_wavelets
 scikit-image
 scikit-learn
 scipy
-seaborn
 statsmodels
 torch
 torchvision

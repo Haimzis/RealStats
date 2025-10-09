@@ -2,7 +2,6 @@ import numpy as np
 from pytorch_wavelets import DTCWTForward
 from tqdm import tqdm
 from sklearn.manifold import TSNE
-import matplotlib.pyplot as plt
 
 class TSNEWavelet:
     """Class for generating t-SNE plots using wavelet-transformed images"""
@@ -52,16 +51,4 @@ class TSNEWavelet:
         tsne = TSNE(n_components=2, random_state=42)
         tsne_results = tsne.fit_transform(X)
 
-        # Plot t-SNE results
-        self.plot_tsne_results(tsne_results, y)
-
-    def plot_tsne_results(self, tsne_results, labels):
-        """Plot t-SNE results and label the real and fake points"""
-        plt.figure(figsize=(8, 6))
-        real_points = tsne_results[labels == 0]
-        plt.scatter(real_points[:, 0], real_points[:, 1], label='Real', alpha=0.5, color='blue')
-        fake_points = tsne_results[labels == 1]
-        plt.scatter(fake_points[:, 0], fake_points[:, 1], label='Fake', alpha=0.5, color='red')
-        plt.title("t-SNE on Wavelet Features")
-        plt.legend()
-        plt.savefig("tsne.png")
+        return tsne_results, y

@@ -1,8 +1,6 @@
 import torch
 import numpy as np
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 
 
 class BaseHistogram:
@@ -51,43 +49,4 @@ class BaseHistogram:
                 results[path] = sample
 
         return results
-
-    def plot_histograms(self, histograms_real, histograms_fake, figname='histogram.png', xlabel='Metric', title='Histogram'):
-        """Plot histograms for real and fake datasets with mean and std in a rectangle."""
-        # Calculate mean and standard deviation for both datasets
-        mean_real = np.mean(histograms_real)
-        std_real = np.std(histograms_real)
-        mean_fake = np.mean(histograms_fake)
-        std_fake = np.std(histograms_fake)
-
-        # Plot histograms
-        plt.figure(figsize=(10, 5))
-        plt.hist(histograms_real.flatten(), bins=200, alpha=0.5, label="Real", color='blue', density=True)
-        plt.hist(histograms_fake.flatten(), bins=200, alpha=0.5, label="Fake", color='red', density=True)
-
-        # Labels and title
-        plt.xlabel(xlabel)
-        plt.ylabel("Frequency")
-        plt.title(title)
-        plt.legend()
-
-        # Add mean and std in a rectangle
-        stats_text_real = f"Real: Mean = {mean_real:.2f}, Std = {std_real:.2f}"
-        stats_text_fake = f"Fake: Mean = {mean_fake:.2f}, Std = {std_fake:.2f}"
-
-        text_x, text_y = 0.75, 0.85
-        plt.gca().add_patch(patches.Rectangle((text_x, text_y), 0.24, 0.1, transform=plt.gca().transAxes,
-                                              fill=True, color="white", alpha=0.7, edgecolor="black"))
-        plt.text(text_x + 0.01, text_y + 0.05, stats_text_real, transform=plt.gca().transAxes, fontsize=10)
-        plt.text(text_x + 0.01, text_y + 0.02, stats_text_fake, transform=plt.gca().transAxes, fontsize=10)
-
-        plt.savefig(figname)
-        plt.close()
-
-
-
-
-
-
-
 
