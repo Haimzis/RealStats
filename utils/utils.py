@@ -26,6 +26,7 @@ def calculate_chi2_cremer_v_and_corr(i, j, dist_1, dist_2, bins):
 
 def compute_chi2_and_corr_matrix(keys, distributions, max_workers=128, bins=10):
     """Compute Chi-Square-derived association metrics and correlation matrix."""
+    # Stage 2.1: Pairwise dependence testing via chi-square and Cramér's V.
     num_dists = len(distributions)
     chi2_p_matrix = np.zeros((num_dists, num_dists))
     corr_matrix = np.zeros((num_dists, num_dists))
@@ -74,6 +75,7 @@ def find_largest_independent_group(keys, chi2_p_matrix, p_threshold=0.05, test_t
 
 def find_largest_independent_group_iterative(keys, p_matrix, p_threshold=0.05, test_type="chi2"):
     """Enumerate maximal cliques that satisfy the independence threshold."""
+    # Stage 2.2: Independence graph construction from weakly associated statistics.
     graph = nx.Graph()
     graph.add_nodes_from(keys)
 
@@ -199,6 +201,7 @@ def finding_optimal_independent_subgroup_deterministic(
     preferred_statistics=None,
 ):
     """Deterministic search over cliques favouring preferred statistics."""
+    # Stage 2.3: Maximal clique validation with KS uniformity safeguard.
     preferred_lookup = {
         token.lower()
         for stat in preferred_statistics or ()

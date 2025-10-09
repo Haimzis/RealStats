@@ -191,6 +191,7 @@ def interpret_keys_to_combinations(independent_keys_group):
 
 def patch_parallel_preprocess(original_dataset, batch_size, combinations, max_workers, num_data_workers, pkl_dir='pkls', sort=True, seed=42, cache_suffix=""):
     """Preprocess the dataset for specific combinations in parallel."""
+    # Stage 1.1: Multi-detector processing across detector configurations.
     results = {}
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
@@ -255,6 +256,7 @@ def main_multiple_patch_test(
     reference_histogram = remove_nans_from_tests(reference_histogram)
 
     # CDF creation
+    # Stage 1.2: Empirical two-sided p-value modeling via ECDFs.
     reference_cdfs = {test_id: compute_cdf(values, bins=cdf_bins, test_id=test_id) for test_id, values in reference_histogram.items()}
 
     # Tuning Pvalues
@@ -266,10 +268,12 @@ def main_multiple_patch_test(
     tuning_pvalue_distributions = tuning_reference_pvals.T
 
     # Chi-Square and Correlation Matrix Computation
+    # Stage 2.1: Pairwise dependence testing under the null.
     chi2_p_matrix, corr_matrix = compute_chi2_and_corr_matrix(
         keys, tuning_pvalue_distributions, max_workers=max_workers, bins=chi2_bins
     )
 
+    # Stage 2.2-2.3: Independence graph construction and maximal clique selection.
     independent_keys_group, best_results, _ = finding_optimal_independent_subgroup_deterministic(
         keys=keys,
         chi2_p_matrix=chi2_p_matrix,
@@ -293,6 +297,7 @@ def main_multiple_patch_test(
     independent_combinations = interpret_keys_to_combinations(independent_keys_group)
 
     # Inference
+    # Inference phase (Fig. 4a): evaluate selected detectors on candidate images.
     inference_histogram = patch_parallel_preprocess(
         inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, seed=seed
     )
@@ -303,10 +308,12 @@ def main_multiple_patch_test(
         k: inference_histogram[k] for k in independent_keys_group if k in inference_histogram
     }
 
+    # Inference phase (Fig. 4b): map statistics to stored ECDFs for two-sided p-values.
     input_samples_pvalues = calculate_pvals_from_cdf(reference_cdfs, inference_histogram, test_type)
     independent_tests_pvalues = np.array(input_samples_pvalues)
     independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
-        
+
+    # Inference phase (Fig. 4c): aggregate independent p-values into a unified score.
     ensembled_stats, ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
     predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
 
@@ -354,6 +361,7 @@ def inference_multiple_patch_test(
     if reference_dataset is None:
         raise ValueError("reference_dataset must be provided for inference")
 
+    # Inference phase (Fig. 4a): compute stored statistics on reference real images.
     real_population_histogram = patch_parallel_preprocess(
         reference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, seed=seed, cache_suffix=reference_cache_suffix,
     )
@@ -364,6 +372,7 @@ def inference_multiple_patch_test(
     real_population_histogram = {k: v for k, v in real_population_histogram.items() if k in independent_statistics_keys_group}
 
     # CDF creation
+    # Stage 1.2 reuse: ECDF modeling from real reference set for inference cache.
     real_population_cdfs = {test_id: compute_cdf(values, bins=cdf_bins, test_id=test_id) for test_id, values in real_population_histogram.items()}
 
     # Tuning Pvalues
@@ -381,6 +390,7 @@ def inference_multiple_patch_test(
     independent_keys_group_indices = [keys.index(value) for value in independent_statistics_keys_group]
     tuning_independent_pvals = tuning_pvalue_distributions[independent_keys_group_indices].T
     # Inference
+    # Inference phase (Fig. 4a): evaluate selected detectors on candidate set.
     inference_histogram = patch_parallel_preprocess(
         inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, seed=seed, cache_suffix=cache_suffix,
     )
@@ -390,10 +400,12 @@ def inference_multiple_patch_test(
         key: inference_histogram[key] for key in independent_statistics_keys_group if key in inference_histogram
     }
 
+    # Inference phase (Fig. 4b): convert detector outputs to two-sided p-values via ECDFs.
     input_samples_pvalues = calculate_pvals_from_cdf(real_population_cdfs, inference_histogram, test_type)
     independent_tests_pvalues = np.array(input_samples_pvalues)
     independent_tests_pvalues = np.clip(independent_tests_pvalues, 0, 1)
-    
+
+    # Inference phase (Fig. 4c): aggregate p-values for final decision statistic.
     ensembled_stats, ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
     predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
     
