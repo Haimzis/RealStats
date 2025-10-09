@@ -6,12 +6,12 @@ import torch.multiprocessing as mp
 from statistics_factory import STATISTIC_HISTOGRAMS
 mp.set_start_method("spawn", force=True)
 import mlflow
-from sklearn.metrics import average_precision_score
+from sklearn.metrics import average_precision_score, roc_curve, auc
 from torchvision import transforms
 from datasets_factory import DatasetFactory, DatasetType
 from torch.utils.data import ConcatDataset
 from stat_test import TestType, main_multiple_patch_test
-from utils import plot_roc_curve, set_seed, balanced_testset
+from utils import set_seed, balanced_testset
 
 
 def shutdown(signum, frame):
@@ -30,9 +30,7 @@ parser.add_argument('--batch_size', type=int, default=128, help='Batch size for 
 parser.add_argument('--sample_size', type=int, default=512, help='Sample input size after downscale.')
 parser.add_argument('--patch_divisors', type=int, nargs='+', default=[0], help='Divisors to calculate patch sizes as sample_size // 2^i.')
 parser.add_argument('--threshold', type=float, default=0.05, help='P-value threshold for significance testing.')
-parser.add_argument('--save_histograms', type=int, choices=[0, 1], default=1, help='Save KDE plots for real and fake p-values.')
 parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm', 'minp'], default='manual-stouffer', help='Type of ensemble test to perform')
-parser.add_argument('--save_independence_heatmaps', type=int, choices=[0, 1], default=1, help='Save independence test heatmaps.')
 parser.add_argument('--dataset_type', type=str, default='ALL', choices=[e.name for e in DatasetType], help='Type of dataset configuration to use.')
 parser.add_argument('--output_dir', type=str, default='outputs', help='Directory to save logs and artifacts.')
 parser.add_argument('--pkls_dir', type=str, default='pkls/AIStats/new_stats', help='Path where to save pkls.')
@@ -102,8 +100,6 @@ def main():
             threshold=args.threshold,
             patch_sizes=patch_sizes,
             statistics=args.statistics,
-            save_independence_heatmaps=bool(args.save_independence_heatmaps),
-            save_histograms=bool(args.save_histograms),
             ensemble_test=args.ensemble_test,
             max_workers=args.max_workers,
             num_data_workers=args.num_data_workers,
@@ -121,9 +117,10 @@ def main():
         )
 
         balance_labels, balance_scores = balanced_testset(results['labels'], results['scores'], random_state=42)
-        auc = plot_roc_curve(balance_labels, balance_scores, test_id, args.output_dir)
+        fpr, tpr, _ = roc_curve(balance_labels, balance_scores)
+        roc_auc = auc(fpr, tpr)
         ap = average_precision_score(balance_labels, balance_scores)
-        mlflow.log_metric("AUC", auc)
+        mlflow.log_metric("AUC", roc_auc)
         mlflow.log_metric("AP", ap)
 
 

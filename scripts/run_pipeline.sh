@@ -34,8 +34,6 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
             --batch_size 64 \
             --sample_size 512 \
             --threshold 0.05 \
-            --save_histograms 1 \
-            --save_independence_heatmaps 1 \
             --output_dir "$LOGS_DIR" \
             --num_samples_per_class -1 \
             --num_data_workers 6 \

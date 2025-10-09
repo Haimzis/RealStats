@@ -29,8 +29,6 @@ mkdir -p "$LOGS_DIR"
         --seed 38 \
         --sample_size 512 \
         --threshold 0.9 \
-        --save_histograms 1 \
-        --draw_pvalues_trend_figure 1 \
         --pkls_dir pkls/AIStats/new_stats \
         --run_id inference_plot_run_$TIMESTAMP \
         --inference_aug none
