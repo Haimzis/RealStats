@@ -9,18 +9,6 @@ import networkx as nx
 from tqdm import tqdm
 
 
-def calculate_chi2_and_corr(i, j, dist_1, dist_2, bins):
-    """Compute chi-square p-value and correlation for two distributions."""
-    try:
-        corr, _ = spearmanr(dist_1, dist_2)
-        correlation = abs(corr)
-        contingency_table, _, _ = np.histogram2d(dist_1, dist_2, bins=(bins, bins), range=[[0, 1], [0, 1]])
-        chi2_stat, chi2_p, _, _ = chi2_contingency(contingency_table)
-        return i, j, chi2_p, correlation
-    except ValueError:
-        return i, j, -1, correlation
-
-
 def calculate_chi2_cremer_v_and_corr(i, j, dist_1, dist_2, bins):
     """Compute Cramér's V and correlation for two distributions."""
     try:

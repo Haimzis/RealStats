@@ -74,8 +74,6 @@ STATISTIC_HISTOGRAMS = {
     'RIGID.DINO.100': lambda: RIGIDDinoV2Histogram(noise_level=1.0),
 
     # ===== DINOv3 =====
-    # TODO: Not feasible.
-
     # --- ViT-H/16 ---
     'RIGID.DINOV3.VITH16.001': lambda: RIGIDDinoV3Histogram(model_name="facebook/dinov3-vith16plus-pretrain-lvd1689m", noise_level=0.001),
     'RIGID.DINOV3.VITH16.01': lambda: RIGIDDinoV3Histogram(model_name="facebook/dinov3-vith16plus-pretrain-lvd1689m", noise_level=0.01),
