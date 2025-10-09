@@ -12,7 +12,7 @@ mkdir -p "$LOGS_DIR"
 {
     echo "Starting run..."
 
-    python executor_inference.py \
+    python inference.py \
         --ensemble_test "manual-stouffer" \
         --batch_size 16 \
         --output_dir "$LOGS_DIR" \
@@ -22,7 +22,6 @@ mkdir -p "$LOGS_DIR"
         --gpu "0" \
         --independent_keys \
             PatchProcessing_statistic=RIGID.DINO.05_patch_size=512_seed=38 \
-            PatchProcessing_statistic=LatentNoiseCriterion_original_patch_size=512_seed=38 \
             PatchProcessing_statistic=RIGID.CLIPOPENAI.05_patch_size=512_seed=38 \
         --patch_divisors 0 \
         --cdf_bins 400 \

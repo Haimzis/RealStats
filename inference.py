@@ -42,7 +42,7 @@ parser.add_argument('--experiment_id', type=str, default='default', help='Name o
 parser.add_argument('--independent_keys', type=str, nargs='+', default=["PatchProcessing_statistic=RIGID.DINO.05_patch_size=512_seed=38", "PatchProcessing_statistic=RIGID.CLIPOPENAI.05_patch_size=512_seed=38"], help='Independent statistics keys group')
 parser.add_argument('--inference_aug', type=str, default='none', choices=['none', 'jpeg', 'blur'], help='Apply augmentation to inference dataset (jpeg or blur).')
 parser.add_argument('--draw_pvalues_trend_figure', type=int, default=0, help='whether to draw p-values trend figure')
-parser.add_argument('--latent_noise_csv', type=str, default="manifold_bias_criterion.csv", help='Path to the CSV file with LatentNoiseCriterion_original scores.')
+parser.add_argument('--latent_noise_csv', type=str, default=None, help='Path to the CSV file with LatentNoiseCriterion_original scores.')
 
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
@@ -135,13 +135,9 @@ def main():
 
         )
 
-        results['labels'] = labels
-        # Match executor metric computation by balancing the test set before measuring AUC/AP.
-        # (Previously the ROC computation consumed the raw `results` dict directly.)
-        balance_labels, balance_scores = balanced_testset(labels, results['scores'], random_state=42)
+        balance_labels, balance_scores = balanced_testset(results['labels'], results['scores'], random_state=42)
         auc = plot_roc_curve(balance_labels, balance_scores, test_id, args.output_dir)
         ap = average_precision_score(balance_labels, balance_scores)
-        # plot_fakeness_score_distribution(results, test_id, args.output_dir, args.threshold)
         plot_fakeness_score_histogram(results, test_id, args.output_dir, args.threshold)
         mlflow.log_metric("AUC", auc)
         mlflow.log_metric("AP", ap)

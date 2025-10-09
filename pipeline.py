@@ -120,8 +120,7 @@ def main():
             preferred_statistics=args.preferred_statistics
         )
 
-        results['labels'] = labels
-        balance_labels, balance_scores = balanced_testset(labels, results['scores'], random_state=42)
+        balance_labels, balance_scores = balanced_testset(results['labels'], results['scores'], random_state=42)
         auc = plot_roc_curve(balance_labels, balance_scores, test_id, args.output_dir)
         ap = average_precision_score(balance_labels, balance_scores)
         mlflow.log_metric("AUC", auc)
