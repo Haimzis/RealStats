@@ -1,14 +1,10 @@
 diffusers
-facenet_pytorch
 mlflow
 networkx
 numpy
 opencv-python
-optuna
 pandas
 Pillow
-PyWavelets
-pytorch_wavelets
 scikit-image
 scikit-learn
 scipy
