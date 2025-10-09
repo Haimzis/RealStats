@@ -16,7 +16,7 @@ from utils import (
     balanced_testset,
     set_seed,
 )
-from utils.transform_cache import build_transform_cache_suffix
+from transform_cache import build_transform_cache_suffix
 from sklearn.metrics import roc_curve, auc
 
 

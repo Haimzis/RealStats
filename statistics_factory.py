@@ -2,60 +2,12 @@
 
 from typing import Optional
 
-from processing.blurness_histogram import BlurDetectionHistogram
-from processing.filters_histograms import DirectionalEdgeNormHistogram, EdgeNormHistogram, EmbossNormHistogram, GaussianDifferenceNormHistogram, HighPassNormHistogram, NoiseNormHistogram, SharpnessNormHistogram, SmoothingNormHistogram
-from processing.gabor_histogram import GaborFilterFeatureMapNorm
-from processing.waves import WaveletNormHistogram
-from processing.hsv_histogram import HSVHistogram
-from processing.jpeg_histogram import JPEGCompressionRatioHistogram
-from processing.laplacian_histogram import LaplacianVarianceHistogram
 from processing.manifold_bias_histogram import LatentNoiseCriterion, LatentNoiseCriterionOriginal
-from processing.psnr_noise_histogram import PSNRBlurHistogram
 from processing.rigid_histogram import RIGIDBEiTHistogram, RIGIDBigGCLIPHistogram, RIGIDConvNeXtHistogram, RIGIDDinoV2Histogram, RIGIDDinoV3Histogram, RIGIDEVAHistogram, RIGIDOpenAICLIPHistogram, RIGIDOpenCLIPHistogram, RIGIDResNet50Histogram
-from processing.sift_histogram import SIFTHistogram
-from processing.ssim_noise_histogram import SSIMBlurHistogram
-from processing.waves import DCTNormHistogram, FourierNormHistogram
 
 
-# Define a dictionary that maps statistic names to their corresponding histogram generator classes
 STATISTIC_HISTOGRAMS = {
-    # Wavelet and Frequency Domain Statistics
-    'bior1.1_l0': lambda: WaveletNormHistogram(selected_indices=[0], wave='bior1.1'),
-    'bior3.1_l0': lambda: WaveletNormHistogram(selected_indices=[0], wave='bior3.1'),
-    'bior6.8_l0': lambda: WaveletNormHistogram(selected_indices=[0], wave='bior6.8'),
-    'coif1_l0': lambda: WaveletNormHistogram(selected_indices=[0], wave='coif1'),
-    'coif10_l0': lambda: WaveletNormHistogram(selected_indices=[0], wave='coif10'),
-    'db1_l0': lambda: WaveletNormHistogram(selected_indices=[0], wave='db1'),
-    'db38_l0': lambda: WaveletNormHistogram(selected_indices=[0], wave='db38'),
-    'haar_l0': lambda: WaveletNormHistogram(selected_indices=[0], wave='haar'),
-    'rbio6.8_l0': lambda: WaveletNormHistogram(selected_indices=[0], wave='rbio6.8'),
-    'sym2_l0': lambda: WaveletNormHistogram(selected_indices=[0], wave='sym2'),
-
-    'fourier': lambda: FourierNormHistogram(),
-    'dct_l1': lambda: DCTNormHistogram(dct_type=1),
-
-    # Non-Wavelet Image Statistics
-    'blurness': lambda: BlurDetectionHistogram(),
-    'gabor': lambda: GaborFilterFeatureMapNorm(),
-    'hsv': lambda: HSVHistogram(),
-    'jpeg': lambda: JPEGCompressionRatioHistogram(),
-    'laplacian': lambda: LaplacianVarianceHistogram(),
-    'psnr': lambda: PSNRBlurHistogram(),
-    'sift': lambda: SIFTHistogram(),
-    'ssim': lambda: SSIMBlurHistogram(),
-
-    # New Latent Space Statistics
-    'edge5x5': lambda: EdgeNormHistogram(),
-    'smoothing': lambda: SmoothingNormHistogram(),
-    'noise': lambda: NoiseNormHistogram(),
-    'sharpness': lambda: SharpnessNormHistogram(),
-    'emboss': lambda: EmbossNormHistogram(),
-    'highpass': lambda: HighPassNormHistogram(),
-    'sobel': lambda: DirectionalEdgeNormHistogram(),
-    'gauss_diff': lambda: GaussianDifferenceNormHistogram(),
-
     # Paper Statistics
-    'LatentNoiseCriterion': lambda: LatentNoiseCriterion(),
     'LatentNoiseCriterion_original': lambda: LatentNoiseCriterionOriginal(),
 
     # ==============================
