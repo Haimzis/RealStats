@@ -42,7 +42,6 @@ def _describe_transform(transform) -> str:
             sigma=_sanitize_component(transform.sigma),
         )
 
-    # Default to an empty string so unrelated transforms reuse existing caches
     return ""
 
 

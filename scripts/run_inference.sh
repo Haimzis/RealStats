@@ -29,7 +29,7 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
         echo "Starting run $((i + 1))..."
         echo "Command: python executor.py $CONFIG"
 
-        python executor_inference.py \
+        python inference.py \
             --batch_size 16 \
             --output_dir "$LOGS_DIR" \
             --num_data_workers 0 \

@@ -115,11 +115,9 @@ class DatasetFactory:
         """
         dataset_type = dataset_type.upper()
 
-        # Ensure dataset_type exists in DatasetType
         if dataset_type not in DatasetType.__members__:
             raise ValueError(f"Unsupported dataset type: {dataset_type}")
 
-        # Retrieve dataset configuration
         dataset_info = DatasetType[dataset_type].get_paths()
 
         datasets = {}

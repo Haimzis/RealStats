@@ -59,12 +59,10 @@ def main():
     dataset_pkls_dir = args.pkls_dir
     os.makedirs(dataset_pkls_dir, exist_ok=True)
 
-    # Initialize MLflow experiment
     mlflow.set_experiment(args.experiment_id)
     with mlflow.start_run(run_name=args.run_id):
         args.output_dir = urlparse(mlflow.get_artifact_uri()).path
 
-        # Load transforms and datasets
         transform = transforms.Compose([
             transforms.Resize((args.sample_size, args.sample_size)),
             transforms.ToTensor()
@@ -82,12 +80,10 @@ def main():
             list(getattr(test_fake_dataset, "image_paths", []))
         )
 
-        # Compute patch sizes from divisors
         patch_sizes = [args.sample_size // (2 ** d) for d in args.patch_divisors]
 
         test_id = f"divs_{'-'.join(map(str, args.patch_divisors))}-statistics_{len(args.statistics)}"
 
-        # Log all relevant parameters
         mlflow.log_params(vars(args))
         mlflow.log_param("patch_sizes", patch_sizes)
         mlflow.log_param("test_id", test_id)

@@ -5,6 +5,7 @@ from processing.histograms import BaseHistogram
 from transformers import AutoImageProcessor, CLIPModel
 from transformers import AutoImageProcessor, ResNetForImageClassification
 
+
 class RIGIDNormHistogram(BaseHistogram):
     def __init__(self, model_name, noise_level=0.05):
         super().__init__()
@@ -246,7 +247,7 @@ class RIGIDOpenCLIPHistogram(RIGIDCLSHistogram):
 
     def load_model(self):
         model = CLIPModel.from_pretrained(self.model_name)
-        return model.vision_model  # ✅ Use only the vision tower
+        return model.vision_model
 
     def get_embedding(self, outputs):
         return outputs.last_hidden_state  # [B, seq_len, dim]

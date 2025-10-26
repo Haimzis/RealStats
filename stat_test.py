@@ -116,7 +116,6 @@ def calculate_cdfs_pvalues(real_population_cdfs, input_samples_values, test_type
     for descriptor, sample in input_samples_values.items():
         _, bin_edges, population_cdf = real_population_cdfs[descriptor]
         
-        # Determine the bin index for each sample
         bin_index = np.clip(np.digitize(sample, bin_edges) - 1, 0, len(population_cdf) - 1)
         pvalue = None 
 
@@ -296,7 +295,6 @@ def main_multiple_patch_test(
     # Convert independent keys to combinations
     independent_combinations = interpret_keys_to_combinations(independent_keys_group)
 
-    # Inference
     # Inference phase (Fig. 4a): evaluate selected detectors on candidate images.
     inference_histogram = patch_parallel_preprocess(
         inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, seed=seed
@@ -371,7 +369,6 @@ def inference_multiple_patch_test(
 
     real_population_histogram = {k: v for k, v in real_population_histogram.items() if k in independent_statistics_keys_group}
 
-    # CDF creation
     # Stage 1.2 reuse: ECDF modeling from real reference set for inference cache.
     real_population_cdfs = {test_id: compute_cdf(values, bins=cdf_bins, test_id=test_id) for test_id, values in real_population_histogram.items()}
 
@@ -389,7 +386,7 @@ def inference_multiple_patch_test(
     print(f'Independent keys: {independent_statistics_keys_group}')
     independent_keys_group_indices = [keys.index(value) for value in independent_statistics_keys_group]
     tuning_independent_pvals = tuning_pvalue_distributions[independent_keys_group_indices].T
-    # Inference
+
     # Inference phase (Fig. 4a): evaluate selected detectors on candidate set.
     inference_histogram = patch_parallel_preprocess(
         inference_dataset, batch_size, independent_combinations, max_workers, num_data_workers, pkl_dir=pkl_dir, seed=seed, cache_suffix=cache_suffix,

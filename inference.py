@@ -53,7 +53,6 @@ def main():
     dataset_pkls_dir = args.pkls_dir
     os.makedirs(dataset_pkls_dir, exist_ok=True)
 
-    # Initialize MLflow experiment
     mlflow.set_experiment(args.experiment_id)
     with mlflow.start_run(run_name=args.run_id):
         args.output_dir = urlparse(mlflow.get_artifact_uri()).path
@@ -76,7 +75,6 @@ def main():
         test_real_dataset = datasets['test_real']
         test_fake_dataset = datasets['test_fake']
 
-        # Apply the inference-time augmentation only to the evaluation splits.
         test_real_dataset.transform = inference_transform
         test_fake_dataset.transform = inference_transform
 
@@ -91,7 +89,6 @@ def main():
         patch_sizes = [args.sample_size // (2 ** d) for d in args.patch_divisors]
         test_id = f"inference_run_{args.run_id}"
 
-        # Log all arguments and relevant parameters
         mlflow.log_params(vars(args))
         mlflow.log_param("patch_sizes", patch_sizes)
         mlflow.log_param("test_id", test_id)
@@ -99,7 +96,6 @@ def main():
         mlflow.log_param("reference_transform_cache_suffix", reference_cache_suffix or "none")
         mlflow.log_param("inference_transform_cache_suffix", inference_cache_suffix or "none")
 
-        # Run inference-only flow
         results = inference_multiple_patch_test(
             reference_dataset=reference_dataset,
             inference_dataset=inference_dataset,
@@ -119,7 +115,6 @@ def main():
             seed=args.seed,
             reference_cache_suffix=reference_cache_suffix,
             cache_suffix=inference_cache_suffix,
-
         )
 
         balance_labels, balance_scores = balanced_testset(results['labels'], results['scores'], random_state=42)
