@@ -1,5 +1,3 @@
-# statistics_factory.py
-
 from typing import Optional
 
 from processing.manifold_bias_histogram import LatentNoiseCriterion, LatentNoiseCriterionOriginal
