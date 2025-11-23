@@ -1,6 +1,6 @@
 from typing import Optional
 
-from processing.manifold_bias_histogram import LatentNoiseCriterion, LatentNoiseCriterionOriginal
+from processing.manifold_bias_histogram import LatentNoiseCriterionOriginal
 from processing.rigid_histogram import RIGIDBEiTHistogram, RIGIDBigGCLIPHistogram, RIGIDConvNeXtHistogram, RIGIDDinoV2Histogram, RIGIDDinoV3Histogram, RIGIDEVAHistogram, RIGIDOpenAICLIPHistogram, RIGIDOpenCLIPHistogram, RIGIDResNet50Histogram
 
 
