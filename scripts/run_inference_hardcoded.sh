@@ -8,31 +8,25 @@ TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 LOGS_DIR="$LOGS_BASE_DIR/run_$TIMESTAMP"
 mkdir -p "$LOGS_DIR"
 
-# Redirect all output (stdout + stderr) to logs.txt
-{
-    echo "Starting run..."
-
-    python inference.py \
-        --ensemble_test "manual-stouffer" \
-        --batch_size 16 \
-        --output_dir "$LOGS_DIR" \
-        --num_data_workers 3 \
-        --max_workers 3 \
-        --experiment_id "plots" \
-        --gpu "0" \
-        --independent_keys \
-            PatchProcessing_statistic=RIGID.DINO.05_patch_size=512_seed=38 \
-            PatchProcessing_statistic=RIGID.CLIPOPENAI.05_patch_size=512_seed=38 \
-        --patch_divisors 0 \
-        --cdf_bins 400 \
-        --dataset_type ALL \
-        --seed 38 \
-        --sample_size 512 \
-        --threshold 0.9 \
-        --pkls_dir pkls/AIStats/new_stats \
-        --run_id inference_plot_run_$TIMESTAMP \
-        --inference_aug none \
-        --use_mlflow 0
-
-    echo "Run complete."
-} &> "$LOGS_DIR/logs.txt"
+# Execute inference with hardcoded arguments
+python inference.py \
+    --ensemble_test "manual-stouffer" \
+    --batch_size 16 \
+    --output_dir "$LOGS_DIR" \
+    --num_data_workers 3 \
+    --max_workers 3 \
+    --experiment_id "plots" \
+    --gpu "0" \
+    --independent_keys \
+        PatchProcessing_statistic=RIGID.DINO.05_patch_size=512_seed=38 \
+        PatchProcessing_statistic=RIGID.CLIPOPENAI.05_patch_size=512_seed=38 \
+    --patch_divisors 0 \
+    --cdf_bins 400 \
+    --dataset_type ALL \
+    --seed 38 \
+    --sample_size 512 \
+    --threshold 0.9 \
+    --pkls_dir pkls/AIStats/new_stats \
+    --run_id inference_plot_run_$TIMESTAMP \
+    --inference_aug none \
+    --use_mlflow 0
