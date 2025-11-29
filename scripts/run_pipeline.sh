@@ -37,7 +37,7 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
             --output_dir "$LOGS_DIR" \
             --num_samples_per_class -1 \
             --num_data_workers 6 \
-            --max_workers 3 \
+            --max_workers 4 \
             --run_id "run_$TIMESTAMP" \
             --gpu "0,1,2" \
             $CONFIG

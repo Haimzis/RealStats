@@ -31,7 +31,8 @@ mkdir -p "$LOGS_DIR"
         --threshold 0.9 \
         --pkls_dir pkls/AIStats/new_stats \
         --run_id inference_plot_run_$TIMESTAMP \
-        --inference_aug none
+        --inference_aug none \
+        --use_mlflow 0
 
     echo "Run complete."
 } &> "$LOGS_DIR/logs.txt"

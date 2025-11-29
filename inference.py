@@ -39,7 +39,7 @@ parser.add_argument('--experiment_id', type=str, default='default', help='Name o
 parser.add_argument('--independent_keys', type=str, nargs='+', default=["PatchProcessing_statistic=RIGID.DINO.05_patch_size=512_seed=38", "PatchProcessing_statistic=RIGID.CLIPOPENAI.05_patch_size=512_seed=38"], help='Independent statistics keys group')
 parser.add_argument('--inference_aug', type=str, default='none', choices=['none', 'jpeg', 'blur'], help='Apply augmentation to inference dataset (jpeg or blur).')
 parser.add_argument('--latent_noise_csv', type=str, default=None, help='Path to the CSV file with LatentNoiseCriterion_original scores.')
-parser.add_argument('--use_mlflow', action=argparse.BooleanOptionalAction, default=True, help='Enable or disable MLflow logging.')
+parser.add_argument('--use_mlflow', type=int, default=0, help='Enable or disable MLflow logging.')
 
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu

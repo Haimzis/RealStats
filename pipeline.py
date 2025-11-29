@@ -48,7 +48,8 @@ parser.add_argument('--preferred_statistics', type=str, nargs='*', default=["RIG
 parser.add_argument('--gpu', type=str, default='1', help='GPU device(s) to use, e.g., "0", "1", or "0,1".')
 parser.add_argument('--run_id', type=str, default='none', help='Unique identifier for this MLflow run.')
 parser.add_argument('--experiment_id', type=str, default='default', help='Name or ID of the MLflow experiment.')
-parser.add_argument('--use_mlflow', action=argparse.BooleanOptionalAction, default=True, help='Enable or disable MLflow logging.')
+parser.add_argument('--use_mlflow', type=int, default=0, help='Enable or disable MLflow logging.')
+
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
  
