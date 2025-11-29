@@ -4,7 +4,6 @@ import warnings
 import numpy as np
 import torch
 from scipy.stats import spearmanr, chi2_contingency, kstest, combine_pvalues, norm
-from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score, accuracy_score
 import networkx as nx
 from tqdm import tqdm
 
@@ -120,27 +119,6 @@ def compute_cdf(histogram_values, bins=1000, test_id=None):
     hist, bin_edges = np.histogram(histogram_values, bins=bins, density=True)
     cdf = np.cumsum(hist) * np.diff(bin_edges)
     return hist, bin_edges, cdf
-
-
-def calculate_metrics(test_labels, predictions):
-    """Compute standard classification metrics from predictions."""
-    cm = confusion_matrix(test_labels, predictions)
-    tn, fp, fn, tp = cm.ravel()
-
-    precision = precision_score(test_labels, predictions)
-    recall = recall_score(test_labels, predictions)
-    specificity = tn / (tn + fp) if (tn + fp) > 0 else 0
-    f1 = f1_score(test_labels, predictions)
-    accuracy = accuracy_score(test_labels, predictions)
-
-    return {
-        "precision": precision,
-        "recall": recall,
-        "specificity": specificity,
-        "f1_score": f1,
-        "accuracy": accuracy,
-        "confusion_matrix": cm.tolist(),
-    }
 
 
 def compute_mean_std_dict(input_dict):

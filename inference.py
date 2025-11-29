@@ -39,6 +39,7 @@ parser.add_argument('--experiment_id', type=str, default='default', help='Name o
 parser.add_argument('--independent_keys', type=str, nargs='+', default=["PatchProcessing_statistic=RIGID.DINO.05_patch_size=512_seed=38", "PatchProcessing_statistic=RIGID.CLIPOPENAI.05_patch_size=512_seed=38"], help='Independent statistics keys group')
 parser.add_argument('--inference_aug', type=str, default='none', choices=['none', 'jpeg', 'blur'], help='Apply augmentation to inference dataset (jpeg or blur).')
 parser.add_argument('--latent_noise_csv', type=str, default=None, help='Path to the CSV file with LatentNoiseCriterion_original scores.')
+parser.add_argument('--use_mlflow', action=argparse.BooleanOptionalAction, default=True, help='Enable or disable MLflow logging.')
 
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
@@ -47,82 +48,92 @@ if args.latent_noise_csv:
     os.environ["LATENT_NOISE_CRITERION_ORIGINAL_CSV"] = os.path.abspath(args.latent_noise_csv)
 
     
-def main():
+def run_inference(logger=None):
     set_seed(args.seed)
 
     dataset_pkls_dir = args.pkls_dir
     os.makedirs(dataset_pkls_dir, exist_ok=True)
 
-    mlflow.set_experiment(args.experiment_id)
-    with mlflow.start_run(run_name=args.run_id):
-        args.output_dir = urlparse(mlflow.get_artifact_uri()).path
+    base_transform_steps = [transforms.Resize((args.sample_size, args.sample_size))]
+    base_transform = transforms.Compose(base_transform_steps + [transforms.ToTensor()])
 
-        base_transform_steps = [transforms.Resize((args.sample_size, args.sample_size))]
-        base_transform = transforms.Compose(base_transform_steps + [transforms.ToTensor()])
+    inference_transform_steps = list(base_transform_steps)
+    if args.inference_aug == 'jpeg':
+        inference_transform_steps.append(JPEGCompressionTransform())
+    elif args.inference_aug == 'blur':
+        inference_transform_steps.append(transforms.GaussianBlur(kernel_size=(3, 3), sigma=1.0))
+    inference_transform = transforms.Compose(inference_transform_steps + [transforms.ToTensor()])
 
-        inference_transform_steps = list(base_transform_steps)
-        if args.inference_aug == 'jpeg':
-            inference_transform_steps.append(JPEGCompressionTransform())
-        elif args.inference_aug == 'blur':
-            inference_transform_steps.append(transforms.GaussianBlur(kernel_size=(3, 3), sigma=1.0))
-        inference_transform = transforms.Compose(inference_transform_steps + [transforms.ToTensor()])
+    reference_cache_suffix = build_transform_cache_suffix(base_transform)
+    inference_cache_suffix = build_transform_cache_suffix(inference_transform)
 
-        reference_cache_suffix = build_transform_cache_suffix(base_transform)
-        inference_cache_suffix = build_transform_cache_suffix(inference_transform)
+    datasets = DatasetFactory.create_dataset(dataset_type=args.dataset_type, transform=base_transform)
+    reference_dataset = datasets['reference_real']
+    test_real_dataset = datasets['test_real']
+    test_fake_dataset = datasets['test_fake']
 
-        datasets = DatasetFactory.create_dataset(dataset_type=args.dataset_type, transform=base_transform)
-        reference_dataset = datasets['reference_real']
-        test_real_dataset = datasets['test_real']
-        test_fake_dataset = datasets['test_fake']
+    test_real_dataset.transform = inference_transform
+    test_fake_dataset.transform = inference_transform
 
-        test_real_dataset.transform = inference_transform
-        test_fake_dataset.transform = inference_transform
+    inference_dataset = ConcatDataset([test_real_dataset, test_fake_dataset])
 
-        inference_dataset = ConcatDataset([test_real_dataset, test_fake_dataset])
+    real_image_paths = list(getattr(test_real_dataset, 'image_paths', []))
+    fake_image_paths = list(getattr(test_fake_dataset, 'image_paths', []))
+    inference_dataset.image_paths = real_image_paths + fake_image_paths
 
-        real_image_paths = list(getattr(test_real_dataset, 'image_paths', []))
-        fake_image_paths = list(getattr(test_fake_dataset, 'image_paths', []))
-        inference_dataset.image_paths = real_image_paths + fake_image_paths
+    labels = [0] * len(test_real_dataset) + [1] * len(test_fake_dataset)
 
-        labels = [0] * len(test_real_dataset) + [1] * len(test_fake_dataset)
+    patch_sizes = [args.sample_size // (2 ** d) for d in args.patch_divisors]
+    test_id = f"inference_run_{args.run_id}"
 
-        patch_sizes = [args.sample_size // (2 ** d) for d in args.patch_divisors]
-        test_id = f"inference_run_{args.run_id}"
+    if logger:
+        logger.log_params(vars(args))
+        logger.log_param("patch_sizes", patch_sizes)
+        logger.log_param("test_id", test_id)
+        logger.log_param("num_independent_keys", len(args.independent_keys))
+        logger.log_param("reference_transform_cache_suffix", reference_cache_suffix or "none")
+        logger.log_param("inference_transform_cache_suffix", inference_cache_suffix or "none")
 
-        mlflow.log_params(vars(args))
-        mlflow.log_param("patch_sizes", patch_sizes)
-        mlflow.log_param("test_id", test_id)
-        mlflow.log_param("num_independent_keys", len(args.independent_keys))
-        mlflow.log_param("reference_transform_cache_suffix", reference_cache_suffix or "none")
-        mlflow.log_param("inference_transform_cache_suffix", inference_cache_suffix or "none")
+    results = inference_multiple_patch_test(
+        reference_dataset=reference_dataset,
+        inference_dataset=inference_dataset,
+        independent_statistics_keys_group=args.independent_keys,
+        batch_size=args.batch_size,
+        threshold=args.threshold,
+        ensemble_test=args.ensemble_test,
+        max_workers=args.max_workers,
+        num_data_workers=args.num_data_workers,
+        output_dir=args.output_dir,
+        pkl_dir=dataset_pkls_dir,
+        return_logits=True,
+        cdf_bins=args.cdf_bins,
+        test_type=TestType.BOTH,
+        logger=logger,
+        seed=args.seed,
+        reference_cache_suffix=reference_cache_suffix,
+        cache_suffix=inference_cache_suffix,
+    )
 
-        results = inference_multiple_patch_test(
-            reference_dataset=reference_dataset,
-            inference_dataset=inference_dataset,
-            independent_statistics_keys_group=args.independent_keys,
-            test_labels=labels,
-            batch_size=args.batch_size,
-            threshold=args.threshold,
-            ensemble_test=args.ensemble_test,
-            max_workers=args.max_workers,
-            num_data_workers=args.num_data_workers,
-            output_dir=args.output_dir,
-            pkl_dir=dataset_pkls_dir,
-            return_logits=True,
-            cdf_bins=args.cdf_bins,
-            test_type=TestType.BOTH,
-            logger=mlflow,
-            seed=args.seed,
-            reference_cache_suffix=reference_cache_suffix,
-            cache_suffix=inference_cache_suffix,
-        )
+    balance_labels, balance_scores = balanced_testset(labels, results['scores'], random_state=42)
+    fpr, tpr, _ = roc_curve(balance_labels, balance_scores)
+    roc_auc = auc(fpr, tpr)
+    ap = average_precision_score(balance_labels, balance_scores)
+    if logger:
+        logger.log_metric("AUC", roc_auc)
+        logger.log_metric("AP", ap)
 
-        balance_labels, balance_scores = balanced_testset(results['labels'], results['scores'], random_state=42)
-        fpr, tpr, _ = roc_curve(balance_labels, balance_scores)
-        roc_auc = auc(fpr, tpr)
-        ap = average_precision_score(balance_labels, balance_scores)
-        mlflow.log_metric("AUC", roc_auc)
-        mlflow.log_metric("AP", ap)
+
+def main():
+    logger = mlflow if args.use_mlflow else None
+
+    if logger:
+        mlflow.set_experiment(args.experiment_id)
+        with mlflow.start_run(run_name=args.run_id):
+            args.output_dir = urlparse(mlflow.get_artifact_uri()).path
+            run_inference(logger)
+    else:
+        os.makedirs(args.output_dir, exist_ok=True)
+        run_inference(logger)
 
 
 if __name__ == "__main__":

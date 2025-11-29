@@ -11,7 +11,6 @@ from statistics_factory import get_histogram_generator
 from processing.manifold_bias_histogram import PathBasedStatistic
 from utils import (
     compute_cdf,
-    calculate_metrics,
     compute_chi2_and_corr_matrix,
     compute_mean_std_dict,
     finding_optimal_independent_subgroup_deterministic,
@@ -222,7 +221,6 @@ def main_multiple_patch_test(
     inference_dataset,
     statistics,
     patch_sizes,
-    test_labels=None,
     batch_size=128,
     threshold=0.05,
     ensemble_test='stouffer',
@@ -313,25 +311,28 @@ def main_multiple_patch_test(
 
     # Inference phase (Fig. 4c): aggregate independent p-values into a unified score.
     ensembled_stats, ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
-    predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
+    ensembled_pvalues = np.array(ensembled_pvalues)
 
     if return_logits:
         return {
-            'scores': 1 - np.array(ensembled_pvalues),
+            'scores': 1 - ensembled_pvalues,
             'n_tests': len(list(independent_keys_group))
         }
 
-    # Evaluate predictions
-    if test_labels:
-        metrics = calculate_metrics(test_labels, predictions)
-        return metrics
+    predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
+    results = {
+        'scores': ensembled_pvalues,
+        'n_tests': len(list(independent_keys_group)),
+        'predictions': predictions,
+    }
+
+    return results
 
 
 def inference_multiple_patch_test(
     reference_dataset,
     inference_dataset,
     independent_statistics_keys_group,
-    test_labels=None,
     batch_size=128,
     threshold=0.05,
     ensemble_test='stouffer',
@@ -404,15 +405,19 @@ def inference_multiple_patch_test(
 
     # Inference phase (Fig. 4c): aggregate p-values for final decision statistic.
     ensembled_stats, ensembled_pvalues = perform_ensemble_testing(independent_tests_pvalues, ensemble_test)
-    predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
-    
+    ensembled_pvalues = np.array(ensembled_pvalues)
+
     if return_logits:
         return {
-            'scores': 1 - np.array(ensembled_pvalues),
+            'scores': 1 - ensembled_pvalues,
             'n_tests': len(list(independent_statistics_keys_group))
         }
 
-    # Evaluate predictions
-    if test_labels:
-        metrics = calculate_metrics(test_labels, predictions)
-        return metrics
+    predictions = [1 if pval < threshold else 0 for pval in ensembled_pvalues]
+    results = {
+        'scores': ensembled_pvalues,
+        'n_tests': len(list(independent_statistics_keys_group)),
+        'predictions': predictions,
+    }
+
+    return results

@@ -48,76 +48,89 @@ parser.add_argument('--preferred_statistics', type=str, nargs='*', default=["RIG
 parser.add_argument('--gpu', type=str, default='1', help='GPU device(s) to use, e.g., "0", "1", or "0,1".')
 parser.add_argument('--run_id', type=str, default='none', help='Unique identifier for this MLflow run.')
 parser.add_argument('--experiment_id', type=str, default='default', help='Name or ID of the MLflow experiment.')
+parser.add_argument('--use_mlflow', action=argparse.BooleanOptionalAction, default=True, help='Enable or disable MLflow logging.')
 args = parser.parse_args()
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
  
 
-def main():
+def run_pipeline(logger=None):
 
     set_seed(args.seed)
 
     dataset_pkls_dir = args.pkls_dir
     os.makedirs(dataset_pkls_dir, exist_ok=True)
 
-    mlflow.set_experiment(args.experiment_id)
-    with mlflow.start_run(run_name=args.run_id):
-        args.output_dir = urlparse(mlflow.get_artifact_uri()).path
+    transform = transforms.Compose([
+        transforms.Resize((args.sample_size, args.sample_size)),
+        transforms.ToTensor()
+    ])
 
-        transform = transforms.Compose([
-            transforms.Resize((args.sample_size, args.sample_size)),
-            transforms.ToTensor()
-        ])
+    datasets = DatasetFactory.create_dataset(dataset_type=args.dataset_type, transform=transform)
+    reference_dataset = datasets['reference_real']
+    test_real_dataset = datasets['test_real']
+    test_fake_dataset = datasets['test_fake']
 
-        datasets = DatasetFactory.create_dataset(dataset_type=args.dataset_type, transform=transform)
-        reference_dataset = datasets['reference_real']
-        test_real_dataset = datasets['test_real']
-        test_fake_dataset = datasets['test_fake']
+    inference_dataset = ConcatDataset([test_real_dataset, test_fake_dataset])
+    labels = [0] * len(test_real_dataset) + [1] * len(test_fake_dataset)
+    inference_dataset.image_paths = (
+        list(getattr(test_real_dataset, "image_paths", [])) +
+        list(getattr(test_fake_dataset, "image_paths", []))
+    )
 
-        inference_dataset = ConcatDataset([test_real_dataset, test_fake_dataset])
-        labels = [0] * len(test_real_dataset) + [1] * len(test_fake_dataset)
-        inference_dataset.image_paths = (
-            list(getattr(test_real_dataset, "image_paths", [])) +
-            list(getattr(test_fake_dataset, "image_paths", []))
-        )
+    patch_sizes = [args.sample_size // (2 ** d) for d in args.patch_divisors]
 
-        patch_sizes = [args.sample_size // (2 ** d) for d in args.patch_divisors]
+    test_id = f"divs_{'-'.join(map(str, args.patch_divisors))}-statistics_{len(args.statistics)}"
 
-        test_id = f"divs_{'-'.join(map(str, args.patch_divisors))}-statistics_{len(args.statistics)}"
+    if logger:
+        logger.log_params(vars(args))
+        logger.log_param("patch_sizes", patch_sizes)
+        logger.log_param("test_id", test_id)
 
-        mlflow.log_params(vars(args))
-        mlflow.log_param("patch_sizes", patch_sizes)
-        mlflow.log_param("test_id", test_id)
+    results = main_multiple_patch_test(
+        reference_dataset=reference_dataset,
+        inference_dataset=inference_dataset,
+        batch_size=args.batch_size,
+        threshold=args.threshold,
+        patch_sizes=patch_sizes,
+        statistics=args.statistics,
+        ensemble_test=args.ensemble_test,
+        max_workers=args.max_workers,
+        num_data_workers=args.num_data_workers,
+        output_dir=args.output_dir,
+        pkl_dir=dataset_pkls_dir,
+        return_logits=True,
+        chi2_bins=args.chi2_bins,
+        cdf_bins=args.cdf_bins,
+        ks_pvalue_abs_threshold=args.ks_pvalue_abs_threshold,
+        minimal_p_threshold=args.minimal_p_threshold,
+        test_type=TestType.BOTH,
+        logger=logger,
+        seed=args.seed,
+        preferred_statistics=args.preferred_statistics
+    )
 
-        results = main_multiple_patch_test(
-            reference_dataset=reference_dataset,
-            inference_dataset=inference_dataset,
-            test_labels=labels,
-            batch_size=args.batch_size,
-            threshold=args.threshold,
-            patch_sizes=patch_sizes,
-            statistics=args.statistics,
-            ensemble_test=args.ensemble_test,
-            max_workers=args.max_workers,
-            num_data_workers=args.num_data_workers,
-            output_dir=args.output_dir,
-            pkl_dir=dataset_pkls_dir,
-            return_logits=True,
-            chi2_bins=args.chi2_bins,
-            cdf_bins=args.cdf_bins,
-            ks_pvalue_abs_threshold=args.ks_pvalue_abs_threshold,
-            minimal_p_threshold=args.minimal_p_threshold,
-            test_type=TestType.BOTH,
-            logger=mlflow,
-            seed=args.seed,
-            preferred_statistics=args.preferred_statistics
-        )
+    balance_labels, balance_scores = balanced_testset(labels, results['scores'], random_state=42)
+    fpr, tpr, _ = roc_curve(balance_labels, balance_scores)
+    roc_auc = auc(fpr, tpr)
+    ap = average_precision_score(balance_labels, balance_scores)
 
-        balance_labels, balance_scores = balanced_testset(results['labels'], results['scores'], random_state=42)
-        fpr, tpr, _ = roc_curve(balance_labels, balance_scores)
-        roc_auc = auc(fpr, tpr)
-        ap = average_precision_score(balance_labels, balance_scores)
-        mlflow.log_metric("AUC", roc_auc)
-        mlflow.log_metric("AP", ap)
+    if logger:
+        logger.log_metric("AUC", roc_auc)
+        logger.log_metric("AP", ap)
+
+
+def main():
+
+    logger = mlflow if args.use_mlflow else None
+
+    if logger:
+        mlflow.set_experiment(args.experiment_id)
+        with mlflow.start_run(run_name=args.run_id):
+            args.output_dir = urlparse(mlflow.get_artifact_uri()).path
+            run_pipeline(logger)
+    else:
+        os.makedirs(args.output_dir, exist_ok=True)
+        run_pipeline(logger)
 
 
 if __name__ == "__main__":
