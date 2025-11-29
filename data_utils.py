@@ -29,16 +29,26 @@ class ImageDataset(Dataset):
     def __init__(self, image_input, labels=None, transform=None):
         """
         Args:
-            image_input (str or list of str): Either a directory path containing images or a list of image file paths.
+            image_input (str or list of str): Either a directory path containing images, a single image file path,
+                or a list of image file paths.
             labels (list of int or int, optional): List of labels corresponding to the images or a single label for all images.
             transform (callable, optional): Optional transform to be applied on an image.
         """
         if isinstance(image_input, str):
-            self.image_paths = [os.path.join(image_input, f) for f in os.listdir(image_input) if f.lower().endswith(('.jpeg', '.jpg', '.png'))]
+            if os.path.isdir(image_input):
+                self.image_paths = [
+                    os.path.join(image_input, f)
+                    for f in os.listdir(image_input)
+                    if f.lower().endswith((".jpeg", ".jpg", ".png"))
+                ]
+            elif os.path.isfile(image_input):
+                self.image_paths = [image_input]
+            else:
+                raise FileNotFoundError(f"Provided image_input path does not exist: {image_input}")
         elif isinstance(image_input, list):
             self.image_paths = image_input
         else:
-            raise TypeError("image_input should be either a directory path (str) or a list of file paths (list).")
+            raise TypeError("image_input should be either a directory path (str), an image file path, or a list of file paths (list).")
         
         if isinstance(labels, list):
             if len(self.image_paths) != len(labels):
@@ -47,9 +57,10 @@ class ImageDataset(Dataset):
         elif isinstance(labels, int):
             self.labels = [labels] * len(self.image_paths)
         elif labels is None:
-            self.labels = [0] * len(self.image_paths)
+            # When labels are unknown (e.g., user-provided inference set), keep placeholders as None.
+            self.labels = [None] * len(self.image_paths)
         else:
-            raise TypeError("Labels should be either a list or a single integer value.")
+            raise TypeError("Labels should be either a list, a single integer value, or None.")
         
         self.transform = transform
 

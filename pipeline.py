@@ -9,6 +9,7 @@ import mlflow
 from sklearn.metrics import average_precision_score, roc_curve, auc
 from torchvision import transforms
 from datasets_factory import DatasetFactory, DatasetType
+from data_utils import ImageDataset
 from torch.utils.data import ConcatDataset
 from stat_test import TestType, main_multiple_patch_test
 from utils import set_seed, balanced_testset
@@ -32,6 +33,7 @@ parser.add_argument('--patch_divisors', type=int, nargs='+', default=[0], help='
 parser.add_argument('--threshold', type=float, default=0.05, help='P-value threshold for significance testing.')
 parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm', 'minp'], default='manual-stouffer', help='Type of ensemble test to perform')
 parser.add_argument('--dataset_type', type=str, default='ALL', choices=[e.name for e in DatasetType], help='Type of dataset configuration to use.')
+parser.add_argument('--input_path', type=str, default=None, help='Optional path to a single image or a directory of images to use as the test set')
 parser.add_argument('--output_dir', type=str, default='outputs', help='Directory to save logs and artifacts.')
 parser.add_argument('--pkls_dir', type=str, default='pkls/AIStats/new_stats', help='Path where to save pkls.')
 parser.add_argument('--num_samples_per_class', type=int, default=-1, help='Number of samples per class for inference dataset.')
@@ -71,12 +73,20 @@ def run_pipeline(logger=None):
     test_real_dataset = datasets['test_real']
     test_fake_dataset = datasets['test_fake']
 
-    inference_dataset = ConcatDataset([test_real_dataset, test_fake_dataset])
-    labels = [0] * len(test_real_dataset) + [1] * len(test_fake_dataset)
-    inference_dataset.image_paths = (
-        list(getattr(test_real_dataset, "image_paths", [])) +
-        list(getattr(test_fake_dataset, "image_paths", []))
-    )
+    if args.input_path:
+        input_path = os.path.abspath(args.input_path)
+        if not (os.path.isdir(input_path) or os.path.isfile(input_path)):
+            raise FileNotFoundError(f"Provided input_path does not exist: {input_path}")
+        inference_dataset = ImageDataset(input_path, labels=None, transform=transform)
+        labels = None
+        inference_dataset.image_paths = list(getattr(inference_dataset, "image_paths", []))
+    else:
+        inference_dataset = ConcatDataset([test_real_dataset, test_fake_dataset])
+        labels = [0] * len(test_real_dataset) + [1] * len(test_fake_dataset)
+        inference_dataset.image_paths = (
+            list(getattr(test_real_dataset, "image_paths", [])) +
+            list(getattr(test_fake_dataset, "image_paths", []))
+        )
 
     patch_sizes = [args.sample_size // (2 ** d) for d in args.patch_divisors]
 
@@ -110,14 +120,15 @@ def run_pipeline(logger=None):
         preferred_statistics=args.preferred_statistics
     )
 
-    balance_labels, balance_scores = balanced_testset(labels, results['scores'], random_state=42)
-    fpr, tpr, _ = roc_curve(balance_labels, balance_scores)
-    roc_auc = auc(fpr, tpr)
-    ap = average_precision_score(balance_labels, balance_scores)
+    if labels is not None:
+        balance_labels, balance_scores = balanced_testset(labels, results['scores'], random_state=42)
+        fpr, tpr, _ = roc_curve(balance_labels, balance_scores)
+        roc_auc = auc(fpr, tpr)
+        ap = average_precision_score(balance_labels, balance_scores)
 
-    if logger:
-        logger.log_metric("AUC", roc_auc)
-        logger.log_metric("AP", ap)
+        if logger:
+            logger.log_metric("AUC", roc_auc)
+            logger.log_metric("AP", ap)
 
 
 def main():

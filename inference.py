@@ -10,7 +10,7 @@ from sklearn.metrics import average_precision_score
 from torch.utils.data import ConcatDataset
 from torchvision import transforms
 from datasets_factory import DatasetFactory, DatasetType
-from data_utils import JPEGCompressionTransform
+from data_utils import ImageDataset, JPEGCompressionTransform
 from stat_test import TestType, inference_multiple_patch_test
 from utils import (
     balanced_testset,
@@ -27,6 +27,7 @@ parser.add_argument('--patch_divisors', type=int, nargs='+', default=[2, 4, 8], 
 parser.add_argument('--threshold', type=float, default=0.05, help='P-value threshold for significance testing.')
 parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm', 'minp'], default='manual-stouffer', help='Type of ensemble test to perform')
 parser.add_argument('--dataset_type', type=str, default='ALL', choices=[e.name for e in DatasetType], help='Type of dataset to use')
+parser.add_argument('--input_path', type=str, default=None, help='Optional path to a single image or a directory of images to use as the test set')
 parser.add_argument('--output_dir', type=str, default='outputs', help='Directory to save logs and artifacts.')
 parser.add_argument('--pkls_dir', type=str, default='pkls/AIStats/new_stats', help='Path where to save pkls.')
 parser.add_argument('--num_data_workers', type=int, default=4, help='Number of workers for data loading.')
@@ -72,16 +73,23 @@ def run_inference(logger=None):
     test_real_dataset = datasets['test_real']
     test_fake_dataset = datasets['test_fake']
 
-    test_real_dataset.transform = inference_transform
-    test_fake_dataset.transform = inference_transform
+    if args.input_path:
+        input_path = os.path.abspath(args.input_path)
+        if not (os.path.isdir(input_path) or os.path.isfile(input_path)):
+            raise FileNotFoundError(f"Provided input_path does not exist: {input_path}")
+        inference_dataset = ImageDataset(input_path, labels=None, transform=inference_transform)
+        inference_dataset.image_paths = list(getattr(inference_dataset, 'image_paths', []))
+        labels = None
+    else:
+        test_real_dataset.transform = inference_transform
+        test_fake_dataset.transform = inference_transform
+        inference_dataset = ConcatDataset([test_real_dataset, test_fake_dataset])
 
-    inference_dataset = ConcatDataset([test_real_dataset, test_fake_dataset])
+        real_image_paths = list(getattr(test_real_dataset, 'image_paths', []))
+        fake_image_paths = list(getattr(test_fake_dataset, 'image_paths', []))
+        inference_dataset.image_paths = real_image_paths + fake_image_paths
 
-    real_image_paths = list(getattr(test_real_dataset, 'image_paths', []))
-    fake_image_paths = list(getattr(test_fake_dataset, 'image_paths', []))
-    inference_dataset.image_paths = real_image_paths + fake_image_paths
-
-    labels = [0] * len(test_real_dataset) + [1] * len(test_fake_dataset)
+        labels = [0] * len(test_real_dataset) + [1] * len(test_fake_dataset)
 
     patch_sizes = [args.sample_size // (2 ** d) for d in args.patch_divisors]
     test_id = f"inference_run_{args.run_id}"
@@ -114,13 +122,14 @@ def run_inference(logger=None):
         cache_suffix=inference_cache_suffix,
     )
 
-    balance_labels, balance_scores = balanced_testset(labels, results['scores'], random_state=42)
-    fpr, tpr, _ = roc_curve(balance_labels, balance_scores)
-    roc_auc = auc(fpr, tpr)
-    ap = average_precision_score(balance_labels, balance_scores)
-    if logger:
-        logger.log_metric("AUC", roc_auc)
-        logger.log_metric("AP", ap)
+    if labels is not None:
+        balance_labels, balance_scores = balanced_testset(labels, results['scores'], random_state=42)
+        fpr, tpr, _ = roc_curve(balance_labels, balance_scores)
+        roc_auc = auc(fpr, tpr)
+        ap = average_precision_score(balance_labels, balance_scores)
+        if logger:
+            logger.log_metric("AUC", roc_auc)
+            logger.log_metric("AP", ap)
 
 
 def main():
