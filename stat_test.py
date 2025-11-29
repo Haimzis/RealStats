@@ -233,7 +233,7 @@ def main_multiple_patch_test(
     cdf_bins=500,
     ks_pvalue_abs_threshold=0.25,
     test_type=TestType.LEFT,
-    minimal_p_threshold=0.05,
+    cremer_v_threshold=0.05,
     logger=None,
     seed=42,
     preferred_statistics=None
@@ -277,7 +277,7 @@ def main_multiple_patch_test(
         pvals_matrix=tuning_pvalue_distributions,
         ensemble_test=ensemble_test,
         ks_pvalue_abs_threshold=ks_pvalue_abs_threshold,
-        minimal_p_threshold=minimal_p_threshold,
+        cremer_v_threshold=cremer_v_threshold,
         preferred_statistics=preferred_statistics
     )
 

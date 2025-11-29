@@ -25,7 +25,7 @@ parser.add_argument('--batch_size', type=int, default=32, help='Batch size for d
 parser.add_argument('--sample_size', type=int, default=512, help='Sample input size after downscale.')
 parser.add_argument('--patch_divisors', type=int, nargs='+', default=[2, 4, 8], help='Divisors to calculate patch sizes as sample_size // 2^i.')
 parser.add_argument('--threshold', type=float, default=0.05, help='P-value threshold for significance testing.')
-parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm', 'minp'], default='manual-stouffer', help='Type of ensemble test to perform')
+parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'minp'], default='manual-stouffer', help='Type of ensemble test to perform')
 parser.add_argument('--dataset_type', type=str, default='ALL', choices=[e.name for e in DatasetType], help='Type of dataset to use')
 parser.add_argument('--input_path', type=str, default=None, help='Optional path to a single image or a directory of images to use as the test set')
 parser.add_argument('--output_dir', type=str, default='outputs', help='Directory to save logs and artifacts.')

@@ -28,7 +28,7 @@ python pipeline.py \
     --pkls_dir pkls/AIStats/new_stats \
     --cdf_bins 400 \
     --ks_pvalue_abs_threshold 0.45 \
-    --minimal_p_threshold 0.07 \
+    --cremer_v_threshold 0.07 \
     --experiment_id AIStats2/all_splits_minp \
     --preferred_statistics RIGID.DINO.05 RIGID.CLIPOPENAI.05 RIGID.DINO.10 RIGID.CLIPOPENAI.10 \
     --seed 38

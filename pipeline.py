@@ -31,7 +31,7 @@ parser.add_argument('--batch_size', type=int, default=128, help='Batch size for 
 parser.add_argument('--sample_size', type=int, default=512, help='Sample input size after downscale.')
 parser.add_argument('--patch_divisors', type=int, nargs='+', default=[0], help='Divisors to calculate patch sizes as sample_size // 2^i.')
 parser.add_argument('--threshold', type=float, default=0.05, help='P-value threshold for significance testing.')
-parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'rbm', 'minp'], default='manual-stouffer', help='Type of ensemble test to perform')
+parser.add_argument('--ensemble_test', choices=['manual-stouffer', 'stouffer', 'minp'], default='manual-stouffer', help='Type of ensemble test to perform')
 parser.add_argument('--dataset_type', type=str, default='ALL', choices=[e.name for e in DatasetType], help='Type of dataset configuration to use.')
 parser.add_argument('--input_path', type=str, default=None, help='Optional path to a single image or a directory of images to use as the test set')
 parser.add_argument('--output_dir', type=str, default='outputs', help='Directory to save logs and artifacts.')
@@ -45,7 +45,7 @@ parser.add_argument('--chi2_bins', type=int, default=10, help='Number of bins fo
 parser.add_argument('--cdf_bins', type=int, default=500, help='Number of bins for cdf.')
 parser.add_argument('--uniform_p_threshold', type=float, default=0.05, help='KS Threshold for uniform goodness of fit.')
 parser.add_argument('--ks_pvalue_abs_threshold', type=float, default=0.4, help='Absolute KS p-value threshold for uniformity filtering.')
-parser.add_argument('--minimal_p_threshold', type=float, default=0.05, help='Minimum p-value threshold for chi-square filtering.')
+parser.add_argument('--cremer_v_threshold', type=float, default=0.05, help='Minimum p-value threshold for chi-square filtering.')
 parser.add_argument('--preferred_statistics', type=str, nargs='*', default=["RIGID.DINO.05", "RIGID.CLIPOPENAI.05", "RIGID.DINO.10", "RIGID.CLIPOPENAI.10"], help='Statistics to prioritize when selecting the independent clique.')
 parser.add_argument('--gpu', type=str, default='1', help='GPU device(s) to use, e.g., "0", "1", or "0,1".')
 parser.add_argument('--run_id', type=str, default='none', help='Unique identifier for this MLflow run.')
@@ -113,7 +113,7 @@ def run_pipeline(logger=None):
         chi2_bins=args.chi2_bins,
         cdf_bins=args.cdf_bins,
         ks_pvalue_abs_threshold=args.ks_pvalue_abs_threshold,
-        minimal_p_threshold=args.minimal_p_threshold,
+        cremer_v_threshold=args.cremer_v_threshold,
         test_type=TestType.BOTH,
         logger=logger,
         seed=args.seed,

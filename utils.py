@@ -175,7 +175,7 @@ def finding_optimal_independent_subgroup_deterministic(
     pvals_matrix,
     ensemble_test,
     ks_pvalue_abs_threshold=0.25,
-    minimal_p_threshold=0.05,
+    cremer_v_threshold=0.05,
     preferred_statistics=None,
 ):
     """Deterministic search over cliques favouring preferred statistics."""
@@ -189,7 +189,7 @@ def finding_optimal_independent_subgroup_deterministic(
 
     candidates = []
     cliques = find_largest_independent_group_iterative(
-        keys, chi2_p_matrix, p_threshold=minimal_p_threshold, test_type="cramer_v"
+        keys, chi2_p_matrix, p_threshold=cremer_v_threshold, test_type="cramer_v"
     )
 
     for clique in tqdm(cliques, total=len(cliques), desc="Searching for optimial clique..."):
@@ -226,7 +226,7 @@ def finding_optimal_independent_subgroup_deterministic(
     best_results = {
         'best_KS': best_candidate['ks_pvalue'],
         'best_N': best_candidate['size'],
-        'best_alpha_threshold': minimal_p_threshold,
+        'best_alpha_threshold': cremer_v_threshold,
     }
 
     if preferred_total:
