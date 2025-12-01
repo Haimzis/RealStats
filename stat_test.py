@@ -288,8 +288,6 @@ def main_multiple_patch_test(
             logger.log_param("preferred_statistics", preferred_statistics)
         logger.log_metrics(best_results)
 
-    independent_keys_group_indices = [keys.index(value) for value in independent_keys_group]
-    tuning_independent_pvals = tuning_pvalue_distributions[independent_keys_group_indices].T
     # Convert independent keys to combinations
     independent_combinations = interpret_keys_to_combinations(independent_keys_group)
 
@@ -385,8 +383,6 @@ def inference_multiple_patch_test(
         logger.log_param("Independent keys", independent_statistics_keys_group)
 
     print(f'Independent keys: {independent_statistics_keys_group}')
-    independent_keys_group_indices = [keys.index(value) for value in independent_statistics_keys_group]
-    tuning_independent_pvals = tuning_pvalue_distributions[independent_keys_group_indices].T
 
     # Inference phase (Fig. 4a): evaluate selected detectors on candidate set.
     inference_histogram = patch_parallel_preprocess(
