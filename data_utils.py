@@ -70,6 +70,10 @@ class ImageDataset(Dataset):
     def __getitem__(self, idx):
         image_path = self.image_paths[idx]
         label = self.labels[idx]
+
+        # Use a sentinel value for unknown labels to keep DataLoader collation working.
+        if label is None:
+            label = -1
         
         image = Image.open(image_path).convert('RGB')
         
