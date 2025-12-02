@@ -10,7 +10,6 @@ mkdir -p "$LOGS_DIR"
 
 # Execute pipeline with hardcoded arguments
 python pipeline.py \
-    --test_type multiple_patches \
     --batch_size 64 \
     --sample_size 512 \
     --threshold 0.05 \

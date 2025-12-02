@@ -30,7 +30,6 @@ for i in $(seq 0 $((CONFIGS_LENGTH - 1))); do
         echo "Command: python executor.py $CONFIG"
 
         python pipeline.py \
-            --test_type multiple_patches \
             --batch_size 64 \
             --sample_size 512 \
             --threshold 0.05 \
