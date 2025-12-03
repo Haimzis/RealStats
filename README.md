@@ -1,13 +1,24 @@
 # RealStats: Real-Only Statistical Framework for Fake Image Detection
 Authors: [Haim Zisman](https://www.linkedin.com/in/haim-zisman/), [Uri Shaham](https://www.linkedin.com/in/urishaham/)
 
-[[Paper Link (Soon)]]() • [[Project Page (Soon)]]() • [[OpenReviews (Soon)]]()
+```
+As generative models continue to evolve, detecting AI-generated images remains a critical challenge. Although effective detection methods exist, they often lack formal interpretability and may rely on implicit assumptions about fake content, potentially limiting their robustness to distributional shifts.
 
-RealStats combines multiple training-free statistics, models their null distributions using *only* real images, and aggregates them through classical hypothesis testing to produce interpretable, distribution-aware decisions.
+In this work, we introduce a rigorous, statistically grounded framework for fake-image detection that produces a probability score interpretable with respect to the real-image population. Our method leverages the strengths of multiple existing detectors by combining strong training-free statistics. We compute p-values over a range of test statistics and aggregate them using classical statistical ensembling to assess alignment with a unified real-image distribution.
 
-<p align="center">
+This framework is generic, flexible, and training-free, making it well suited for robust fake-image detection across diverse and evolving settings.
+```
+<div align="center">
+
+<a href="https://">
+  <img src="https://img.shields.io/static/v1?label=Project&message=Website (Soon)&color=9a031e" height="20.5">
+</a> 
+<a href="https://arxiv.org/">
+  <img src="https://img.shields.io/static/v1?label=Paper&message=arXiv (Soon)&color=fb5607" height="20.5">
+</a>
+
   <em>Rigorous statistics • Adaptable detector design • Interpretable p-values</em>
-</p>
+</div>
 
 ## Overview
 Modern fake-image detectors often rely on synthetic training data.  
