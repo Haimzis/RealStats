@@ -109,7 +109,8 @@ These links provide the original sources for the datasets referenced in the Real
 ---
 
 ## Running the Pipeline
-The main entry point is [`pipeline.py`](pipeline.py), which orchestrates dataset creation, statistic extraction, independence testing, and MLflow logging.
+
+The main entry point is [`pipeline.py`](pipeline.py), which handles both null-distribution modeling and inference:
 
 ```bash
 python pipeline.py \
@@ -129,8 +130,12 @@ python pipeline.py \
     --cdf_bins 400 \
     --ks_pvalue_abs_threshold 0.45 \
     --cremer_v_threshold 0.07 \
-    --preferred_statistics RIGID.DINO.05 RIGID.CLIPOPENAI.05 RIGID.DINO.10 RIGID.CLIPOPENAI.10 
+    --preferred_statistics RIGID.DINO.05 RIGID.CLIPOPENAI.05 RIGID.DINO.10 RIGID.CLIPOPENAI.10
 ```
+
+You can also simply run the hard-coded script: `scripts/run_pipeline_hardcoded.sh`
+
+For inference only: `scripts/run_inference_hardcoded.sh`
 
 **Tips**
 - Use `CUDA_VISIBLE_DEVICES` (or the `--gpu` flag) to pin the job to specific GPUs.  
@@ -147,7 +152,7 @@ python pipeline.py \
 | [`processing/`](processing) | Concrete implementations for RIGID-style perturbation statistics and manifold curvature features. |
 | [`datasets_factory.py`](datasets_factory.py) | Dataset wiring and generator-specific splits. |
 | [`data_utils.py`](data_utils.py) | Dataset primitives, JPEG corruption transforms, and patch extraction utilities. |
-| [`pipeline.py`](pipeline.py) | Reproducible CLI runner with MLflow logging, seed control, and balanced evaluation helpers. |
+| [`pipeline.py`](pipeline.py) | Reproducible CLI runner with MLflow logging, seed control, and evaluation helpers. |
 
 ---
 
