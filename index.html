@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SUFT: Turning Sand to Gold: Recycling Data to Bridge On-Policy and Off-Policy Learning via Causal Bound</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/png" href="assets/SUFT_logo_small.png">
+    <style>
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+        
+        body {
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          line-height: 1.6;
+          color: #1a1a1a;
+          background: #f8faff;
+        }
+        
+        .container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 0 20px;
+        }
+
+        .links_footer {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 0 20px;
+        }
+
+        .links_footer a {
+            color: inherit;
+            text-decoration: none;
+        }
+        
+        /* Header */
+        header {
+          background: linear-gradient(135deg, #232d5d 0%, #4b9eff 100%);
+          color: white;
+          padding: 80px 0 60px;
+          text-align: center;
+        }
+        
+        h1 {
+          font-size: 2.8em;
+          margin-bottom: 20px;
+          font-weight: 700;
+        }
+        
+        .venue {
+          font-size: 1.3em;
+          margin-bottom: 30px;
+          color: #e8f0ff;
+          font-weight: 600;
+          letter-spacing: 0.5px;
+          text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+          opacity: 0.95;
+        }
+        
+        .authors {
+          margin-bottom: 15px;
+          line-height: 1.8;
+          color: #f0f5ff;
+        }
+        .authors a {
+          font-size: 1.2em;
+          text-decoration: none;
+          font-weight: 400;
+          color: #f0f5ff;
+        }
+        
+        .affiliations {
+          font-size: 1.1em;
+          opacity: 0.9;
+          margin-bottom: 30px;
+          color: #dce7ff;
+        }
+        
+        /* Links */
+        .links {
+          display: flex;
+          justify-content: center;
+          gap: 20px;
+          flex-wrap: wrap;
+          margin-top: 30px;
+        }
+        
+        .link-button {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 12px 28px;
+          background: white;
+          color: #232d5d;
+          text-decoration: none;
+          border-radius: 50px;
+          transition: all 0.3s;
+          border: 1px solid #0866ff;
+          font-weight: 500;
+        }
+        
+        .link-button:hover {
+          background: linear-gradient(135deg, #0866ff 0%, #4b9eff 100%);
+          color: white;
+          transform: translateY(-2px);
+          box-shadow: 0 4px 15px rgba(8, 102, 255, 0.3);
+        }
+        
+        /* Main */
+        main {
+          background: white;
+          margin: -30px auto 40px;
+          border-radius: 20px;
+          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+          overflow: hidden;
+        }
+        
+        section {
+          padding: 60px 80px;
+          border-bottom: 1px solid #e3edff;
+        }
+        
+        section:last-child {
+          border-bottom: none;
+        }
+        
+        h2 {
+          font-size: 2em;
+          margin-bottom: 30px;
+          color: #232d5d;
+          text-align: center;
+          font-weight: 600;
+        }
+        
+        h3 {
+          font-size: 1.4em;
+          margin: 30px 0 15px;
+          color: #232d5d;
+        }
+        
+        /* Abstract */
+        .abstract {
+          background: linear-gradient(135deg, #f2f7ff 0%, #e6f0ff 100%);
+        }
+        
+        .abstract p {
+          font-size: 1.1em;
+          text-align: justify;
+          line-height: 1.8;
+          color: #333;
+        }
+        
+        /* Figures */
+        .figure {
+          margin: 40px 0;
+          text-align: center;
+        }
+        
+        .figure img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 10px;
+          box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .figure-caption {
+          margin-top: 15px;
+          font-size: 0.95em;
+          color: #5679b5;
+          font-style: italic;
+        }
+        
+        /* Method Overview */
+        .method-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 30px;
+          margin: 30px 0;
+        }
+        
+        .method-card {
+          background: #f8fbff;
+          padding: 25px;
+          border-radius: 12px;
+          border-left: 4px solid #232d5d;
+          box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .method-card h4 {
+          color: #232d5d;
+          margin-bottom: 10px;
+          font-size: 1.2em;
+        }
+        
+        /* Results */
+        .results-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+          gap: 25px;
+          margin: 30px 0;
+        }
+        
+        .result-card {
+          background: linear-gradient(135deg, #232d5d 0%, #4b9eff 100%);
+          color: white;
+          padding: 30px;
+          border-radius: 12px;
+          text-align: center;
+          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        .result-card .metric {
+          font-size: 2.5em;
+          font-weight: 700;
+          margin-bottom: 10px;
+        }
+        
+        .result-card .label {
+          font-size: 1em;
+          opacity: 0.9;
+        }
+        
+        /* Citation */
+        .citation-box {
+          background: #f8fbff;
+          border-left: 4px solid #232d5d;
+          padding: 20px;
+          margin: 30px 0;
+          font-family: 'Courier New', monospace;
+          font-size: 0.9em;
+          overflow-x: auto;
+          box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+          h1 { font-size: 2em; }
+          section { padding: 40px 30px; }
+          .links { flex-direction: column; align-items: center; }
+          .method-grid, .results-grid { grid-template-columns: 1fr; }
+          .abstract p { text-align: initial; }
+        }
+        
+        /* Placeholder */
+        .placeholder-image {
+          background: linear-gradient(135deg, #e6f0ff 0%, #f4f8ff 100%);
+          border: 2px dashed #a7c6ff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 300px;
+          border-radius: 10px;
+          color: #4b78d0;
+          font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>Turning Sand to Gold: Recycling Data to Bridge On-Policy and Off-Policy Learning via Causal Bound</h1>
+            <div class="venue">Poster at the 39th Conference on Neural Information Processing Systems (NeurIPS 2025)</div>
+            <div class="authors">
+                <strong><a href="https://www.linkedin.com/in/talfiskus/" target="_blank">Tal Fiskus</a></strong>, 
+                <strong><a href="https://www.linkedin.com/in/urishaham/" target="_blank">Uri Shaham</a></strong>
+            </div>
+            <div class="affiliations">
+                Bar-Ilan University
+            </div>
+            <div class="links">
+                <a href="https://neurips.cc/virtual/2025/poster/119864" class="link-button" target="_blank">
+                    <i class="fas fa-book-open"></i> NeurIPS Page
+                </a>
+                <a href="https://openreview.net/forum?id=5UtsjOGsDx" class="link-button" target="_blank">
+                    <i class="fas fa-link"></i> OpenReview
+                </a>
+                <a href="https://arxiv.org/abs/2507.11269" class="link-button" target="_blank">
+                    <i class="fas fa-file-pdf"></i> ArXiv
+                </a>
+                <a href="https://github.com/shaham-lab/TurningSandToGold" class="link-button" target="_blank">
+                    <i class="fab fa-github"></i> Code
+                </a>
+                <a href="#" class="link-button" id="copy-bibtex-btn" target="_blank">
+                    <i class="fas fa-quote-left"></i> BibTeX
+                </a>
+                <span id="bibtex-notification" style="display:none; margin-left:10px; color:#000000; background:#EFBF04; border-radius:20px; font-size:0.95em;">BibTeX Copied!</span>
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const btn = document.getElementById('copy-bibtex-btn');
+                        const notif = document.getElementById('bibtex-notification');
+                        btn.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            const bibtex = `@inproceedings{fiskus2025turning,
+                                                title={Turning Sand to Gold: Recycling Data to Bridge On-Policy and Off-Policy Learning via Causal Bound},
+                                                author={Tal Fiskus and Uri Shaham},
+                                                journal={The Thirty-ninth Annual Conference on Neural Information Processing Systems},
+                                                year={2025},
+                                                url={https://openreview.net/forum?id=5UtsjOGsDx}
+                                            }`;
+                            navigator.clipboard.writeText(bibtex).then(function() {
+                                notif.style.display = 'inline-block';
+                                setTimeout(function() {
+                                    notif.style.display = 'none';
+                                }, 1500);
+                            });
+                        });
+                    });
+                </script>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Abstract -->
+        <section class="abstract">
+          <h2>Abstract</h2>
+          <p>
+            Deep reinforcement learning (DRL) agents excel in solving complex decision-making tasks across various domains. However, they often require a substantial number of training steps and a vast experience replay buffer, leading to significant computational and resource demands. To address these challenges, we introduce a novel theoretical result that leverages the Neyman-Rubin potential outcomes framework into DRL. Unlike most methods that focus on bounding the counterfactual loss, we establish a causal bound on the factual loss, which is analogous to the on-policy loss in DRL. This bound is computed by storing past value network outputs in the experience replay buffer, effectively utilizing data that is usually discarded. Extensive experiments across the Atari 2600 and MuJoCo domains on various agents, such as DQN and SAC, achieve <strong>up to 383%</strong> higher reward ratio, outperforming the same agents without our proposed term, and reducing the experience replay buffer size by <strong>up to 96%</strong>, significantly improving <strong>sample efficiency at a negligible cost</strong>.
+        </p>
+        </section>
+
+        <!-- Results -->
+        <section>
+            <h2>SUFT Achieves Substantial Reward Improvements</h2>
+            
+            <div class="figure">
+                <img src="assets/comparison_bar_charts.png" alt="Mean reward ratio comparison between agents using the additional SUFT term and the baseline agents without it across 57 Atari games and five MuJoCo environments, highlighting the profound reward gains across diverse agents and domains." " class="responsive-figure-img">
+                <script>
+                    // Responsive image width for phones
+                    document.addEventListener('DOMContentLoaded', function() {
+                        function adjustFigureImg() {
+                            var imgs = document.querySelectorAll('.responsive-figure-img');
+                            imgs.forEach(function(img) {
+                                if (window.innerWidth <= 768) {
+                                    img.style.maxWidth = '100%';
+                                } else {
+                                    img.style.maxWidth = '100%';
+                                }
+                            });
+                        }
+                        adjustFigureImg();
+                        window.addEventListener('resize', adjustFigureImg);
+                    });
+                </script>
+                <p class="figure-caption">
+                    Mean reward ratio comparison between agents using the additional SUFT term and the baseline agents without it across 57 Atari games and five MuJoCo environments, highlighting the profound reward gains across diverse agents and domains.
+                </p>
+            </div>
+
+            <h3>Improve Sample Efficiency at a Negligible Cost</h3>
+            <div class="results-grid">
+                <div class="result-card">
+                    <div class="metric">+437.05%</div>
+                    <div class="label">Mean reward ratio improvement.</div>
+                </div>
+                <div class="result-card">
+                    <div class="metric">-96%</div>
+                    <div class="label">Reduction in resource demands.</div>
+                </div>
+                <div class="result-card">
+                    <div class="metric">x25</div>
+                    <div class="label">Smaller replay buffer size.</div>
+                </div>
+            </div>
+
+            <p style="margin-top: 30px; font-size: 1.05em;">
+              <strong>
+                SUFT</strong> leads to significant improvements in convergence rates and reward outcomes, achieving a <strong>437.05%</strong> mean reward ratio gain while using <strong>25 times smaller replay buffer size</strong>. This reflects in a <strong>96%</strong> reduction in resource demands.
+                These results underscore the potential of our approach to obtain high-performance DRL agents with significantly smaller buffers, paving the way for more computationally efficient and accessible DRL methods by enhancing <strong>sample efficiency at a negligible cost</strong>.
+            </p>
+        </section>
+
+        <!-- Method -->
+      <section>
+        <h2>SUFT Causal Bound</h2>
+        <p style="font-size: 1.05em; line-height: 1.8; text-align: justify;">
+            We establish a causal upper bound on the unobserved factual loss using the observed counterfactual loss and the estimated treatment effect:
+        </p>
+      
+        <div style="text-align: center; font-size: 1.3em; margin: 40px 0; overflow-x: auto;">
+          \[
+            \epsilon_{F_{\phi}} 
+            \leq 
+            \epsilon_{CF_{\phi}}
+            +
+            \psi_{\phi} 
+            + 
+            \delta
+          \]
+        </div>
+        <p style="font-size: 1.05em; line-height: 1.8; text-align: justify;">
+            The interpretation of this causal upper bound in the DRL framework establishes an upper bound to the on-policy loss, by the standard off-policy loss and an additional <strong>SUFT off-policy evaluation term (OPE)</strong>:
+        </p>
+        <div style="text-align: center; font-size: 1.3em; margin: 40px 0; overflow-x: auto;">
+          \[
+            \epsilon_{\text{On-Policy}_Q}
+            \leq
+            \epsilon_{\text{Off-Policy}_Q} 
+            +
+            \psi_{\text{SUFT}_Q}
+            + 
+            \delta
+          \]
+        </div>
+        <p style="font-size: 1.05em; line-height: 1.8; text-align: justify;">
+            We are optimizing the SUFT causal bound on the loss, yielding the following SUFT objective term:
+        </p>
+        <div style="text-align: center; font-size: 1.3em; margin: 40px 0; overflow-x: auto;">
+            \[
+                \epsilon_{\text{Off-Policy}_Q} 
+                +
+                \lambda_\text{TF}\cdot \psi_{\text{SUFT}_{Q}}
+            \]
+        </div>
+        <p style="font-size: 1.05em; line-height: 1.8; text-align: justify;">
+            In value-based methods such as DQN agents, the SUFT OPE term is seamlessly added to the standard loss function, while in Actor-Critic architectures, it is incorporated into the critic's loss.
+            To compute the SUFT OPE term, we store the behavior policy value network outputs. This result in an experience tuple of the form \(\left(s, a, r, s', Q(s, a;\theta_\text{behavior})\right)\), instead of the standard \(\left(s, a, r, s'\right)\)
+        </p>
+          <div class="method-grid">
+            <div class="method-card">
+                <h4><i class="fas fa-scale-balanced"></i> Causal Bound Theorem</h4>
+                <p>We formalize an upper bound in the causal framework and integrate it into the DRL framework as an upper bound for the on-policy loss.</p>
+            </div>
+            <div class="method-card">
+                <h4><i class="fas fa-arrows-rotate"></i> Recycling Data</h4>
+                <p>Our approach effectively transforms overlooked data into valuable causal insights, metaphorically <strong>turning sand data into gold</strong>.</p>
+            </div>
+            <div class="method-card">
+                <h4><i class="fas fa-globe"></i> Universal Implementation</h4>
+                <p>Our method is applicable to any DRL agent with a V or Q-value network that influences its policy. </p>
+            </div>
+        </div>
+          <p class="figure-caption" style="text-align: center; font-size: 0.95em; color: #6c757d; font-style: italic;">
+              To the best of our knowledge, we are the first to introduce an upper bound on the factual loss within the causal framework and adapt it to the DRL setting, thereby bounding the on-policy loss.
+          </p>
+      </section>
+      
+      <!-- MathJax rendering support -->
+      <script>
+        window.MathJax = {
+          tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+          svg: { fontCache: 'global' }
+        };
+      </script>
+      <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+        <!-- Key Insight -->
+        <section>
+            <h2>Massive Performance Boost</h2>
+            <div class="figure">
+                <img src="assets/atari_all_environments_improvements.png" alt="Log-scaled reward improvements comparison between agents using the additional SUFT term and the baseline agents without it across 57 Atari games. The results demonstrate the superior performance of our method across the majority of games. The red line indicates a 10% improvement, and the green line represents a 100% improvement. Left: Double DQN SUFT outperforms the baseline agent in 35 out of the 40 valid games; Right: PPO SUFT outperforms the baseline agent in 39 out of the 42 valid games.">
+                <p class="figure-caption">
+                    Log-scaled reward improvements comparison between agents using the additional SUFT term and the baseline agents without it across 57 Atari games. The red line indicates a 10% improvement, and the green line represents a 100% improvement. Left: Double DQN; Right: PPO.
+                </p>
+            </div>
+            <p style="margin-top: 30px; font-size: 1.05em; line-height: 1.8;">
+                The results demonstrate the superior performance of our method across the majority of games. Double DQN SUFT outperforms the baseline agent in 35 out of the 40 valid games. PPO SUFT outperforms the baseline agent in 39 out of the 42 valid games.
+            </p>
+        </section>
+
+        <!-- Key Results Figure -->
+        <section>
+            <h2>Outperforming an Average Human</h2>
+            <div class="figure">
+                <img src="assets/Selected_best_Atari2600_learning_curves.png" alt="Learning curves comparison between agents using the SUFT OPE term and the baseline agents without it across selected Atari games. The red line indicates human-level performance, showing that SUFT not only surpasses the baseline agent but can even exceed human rewards. Top: Double DQN; Bottom: PPO.">
+                <p class="figure-caption">
+                    Learning curves comparison between agents using the SUFT OPE term and the baseline agents without it across selected Atari games. The red line indicates human-level performance, showing that SUFT not only surpasses the baseline agent but can even exceed human rewards. 
+                    <br>
+                    Top: Double DQN; Bottom: PPO.
+                </p>
+            </div>
+            <p style="margin-top: 30px; font-size: 1.05em; line-height: 1.8;">
+                In several Atari games, SUFT not only surpasses the baseline agent but also achieves higher rewards than an average human. This achievement highlights the potential of our method to boost agents' performance even above the human level, while keeping constrained environment interactions and resource demands.
+            </p>
+        </section>
+
+        <!-- Ablation Study: SUFT Surpasses Baseline -->
+        <section>
+            <h2>SUFT Surpasses Baselines: Ablation Study</h2>
+            <div class="figure">
+                <img src="assets/ablation_study.png" alt="Ablation study table showing SUFT surpasses a baseline that uses a 25x larger buffer (96% reduction).">
+                <p class="figure-caption">
+                    An ablation study on the DQN agent comparing the SUFT additional term impact against enlarging the buffer size, adding a Vanilla DQN, and adding a Double DQN. The DQN, Vanilla DQN, Double DQN, and SUFT DQN use a 4K buffer size. All agents are using L2 loss.
+                </p>
+            </div>
+            <p style="margin-top: 30px; font-size: 1.05em; line-height: 1.8;">
+                SUFT surpasses the baseline that has a x25 larger buffer, which is a 96% buffer size reduction.
+            </p>
+        </section>
+
+        <!-- Conclusion -->
+        <section class="abstract">
+            <h2>Conclusion</h2>
+            <p>
+                This paper presents SUFT, a causal upper-bound loss optimization method that enhances DRL sample efficiency and reduces computational demands at a <strong>negligible cost</strong>. We begin by establishing a provable bound on the factual loss within the Neyman-Rubin potential outcomes framework and seamlessly adapting it to the DRL framework, showing that on-policy loss is bounded by every agent's standard off-policy loss and an additional SUFT OPE term. This term is computable by storing past value network outputs in the experience replay buffer, thereby reusing discarded data to improve agents' performance. Experimental results across diverse environments and agents show that our method leads to significant improvements in convergence rates and reward outcomes.
+
+            </p>
+        </section>
+        <!-- Citation -->
+        <section>
+            <h2>Citation</h2>
+            <div class="citation-box">
+              @inproceedings{fiskus2025turning,<br>
+              &nbsp;&nbsp;title={Turning Sand to Gold: Recycling Data to Bridge On-Policy and Off-Policy Learning via Causal Bound},<br>
+              &nbsp;&nbsp;author={Tal Fiskus and Uri Shaham},<br>
+              &nbsp;&nbsp;journal={The Thirty-ninth Annual Conference on Neural Information Processing Systems},<br>
+              &nbsp;&nbsp;year={2025},<br>
+              &nbsp;&nbsp;url={https://openreview.net/forum?id=5UtsjOGsDx}<br>
+              }
+            </div>
+        </section>
+        <!-- QR Codes -->
+        <section id="qr-codes" class="qr-desktop-only">
+          <h2>Scan the QR Codes</h2>
+          <div>
+            <img
+              src="assets/qr_codes.png"
+              alt="QR codes linking to the Project Page, Paper, and LinkedIn"
+              class="responsive-figure-img"
+              style="max-width: 900px; width: 100%; height: auto;"
+            >
+            <p class="figure-caption" style="text-align: center;">
+              Quick links: Project Page · Paper · LinkedIn
+            </p>
+          </div>
+        </section>
+
+        <style>
+          /* Hide QR section on small screens */
+          @media (max-width: 768px) {
+            .qr-desktop-only {
+              display: none;
+            }
+          }
+        </style>
+    </main>
+
+    <footer style="text-align: center; padding: 40px 0; color: #6c757d;">
+        <div class="links_footer">
+            <a href="https://www.linkedin.com/in/talfiskus/" target="_blank">Tal Avraham Fiskus</a> ·
+            <a href="https://www.linkedin.com/in/urishaham/" target="_blank">Uri Shaham</a> ·
+            <a href="https://neurips.cc/virtual/2025/poster/119864" target="_blank">NeurIPS 2025</a>
+        </div>
+    </footer>
+</body>
+</html>
