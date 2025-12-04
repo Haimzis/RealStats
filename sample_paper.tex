@@ -1,0 +1,493 @@
+\documentclass[twoside]{article}
+
+\usepackage{aistats2026}
+
+% Additional Packages:
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{subcaption}
+\usepackage{placeins}
+\usepackage{booktabs}
+\usepackage{multirow} 
+\usepackage{graphicx}
+
+% If your paper is accepted, change the options for the package
+% aistats2026 as follows:
+%
+%\usepackage[accepted]{aistats2026}
+%
+% This option will print headings for the title of your paper and
+% headings for the authors names, plus a copyright note at the end of
+% the first column of the first page.
+
+% We also include a `preprint' option for non-anonymous preprints. 
+% Change the options for the package aistats2026 as follows:
+%
+%\usepackage[preprint]{aistats2026}
+%
+% This option will print headings for the title of your paper and
+% headings for the authors names, but does not print the copyright and 
+% venue note at the end of the first column of the first page.
+
+% If you set papersize explicitly, activate the following three lines:
+%\special{papersize = 8.5in, 11in}
+%\setlength{\pdfpageheight}{11in}
+%\setlength{\pdfpagewidth}{8.5in}
+
+% If you use the natbib package, activate the following three lines:
+\usepackage[round]{natbib}
+\usepackage{hyperref}
+% If you use BibTeX in apalike style, activate the following line:
+\bibliographystyle{apalike}
+
+\begin{document}
+
+% If your paper is accepted and the title of your paper is very long,
+% the style will print as headings an error message. Use the following
+% command to supply a shorter title of your paper so that it can be
+% used as headings.
+%
+%\runningtitle{I use this title instead because the last one was very long}
+
+% If your paper is accepted and the number of authors is large, the
+% style will print as headings an error message. Use the following
+% command to supply a shorter version of the author names so that
+% they can be used as headings (for example, use only the surnames)
+%
+%\runningauthor{Surname 1, Surname 2, Surname 3, ...., Surname n}
+
+\twocolumn[
+
+\aistatstitle{RealStats: A Rigorous Real-Only Statistical Framework for Fake Image Detection}
+
+\aistatsauthor{ Author 1 \And Author 2 \And  Author 3 }
+
+\aistatsaddress{ Institution 1 \And  Institution 2 \And Institution 3 } ]
+
+\begin{abstract}
+As generative models continue to evolve, detecting AI-generated images remains a critical challenge. While effective detection methods exist, they often lack formal interpretability and may rely on implicit assumptions about fake content, potentially limiting their robustness to distributional shifts. In this work, we introduce a rigorous, statistically grounded framework for fake image detection that focuses on producing a probability score interpretable with respect to the real-image population. Our method leverages the strengths of multiple existing detectors by combining strong training-free statistics. We compute $p$-values over a range of test statistics and aggregate them using classical statistical ensembling to assess alignment with the unified real-image distribution. This framework is generic, flexible, and training-free, making it well-suited for robust fake image detection across diverse and evolving settings.\end{abstract}
+
+\section{Introduction}
+
+The ability to distinguish real images from AI-generated content has become increasingly critical as generative models grow in both realism and accessibility. Recent advances in generative AI have significantly improved the visual fidelity of synthetic images, making them nearly indistinguishable from real ones to the human eye.
+
+Addressing this growing challenge requires detection methods that are explicitly designed to balance two key properties central to our approach: interpretability and adaptability. Interpretability refers to the ability to assess the reliability of detection outputs by producing scores with well-defined statistical meaning. This is essential to ensure that the results can be understood and trusted in practice.
+
+Adaptability denotes the ability to remain effective under distribution shifts caused by emerging generators. It requires operating without relying on assumptions about fake image distributions, while allowing future refinement and extension as new detection signals or insights become available.
+
+Detection methods for AI-generated images are rapidly advancing. A major direction has focused on supervision, where models or ensembles are trained on labeled fake images to learn patterns that distinguish real from synthetic content~\cite{wang2020cnn, martin2023pixel, epstein2023online}. 
+\begin{figure}[!ht]
+    \centering
+    \includegraphics[width=0.45\textwidth]{images/fig1/gaugan_classifier_score_plot_2.pdf}
+    \includegraphics[width=0.45\textwidth]{images/fig1/gaugan_pval_dist_2.pdf}
+    \caption{
+    Illustration of the score interpretability gap between a supervised classifier~\cite{wang2020cnn} and our statistical method.
+    \textbf{Top:} A supervised model outputs scores that can separate real from fake images, but these scores are not inherently interpretable, as they lack clear statistical meaning and are often overconfident.
+    \textbf{Bottom:} Our method produces calibrated $p$-values based on real image distributions. These values have a precise interpretation: the probability of observing such a result if the image were real. This enables principled decisions using a standard significance level.
+    }
+
+
+    \label{fig:score_distribution}
+\end{figure}
+Although effective at capturing training distributions, their reliance on fake data limits adaptability, as performance often degrades under distribution shifts introduced by evolving generators~\cite{gragnaniello2021gan}.
+
+Recent work explores strong pre-trained representations~\cite{ojha2023towards, cozzolino2024raising} and hand-crafted heuristics~\cite{ricker2024aeroblade, he2024rigid, brokman2025manifold} as detection statistics, using real images as a reference. These approaches enhance adaptability by avoiding training on fake data and offer a degree of interpretability by calibrating thresholds based on real image distributions. However, their adaptability remains limited, as the distribution shifts introduced by evolving generators can still affect performance. This may result from assumptions about how fake images differ from real ones, such as fixed magnitude relationships that do not generalize, or from the inability of individual statistics to consistently separate real and synthetic content across different generative models.
+
+We extend recent training-free detection methods by proposing a statistically rigorous framework based solely on real images. To improve adaptability, the method integrates multiple detection statistics to capture a broader range of deviations introduced by evolving generators, without making any assumptions about fake image distributions.
+
+Our method returns a $p$-value under the null hypothesis that an image is drawn from the real distribution, providing a statistically grounded and interpretable measure of reliability. This is computed by combining multiple intermediate $p$-values, each quantifying deviation under a different statistic, into a single coherent score that summarizes the overall evidence against the image being real. While components of our approach have appeared individually in prior work, our contribution lies in combining them into a unified, modular framework that is interpretable, adaptable, and requires no exposure to fake data.
+
+
+\section{Related Work}
+
+Efforts to detect AI-generated images have evolved across three main paradigms: fully supervised methods, few-shot and zero-shot detectors leveraging pretrained models, and unsupervised approaches rooted in statistical inference. Each class of methods has contributed different insights into the detection problem.
+
+Supervised approaches are a widely explored direction, training discriminative models on labeled datasets of real and synthetic images. CNN-based methods~\cite{wang2020cnn, baraheem2023ai} have demonstrated strong performance, and follow-up studies explored frequency cues~\cite{frank2020frequency, bammey2023synthbuster} and handcrafted features~\cite{martin2023pixel} to enhance robustness. However, these models tend to degrade in performance when applied to images from unseen generative sources~\cite{gragnaniello2021gan}. Online adaptations~\cite{epstein2023online} attempt to mitigate this by continuously updating with new fakes, yet remain tightly coupled to evolving synthetic distributions, limiting long-term adaptability. Moreover, they produce outputs that, while able to separate classes, often lack statistical meaning and interpretability, as illustrated in Figure~\ref{fig:score_distribution}.
+
+To address these limitations, recent work has shifted toward few-shot detectors that aim to reduce reliance on large labeled datasets. These approaches typically leverage powerful pre-trained encoders, such as Dino~\cite{oquab2023dinov2}, CLIP~\cite{radford2021clip, cozzolino2024raising, sha2023fake}, GAN~\cite{goodfellow2014generative, ojha2023towards}, Diffusion Models~\cite{chu2024fire, wang2023dire}  and adapt them using a small number of synthetic examples, fine-tuning or calibrating on limited fakes. These methods retain a degree of supervision. As a result, they require retraining to handle emerging models and remain tied to internal model-specific scores, limiting prediction interpretability and extensibility to future generators.
+\captionsetup[subfigure]{font=small, skip=2pt, singlelinecheck=off, justification=centering}
+
+\begin{figure}[!bt]
+    \centering
+
+    % --- Top row ---
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth, height=3.5cm, keepaspectratio=false]{images/fig2/LatentNoiseCriterion_statistic_celeba.pdf}
+        \caption{\strut Manifold Curvature (SDXL)}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth, height=3.5cm, keepaspectratio=false]{images/fig2/LatentNoiseCriterion_statistic_stylegan.pdf}
+        \caption{\strut Manifold Curvature (StyleGAN2)}
+    \end{subfigure}
+
+    \vspace{0.2cm}
+
+    % --- Bottom row ---
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth, height=3.5cm, keepaspectratio=false]{images/fig2/RIGID.CLIP.10_statistic_stylegan2.pdf}
+        \caption{\strut Permutation-Based Features (StyleGAN2, $f$ = CLIP, $\lambda = 0.1$)}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\linewidth}
+        \includegraphics[width=\linewidth, height=3.5cm, keepaspectratio=false]{images/fig2/RIGID.CLIP.01_statistic_stylegan2.pdf}
+        \caption{\strut Permutation-Based Features (StyleGAN2, $f$ = CLIP, $\lambda = 0.01$)}
+    \end{subfigure}
+
+    \caption{
+    Illustration of the adaptability gap in existing training-free methods.
+    Each row shows statistics from a different method (top: manifold curvature; bottom: permutation-based features), and each column corresponds to a different test condition.
+    \textbf{Top:} The manifold curvature statistic shows opposite behavior across generators. In (a) SDXL, real images have higher curvature than real ones, while in (b) StyleGAN2, the pattern reverses.
+    \textbf{Bottom:} The permutation-based feature statistic is sensitive to the perturbation strength \( \lambda \). In (c), real images yield higher scores than fakes, but in (d), the ordering flips.
+    These shifts highlight that handcrafted statistics often rely on assumptions, such as fixed magnitude differences, that do not generalize across models or test settings.
+    }
+
+    \label{fig:statistics_distribution}
+\end{figure}
+A distinct class of methods avoids supervision by operating in a training-free, zero-shot regime. These approaches draw on intrinsic statistical properties of real images and evaluate test statistics without access to fake samples. Perturbation-based detectors, such as RIGID~\cite{he2024rigid}, assume that real images exhibit greater embedding stability under noise, using a similarity threshold to distinguish them from fakes. A related approach ~\cite{brokman2025manifold}, leverages the geometry of a generative model’s log-probability manifold, using curvature as a statistic. It assumes that generated images concentrate near local maxima, while real images lie in flatter regions. Similarly, reconstruction-based methods such as AEROBLADE~\cite{ricker2024aeroblade}, use latent diffusion model~\cite{rombach2022high} autoencoders to compute the reconstruction error, assuming that the generated images are better reconstructed than the real ones. These techniques rely on meaningful statistical measures that effectively distinguish real from generated images, offering a level of interpretability by grounding detection in well-defined statistics. However, they often assume a one-sided hypothesis test, which does not always hold in practice, as illustrated in Figure~\ref{fig:statistics_distribution}, which can reduce their ability to adapt to the behaviors of emerging generative models. In many cases, these methods are based on a single hand-crafted statistic and do not incorporate multiple signals. As a result, their generalization tends to be more effective within specific families of generative models.
+
+Inspired by the effectiveness of recent zero-shot methods that leverage strong, model-independent statistics, we build on these insights to develop a unified, statistically rigorous framework. While prior approaches often rely on single handcrafted tests and assume fixed differences between real and fake statistics, typically calibrated through thresholds, our method extends these ideas without such assumptions. It integrates multiple detection signals using only real image distributions. By transforming scalar statistics into $p$-values and aggregating them with statistical methods, our approach provides interpretable outputs, principled error control, and improved adaptability to emerging generative models.
+
+\section{Rationale}
+\subsection{Detection as Statistical Hypothesis Testing}
+
+We frame fake image detection as a statistical hypothesis multi-test~\cite{wasserman2004all}. For each scalar statistic \( s(x) \), we test whether an image \( x \) is plausible under the real image distribution.
+
+Under the null hypothesis \( H_0 \colon x \sim \mathbb{P}_{\text{real}} \), we evaluate the extremeness of \( s(x) \) relative to a reference distribution estimated from real images \( \mathcal{D}_{\text{real}} = \{x_1, \dots, x_N\} \). The empirical cumulative distribution function (ECDF) is defined as:
+\begin{equation}
+\widehat{F}_N(t) = \frac{1}{N} \sum_{i=1}^N \mathbb{I}\{s(x_i) \leq t\}, \quad x_i \sim \mathbb{P}_{\text{real}}.
+\label{eq:ecdf}
+\end{equation}
+Then, we compute a two-sided empirical $p$-value:
+\begin{equation}
+p(x) = 2 \cdot \min\left( \widehat{F}_N(s(x)),\, 1 - \widehat{F}_N(s(x)) \right).
+\label{eq:twosided_pval}
+\end{equation} 
+This testing procedure is applied across multiple scalar statistics \( s_1(x), \dots, s_K(x) \), each designed to capture a distinct aspect of deviation from the real image distribution. In next sections, we describe how these individual $p$-values (as defined in Eq.~\eqref{eq:twosided_pval}) are aggregated into a single $p$-value.
+
+\subsection{Validity Conditions}
+
+The validity of the empirical $p$-value \( p(x) \) relies on the following assumptions about the real image dataset \( \mathcal{D}_{\text{real}} = \{x_1, \dots, x_N\} \) and the test statistic \( s(x) \):
+
+\begin{enumerate}
+    \item \textbf{i.i.d. sampling}: The reference samples \( x_1, \dots, x_N \) are drawn independently and identically from the true real image distribution: \( x_i \sim \mathbb{P}_{\text{real}} \).
+    
+    \item \textbf{Independent statistics}~The statistics \( s_1(X), \dots, s_K(X) \) are assumed independent under \( \mathbb{P}_{\text{real}} \). In practice, this condition is explicitly enforced, as explained in subsequent sections.
+    
+    \item \textbf{distributional match}: A real test image \( x \) is also drawn from the same distribution: \( x \sim  \mathbb{P}_{\text{real}} \).
+\end{enumerate}
+
+Under these conditions, the $p$-value defined in Eq.~(2) is uniformly distributed on \([0,1]\) under the null hypothesis \( H_0 \) (see Appendix~B, Lemma 1).
+
+\begin{figure*}[!ht]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/fig3/calibration.pdf}
+    \caption{
+        Overview of the null distribution modeling phase. (a) Real images from the reference dataset \( \mathcal{D}_{\text{real}} \) are processed using multiple detector configurations \( (f_j, \lambda_k) \), producing scalar statistics whose empirical distributions are estimated and stored as ECDFs. (b) Pairwise statistical dependence among statistics is assessed via \(\chi^2\) tests over real samples. (c) The resulting relationships define an independence graph, where edges indicate accepted independence. (d) A maximal clique is extracted and regularized via a uniformity constraint to select a subset \( \mathcal{I} \subseteq \mathcal{S} \) of independent statistics.
+    }
+    \label{fig:calibration}
+\end{figure*}
+\section{Proposed Method}
+We propose a training-free detection method that tests whether an image is drawn from the distribution of real images, based on a rigorous statistical framework. The method consists of two phases. In the \textit{null distribution modeling} phase, we compute a diverse collection of scalar statistics over real images and estimate their ECDFs. Then we find a subset of independent statistics that allow valid multi-test aggregation under the null hypothesis (see Fig.~\ref{fig:calibration}). In the \textit{inference} phase, selected statistics are computed and mapped to \( p \)-values via stored ECDFs, then aggregated into a single interpretable \( p \)-value under the null distribution.
+
+Each step of the null distribution modeling and detection pipeline is described in detail below.
+
+\subsection{Null Distribution Modeling Phase}
+\label{sec:null_modeling}
+
+This phase has two stages: \textit{statistic extraction and empirical modeling} and \textit{independent subset selection}. Given a reference dataset \( \mathcal{D}_{\text{real}} \), it produces (1) set of stored ECDFs and (2) subset of independent statistics, enabling statistically valid \( p \)-value aggregation during detection.
+
+\newcounter{stage}
+\newcounter{step}[stage]
+
+\renewcommand{\thestage}{\arabic{stage}}
+\renewcommand{\thestep}{\thestage.\arabic{step}}
+
+\stepcounter{stage}
+\subsubsection*{Stage \thestage: Statistic Extraction and Empirical Modeling}
+\label{sec:statistic_modeling}
+
+In this stage, we compute a diverse set of scalar statistics \( \mathcal{S}(x) \) over real images \( x \in \mathcal{D}_{\text{real}} \), These statistics are computed using a broad set of feature extractors. For each statistic in \( \mathcal{S} \), we compute and store its ECDF, forming the reference needed for hypothesis testing during detection.
+
+
+\stepcounter{step}\noindent\textbf{Step \thestep: Multi-Detector Processing}
+\label{sec:detectors}
+
+Each image \( x \) is processed by a set of frozen feature extractors \( \mathcal{F} = \{f_1, \dots, f_m\} \), where each \( f_j \colon \mathbb{R}^{h \times w \times C} \rightarrow \mathbb{R}^d \) maps an image to a high-dimensional embedding.
+
+Inspired by RIGID~\cite{he2024rigid}, we assess the stability of these embeddings by applying small Gaussian perturbations to the input and measuring the change in the resulting features. Specifically, we define additive noise \( \delta \sim \mathcal{N}(0, I) \) and select a perturbation strength \( \lambda_k \in \{\lambda_1, \dots, \lambda_n\} \). The image score is then computed as the cosine similarity between clean and perturbed features:
+\begin{equation}
+s_{j,k}(x) = \text{sim}\left(f_j(x), f_j(x + \lambda_k \delta)\right).
+\label{rigid_statistic}
+\end{equation}
+
+This score reflects the robustness of the embedding under noise: real images typically produce more stable features, leading to higher similarity scores. However, this behavior is not universally consistent across encoders or noise level. To increase robustness and sensitivity, we evaluate a wide set of detector configurations, each defined by a pair \( (f_j, \lambda_k) \) combining a vision backbone and a perturbation level.
+
+The complete set of scalar statistics extracted from image \( x \) is defined as:
+\[
+\mathcal{S}(x) = \left\{ s_{j,k}(x) \right\}_{j \leq m,\; k \leq n}.
+\]
+
+The modular construction of \( \mathcal{S}(x) \) allows new detectors to be easily incorporated, providing a clear path for future extension and adaptability.
+
+\stepcounter{step}\noindent\textbf{Step \thestep: Empirical Two-Sided $p$-Value Estimation}
+\label{sec:ecdf}
+
+For each scalar statistic in \( \mathcal{S}(x) \), we evaluate its extremeness relative to the distribution of the same statistic computed over a reference set of real images.
+
+For each configuration independently, we construct an ECDF as defined in Eq.~\eqref{eq:ecdf}.
+
+Given image \( x \), we compute a two-sided \( p \)-value for each statistic using Eq.~\eqref{eq:twosided_pval}, resulting in a \( p \)-value vector:
+\[
+\mathbf{p}(x) = \left[p_{j,k}(x)\right]_{(j,k)}.
+\]
+The two-sided formulation avoids assuming a fixed direction of deviation and accommodates diverse behaviors across detectors.
+
+The ECDFs \( \widehat{F}_s \) are estimated using real images only, which we treat as a representative sample drawn from the real population, allowing the method to remain adaptable as generative techniques evolve.
+
+\stepcounter{stage}
+\subsubsection*{Stage \thestage: Independent Subset Selection}
+\label{sec:independence_selection}
+In this stage, we select a subset of scalar statistics that are independent under the null hypothesis. This enables statistically valid aggregation of their corresponding \( p \)-values. The selection is performed by testing pairwise independence among statistics, constructing an independence graph, and finding a maximal clique under a uniformity constraint.
+
+\stepcounter{step}\noindent\textbf{Step \thestep: Pairwise Dependence Testing} 
+
+Stacking the vectors \( \mathbf{p}(x_n) \) for all \( x_n \in \mathcal{D}_{\text{real}} \), we form an \( N \times T \) matrix of \( p \)-values, where \( T = |\mathcal{S}| \).
+
+To assess mutual dependence between statistics, we apply a pairwise \(\chi^2\) test to all \( T(T-1)/2 \) pairs of statistics, testing whether the joint distribution of \( p \)-values over real images deviates from independence.
+
+\stepcounter{step}\noindent\textbf{Step \thestep: Independence Graph Construction}
+
+We construct an undirected graph \( G = (\mathcal{V}, \mathcal{E}) \), where each node \( v_i \in \mathcal{V} \) represents a statistic \( s_i \in \mathcal{S} \). For each pair \( (s_i, s_j) \), dependence is assessed via the $\chi^2$ statistic and quantified using Cramér’s \( V \), which avoids the instability of $\chi^2$ $p$-values in large samples~\cite{Lin2013ResearchC}. An edge is added if the association is weak, i.e.,
+\[
+(v_i, v_j) \in \mathcal{E} \quad \text{iff} \quad V(s_i, s_j) \leq \mathcal{V}_{\text{$\chi^2$}}.
+\]
+
+where \(V_{\chi^2}\) denotes the Cramér’s \(V\) threshold. This graph captures the empirical structure of pairwise associations sufficiently weak to approximate independence.
+
+\stepcounter{step}\noindent\textbf{Step \thestep: Maximum Clique Enumeration} 
+
+We extract a maximal clique~\cite{maxcliquealgo} from the independence graph, corresponding to the largest subset \( \mathcal{I} \subseteq \mathcal{S} \) of pairwise independent statistics. 
+However, pairwise independence alone does not guarantee joint independence, which is required for valid multi-test aggregation. (details on aggregation methods in Section~4.2).
+
+To address this, we select \( \mathcal{I} \) by verifying that the aggregated \( p \)-values follow a uniform distribution under the null hypothesis. To mitigate large-sample artifacts analogous to those affecting $\chi^2$ $p$-values, we apply the Kolmogorov--Smirnov test to a representative subsample of \( N_{\text{KS}} \) real images:
+\[
+p\text{-value}_{\text{KS}} \geq \alpha_{\text{KS}}.
+\]
+
+This ensures that the selected set supports valid downstream aggregation under the null hypothesis. 
+Aggregation methods such as Stouffer’s test or the min-\( p \)-value method (described in the next section) quantify the joint deviation from the null across statistics. 
+
+In practice, detection performance remains an important consideration. Although the set of statistics is chosen based on independence and null alignment, encoders such as DINOv2 and CLIP are known to produce particularly strong discriminative features. Thus, when multiple maximal cliques satisfy these conditions, we prioritize those containing these encoders to improve effectiveness.
+
+\begin{figure*}[!ht]
+    \centering
+    \includegraphics[width=0.9\textwidth]{images/fig4/inference.pdf}
+    \caption{
+        Overview of the inference phase. (a) A candidate image is processed using only the subset of detector configurations corresponding to the selected statistics \( \mathcal{I} \). (b) Each resulting statistic is mapped to a two-sided \( p \)-value using the stored ECDFs. (c) The set of \( p \)-values is aggregated using a statistical aggregation method, such as Stouffer’s test. (d) The final decision is taken by comparing the unified \( p \)-value to a predefined significance level.
+    }
+    \label{fig:detection}
+\end{figure*}
+\subsection{Inference Phase}
+
+Given a candidate image \( x \), we compute only the subset of scalar statistics \( \mathcal{I} \subseteq \mathcal{S} \) that were selected during the null distribution modeling phase as independent (Step.~2.3), as illustrated in the detection pipeline (Fig.~\ref{fig:detection}). To do so, we apply multi-detector processing (Step.~1.1), restricted to the relevant configurations that define \( \mathcal{I} \).
+
+Each statistic \( s \in \mathcal{I} \) is then mapped to a two-sided \( p \)-value using the corresponding ECDF \( \widehat{F}_s \) estimated from real images (Step.~1.2). These individual \( p \)-values quantify how extreme each selected statistic is under the null hypothesis.
+
+To summarize this evidence into a single interpretable score, we apply one of two statistical aggregation methods, both of which assume independence among the selected statistics.
+
+\paragraph{Stouffer’s Test:} This method transforms each \( p \)-value into a standard normal Z-score:
+\begin{equation}
+z_i = \Phi^{-1}(p_i)
+\end{equation}
+\begin{equation}
+Z = \frac{1}{\sqrt{K}} \sum_{i=1}^K z_i, \quad P_{\text{Stouffer}} = \Phi(Z)
+\label{eq:stouffer_z}
+\end{equation}
+where \( \Phi \) is the standard normal CDF and \( K = |\mathcal{I}| \) is the number of aggregated statistics. Under the null, \( P_{\text{Stouffer}} \sim \mathcal{U}[0, 1] \) (see Appendix~B, Lemma~2). This method is effective when several statistics show moderate deviations from the null that, while individually weak, become significant when combined.
+
+\paragraph{Minimum \( p \)-Value:} This method emphasizes the strongest individual evidence:
+\begin{equation}
+P_{\min} = \min_{i} p_i, \quad F_{P_{\min}}(t) = 1 - (1 - t)^K
+\label{eq:min_pval}
+\end{equation}
+where \( P_{\min} \) is the minimum of \( K \) independent \( p \)-values, and \( F_{P_{\min}} \) is its CDF. Under the null hypothesis, and assuming \( p \)-values are computed as in Eq.~\eqref{eq:twosided_pval}, the resulting test remains valid with uniform distribution (see Appendix~B, Lemma~3). This method is well suited when only a small subset of detectors is expected to distinguish fakes.
+
+The resulting unified \( p \)-value provides a statistically valid and interpretable measure of authenticity, quantifying the deviation of the candidate image \( x \) from the distribution of real images. \\
+
+The complete procedures for null modeling and inference are detailed in Appendix~A.3, while a comprehensive study of runtime and memory usage is provided in Appendix~D.1.
+
+\section{Experiments}
+
+\paragraph{Datasets}
+We evaluate our method on several large-scale benchmark datasets that collectively span a broad spectrum of generative models and content domains. The CNNSpot dataset~\cite{wang2020cnn} consists of real and synthetic images across 20 LSUN~\cite{yu2015lsun} categories, primarily generated using early convolutional and GAN-based models. The Universal Fake Detect dataset~\cite{ojha2023towards} expands this setup to include more recent latent diffusion architectures. To further assess robustness on high-fidelity diffusion-based content, we incorporate a Stable Diffusion Face dataset that provides high-quality generated images from SDXL and SDv2~\cite{stable_diffusion_face_dataset}. Finally, to evaluate performance on challenging real-world generative systems, we include the Synthbuster~\cite{bammey2023synthbuster} and GenImage~\cite{zhu2023genimage} datasets.
+
+Across these datasets, our aggregated dataset comprises a total of 180K images (93K real and 87K fake), approximately balanced between real and generated content. This large-scale and diverse benchmark enables evaluation of detection performance across multiple generation paradigms. A complete list of all generative models used and the exact dataset splits are provided in Appendix~C.
+
+\paragraph{Baselines}
+We compare our method against three recent training-free, approaches that represent complementary statistical detection strategies.
+RIGID measures embedding stability under perturbation and serves both as a strong standalone baseline and as a foundational component within our framework.
+AEROBLADE evaluates reconstruction error using latent autoencoders, while
+ManifoldBias~\cite{brokman2025manifold} quantifies statistical curvature in the latent space of pre-trained diffusion models.
+
+\paragraph{Implementation Details}
+Our method relies on frozen visual encoders and Gaussian perturbations. All detectors operate at image resolutions of 512x512. The specific encoders and perturbation strengths used in our experiments, including hyper-parameters are summarized in Appendix~A.1 and Appendix~A.2 respectively.
+
+To ensure a statistically valid evaluation, we explicitly partition the real images into two disjoint subsets: 30\% is allocated to the null distribution modeling phase (i.e., ECDF estimation), while the remaining 70\% is held out for evaluation. This split ensures that no test-time inference image is used during calibration. Fake images are evaluated only against the held-out portion of real images. All detection methods, including ours and the baselines, are evaluated under the same protocol using shared real and fake subsets for each generator.
+
+At the time of writing, the official implementation of RIGID is not publicly available. We implemented the method based on the description in the original paper, using its best-reported configuration: a DINOv2 backbone with a perturbation strength of 0.05. Due to variability in reported results across different works, we will release our full implementation, which includes both the original RIGID setup and extended variants with alternative feature extractors and perturbation levels.
+
+
+\paragraph{Metrics}
+We report two threshold-free metrics to evaluate detection performance: \textit{Area Under the ROC Curve (AUC)} and \textit{Average Precision (AP)}, each computed per generative model. Unlike methods that require selecting a fixed threshold, our approach produces $p$-values from hypothesis testing. Threshold-based metrics like accuracy are thus not directly comparable and may not reflect statistical confidence. AUC and AP provide a more appropriate view of performance across the decision range.
+
+
+\subsection{Interpretability Does Not Come at the Price of Performance}
+A central goal of our method is to provide interpretable and
+reliable detection. Interpretability is a direct result of returning a $p$-value for each inference image $x$, which is a value with clear statistical interpretation, rather than an ambiguous "realness score". Crucially, we demonstrate that despite this design choice, our method achieves performance on par with state-of-the-art training-free detectors.
+
+\begin{table}[htb]
+    \centering
+    \small
+    \caption{Average AUC and AP (with standard deviation) across all generators splits.}
+    \label{tab:auc_summary}
+    \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcc}
+    \hline
+    Model & AUC & AP \\
+    \hline
+    Manifold Bias   & 0.761 $\pm$ 0.179  & 0.753 $\pm$ 0.169 \\
+    RIGID           & 0.769 $\pm$ 0.194  & 0.765 $\pm$ 0.189 \\
+    AEROBLADE       & 0.697 $\pm$ 0.161  & 0.697 $\pm$ 0.163 \\
+    Ours (Stouffer) & 0.756 $\pm$ 0.135  & 0.743 $\pm$ 0.133 \\
+    Ours (Min-$p$)  & 0.775 $\pm$ 0.126  & 0.756 $\pm$ 0.119 \\
+    \hline
+    \end{tabular*}
+\end{table}
+
+\noindent\textit{Note.} Each split is balanced between real and fake samples using stratified sampling to ensure fair comparison across methods.
+
+As shown in Table~\ref{tab:auc_summary}, our method achieves competitive AUC and AP compared to state-of-the-art training-free baselines. While Manifold Bias and RIGID obtain slightly higher peak scores, our approach offers comparable performance with substantially lower variance across generators, reflecting more consistent behavior. Importantly, this competitiveness comes without sacrificing interpretability
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.45\textwidth]{images/fig6/polygon_plot.pdf}
+    \caption{
+    Per-generator AUC comparison across methods shown in radar format.
+    }
+    \label{fig:auc_per_generator}
+\end{figure}
+
+Empirically, different methods peak on some generators but drop on others, showing inconsistent stability (see Figure~\ref{fig:auc_per_generator}). Manifold Bias, for instance, scores highly on GauGAN but drops on StarGAN and SDv2. RIGID performs well on SDXL but struggles on SDv1.4, while AeroBlade is strong on ADM but weak on SDv1.5. Our method shows some weaknesses on datasets like CycleGAN, yet overall maintains more balanced results, supported by its multi-RIGID variants that prevent collapse when a single statistic fails. 
+Complete AUC and AP values are provided in Appendix~D.4.
+
+\subsection{Adaptability in Action: Improving Performance on Challenging Generators}
+
+While our method performs on par with state-of-the-art training-free detectors overall, we observe weaker results on certain generators where \textit{ManifoldBias} excels, including \textbf{GauGAN}, \textbf{CycleGAN}, and \textbf{SAN} (see Figure~\ref{fig:auc_per_generator}). To demonstrate adaptability, we revisit these cases and integrate the \textit{ManifoldBias} statistic under the same experimental setup.
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.9\linewidth]{images/fig8/adaptability_improvement.pdf}
+    \caption{
+        Average AUC of the Min-$p$ ensemble before and after incorporating \textit{ManifoldBias} on GauGAN, CycleGAN, and SAN.
+    }
+    \label{fig:auc_improvement_barplot}
+\end{figure}
+
+As shown in Figure~\ref{fig:auc_improvement_barplot}, the ensemble gains clear improvements on these generators, closing the gap with baselines by leveraging the strength of \textit{ManifoldBias}. 
+
+\begin{figure}[htbp]
+    \centering
+    \begin{subfigure}[b]{0.49\linewidth}
+        \includegraphics[width=\linewidth]{images/fig7/all/all_before_mb_adapted.png}
+        \caption{\strut Entire Dataset, Min-$p$ ensemble (before)}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\linewidth}
+        \includegraphics[width=\linewidth]{images/fig7/all/all_after_mb_adapted.png}
+        \caption{\strut Entire Dataset, Min-$p$ ensemble (after)}
+    \end{subfigure}
+    \caption{
+        Example of improved \( p \)-value separation with \textit{ManifoldBias} in the Min-$p$ ensemble. Before (left), real and fake distributions overlap considerably; after (right), fake samples shift toward zero while real remain uniform.
+    }
+    \label{fig:adaptability_bias}
+\end{figure}
+
+To highlight the broader impact, the benefit extends to our full benchmark of 180K images, where incorporating \textit{ManifoldBias} improves \( p \)-value separation (Figure~\ref{fig:adaptability_bias}) and raises overall AUC scores. These results demonstrate the modularity and adaptability of our framework, showing it can respond to evolving generative content by selectively integrating new, independent statistics when needed.
+
+\subsection{Interpretability Qualititive Comparison}
+
+Appendix~D.3 provides a qualitative comparison illustrating the interpretability of our method, where $p$-value patterns reveal how image deviations from the reference distribution manifest in a transparent and meaningful way.
+
+\subsection{Fast, Scalable, and Memory-Efficient}
+
+Our method is designed for high-throughput inference and scales efficiently with GPU parallelism. Runtime improves with more workers, while memory remains moderate even with many statistics and large batches.
+
+Unlike training-free methods built on heavy autoencoders (e.g., Stable Diffusion), it achieves faster inference and lower memory use. The approach runs on single or multi-GPU setups with minimal overhead, making it practical for large-scale deployment.
+
+Full runtime, scalability, and memory analyses are provided in Appendix~D.1.
+
+\subsection{Robustness Under Image Corruptions}
+
+We evaluate robustness to JPEG compression and Gaussian blur at test time without altering the reference distribution or evaluation setup. With the Min-$p$ ensemble, blur keeps performance stable or slightly improved, while JPEG compression causes a moderate drop (5\% AUC, 6.4\% AP) but does not affect the validity of $p$-values. Overall, the framework remains resilient to these corruptions. 
+
+Additional results and visualizations are provided in Appendix~D.2.
+
+\section{Limitations}
+
+Our method depends on the quality of the reference distribution, which is influenced by the selected statistic clique. In some cases, this may limit real and fake separability. To mitigate this, we prioritize valid cliques that include known effective detectors such as DINOv2 and CLIP.
+
+\section{Conclusion}
+We presented a statistical framework for fake image detection focused on two main properties: interpretability and adaptability. Through extensive experiments, we showed that our method achieves competitive performance with state-of-the-art training-free detectors, while remaining robust, scalable, and modular.
+
+\clearpage
+
+\bibliography{aistats2026}    % loads aistats2026.bib
+
+\clearpage
+\begin{enumerate}
+
+  \item For all models and algorithms presented, check if you include:
+  \begin{enumerate}
+    \item A clear description of the mathematical setting, assumptions, algorithm, and/or model. [Yes]
+    \item An analysis of the properties and complexity (time, space, sample size) of any algorithm. [Yes]
+    \item (Optional) Anonymized source code, with specification of all dependencies, including external libraries. [Yes]
+  \end{enumerate}
+
+  \item For any theoretical claim, check if you include:
+  \begin{enumerate}
+    \item Statements of the full set of assumptions of all theoretical results. [Yes]
+    \item Complete proofs of all theoretical results. [Yes]
+    \item Clear explanations of any assumptions. [Yes]     
+  \end{enumerate}
+
+  \item For all figures and tables that present empirical results, check if you include:
+  \begin{enumerate}
+    \item The code, data, and instructions needed to reproduce the main experimental results (either in the supplemental material or as a URL). [Yes]
+    \item All the training details (e.g., data splits, hyperparameters, how they were chosen). [Yes]
+    \item A clear definition of the specific measure or statistics and error bars (e.g., with respect to the random seed after running experiments multiple times). [Yes]
+    \item A description of the computing infrastructure used. (e.g., type of GPUs, internal cluster, or cloud provider). [Yes]
+  \end{enumerate}
+
+  \item If you are using existing assets (e.g., code, data, models) or curating/releasing new assets, check if you include:
+  \begin{enumerate}
+    \item Citations of the creator If your work uses existing assets. [Yes]
+    \item The license information of the assets, if applicable. [Yes]
+    \item New assets either in the supplemental material or as a URL, if applicable. [Yes]
+    \item Information about consent from data providers/curators. [Yes]
+    \item Discussion of sensible content if applicable, e.g., personally identifiable information or offensive content. [Not Applicable]
+  \end{enumerate}
+
+  \item If you used crowdsourcing or conducted research with human subjects, check if you include:
+  \begin{enumerate}
+    \item The full text of instructions given to participants and screenshots. [Not Applicable]
+    \item Descriptions of potential participant risks, with links to Institutional Review Board (IRB) approvals if applicable. [Not Applicable]
+    \item The estimated hourly wage paid to participants and the total amount spent on participant compensation. [Not Applicable]
+  \end{enumerate}
+
+\end{enumerate}
+
+\clearpage
+\appendix
+\thispagestyle{empty}
+\input{supplementary.tex}
+\end{document}
