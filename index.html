@@ -6,390 +6,358 @@
     <title>RealStats: Real-Only Statistical Framework for Fake Image Detection</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" type="image/png" href="assets/SUFT_logo_small.png">
-    <style>
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-        
-        body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          line-height: 1.6;
-          color: #1a1a1a;
-          background: #f8faff;
-        }
-        
-        .container {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 0 20px;
-        }
-
-        .links_footer {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 0 20px;
-        }
-
-        .links_footer a {
-            color: inherit;
-            text-decoration: none;
-        }
-        
-        /* Header */
-        header {
-          background: linear-gradient(135deg, #232d5d 0%, #4b9eff 100%);
-          color: white;
-          padding: 80px 0 60px;
-          text-align: center;
-        }
-        
-        h1 {
-          font-size: 2.8em;
-          margin-bottom: 20px;
-          font-weight: 700;
-        }
-        
-        .venue {
-          font-size: 1.3em;
-          margin-bottom: 30px;
-          color: #e8f0ff;
-          font-weight: 600;
-          letter-spacing: 0.5px;
-          text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-          opacity: 0.95;
-        }
-        
-        .authors {
-          margin-bottom: 15px;
-          line-height: 1.8;
-          color: #f0f5ff;
-        }
-        .authors a {
-          font-size: 1.2em;
-          text-decoration: none;
-          font-weight: 400;
-          color: #f0f5ff;
-        }
-        
-        .affiliations {
-          font-size: 1.1em;
-          opacity: 0.9;
-          margin-bottom: 30px;
-          color: #dce7ff;
-        }
-        
-        /* Links */
-        .links {
-          display: flex;
-          justify-content: center;
-          gap: 20px;
-          flex-wrap: wrap;
-          margin-top: 30px;
-        }
-        
-        .link-button {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 12px 28px;
-          background: white;
-          color: #232d5d;
-          text-decoration: none;
-          border-radius: 50px;
-          transition: all 0.3s;
-          border: 1px solid #0866ff;
-          font-weight: 500;
-        }
-        
-        .link-button:hover {
-          background: linear-gradient(135deg, #0866ff 0%, #4b9eff 100%);
-          color: white;
-          transform: translateY(-2px);
-          box-shadow: 0 4px 15px rgba(8, 102, 255, 0.3);
-        }
-        
-        /* Main */
-        main {
-          background: white;
-          margin: -30px auto 40px;
-          border-radius: 20px;
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
-          overflow: hidden;
-        }
-        
-        section {
-          padding: 60px 80px;
-          border-bottom: 1px solid #e3edff;
-        }
-        
-        section:last-child {
-          border-bottom: none;
-        }
-        
-        h2 {
-          font-size: 2em;
-          margin-bottom: 30px;
-          color: #232d5d;
-          text-align: center;
-          font-weight: 600;
-        }
-        
-        h3 {
-          font-size: 1.4em;
-          margin: 30px 0 15px;
-          color: #232d5d;
-        }
-        
-        /* Abstract */
-        .abstract {
-          background: linear-gradient(135deg, #f2f7ff 0%, #e6f0ff 100%);
-        }
-        
-        .abstract p {
-          font-size: 1.1em;
-          text-align: justify;
-          line-height: 1.8;
-          color: #333;
-        }
-        
-        /* Figures */
-        .figure {
-          margin: 40px 0;
-          text-align: center;
-        }
-
-        .figure img {
-          max-width: 100%;
-          height: auto;
-          border-radius: 10px;
-          box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
-        }
-
-        .figure-caption {
-          margin-top: 15px;
-          font-size: 0.95em;
-          color: #5679b5;
-          font-style: italic;
-        }
-
-        .figure-row {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-          gap: 20px;
-          align-items: start;
-        }
-        
-        /* Method Overview */
-        .method-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-          gap: 30px;
-          margin: 30px 0;
-        }
-        
-        .method-card {
-          background: #f8fbff;
-          padding: 25px;
-          border-radius: 12px;
-          border-left: 4px solid #232d5d;
-          box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
-        }
-        
-        .method-card h4 {
-          color: #232d5d;
-          margin-bottom: 10px;
-          font-size: 1.2em;
-        }
-        
-        /* Results */
-        .results-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-          gap: 25px;
-          margin: 30px 0;
-        }
-        
-        .result-card {
-          background: linear-gradient(135deg, #232d5d 0%, #4b9eff 100%);
-          color: white;
-          padding: 30px;
-          border-radius: 12px;
-          text-align: center;
-          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-        }
-        
-        .result-card .metric {
-          font-size: 2.5em;
-          font-weight: 700;
-          margin-bottom: 10px;
-        }
-        
-        .result-card .label {
-          font-size: 1em;
-          opacity: 0.9;
-        }
-        
-        /* Citation */
-        .citation-box {
-          background: #f8fbff;
-          border-left: 4px solid #232d5d;
-          padding: 20px;
-          margin: 30px 0;
-          font-family: 'Courier New', monospace;
-          font-size: 0.9em;
-          overflow-x: auto;
-          box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
-        }
-        
-        /* Responsive */
-        @media (max-width: 768px) {
-          h1 { font-size: 2em; }
-          section { padding: 40px 30px; }
-          .links { flex-direction: column; align-items: center; }
-          .method-grid, .results-grid { grid-template-columns: 1fr; }
-          .abstract p { text-align: initial; }
-        }
-        
-        /* Placeholder */
-        .placeholder-image {
-          background: linear-gradient(135deg, #e6f0ff 0%, #f4f8ff 100%);
-          border: 2px dashed #a7c6ff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          min-height: 300px;
-          border-radius: 10px;
-          color: #4b78d0;
-          font-size: 1.2em;
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
-    <header>
-        <div class="container">
-            <h1>RealStats: Real-Only Statistical Framework for Fake Image Detection</h1>
-            <div class="venue">Preprint · Target: AISTATS 2026</div>
-            <div class="authors">
-                <strong><a href="https://www.linkedin.com/in/haim-zisman/" target="_blank">Haim Zisman</a></strong>,
-                <strong><a href="https://www.linkedin.com/in/urishaham/" target="_blank">Uri Shaham</a></strong>
-            </div>
-            <div class="affiliations">
-                Bar-Ilan University · Shaham Lab
-            </div>
-            <div class="links">
-                <a href="#" class="link-button" target="_blank">
-                    <i class="fas fa-file-pdf"></i> Paper (Soon)
-                </a>
-                <a href="supplementary.tex" class="link-button" target="_blank">
-                    <i class="fas fa-layer-group"></i> Supplementary
-                </a>
-                <a href="#" class="link-button" target="_blank">
-                    <i class="fas fa-link"></i> OpenReview (Soon)
-                </a>
-                <a href="https://github.com/shaham-lab/RealStats" class="link-button" target="_blank">
-                    <i class="fab fa-github"></i> Code
-                </a>
-                <a href="#" class="link-button" id="copy-bibtex-btn" target="_blank">
-                    <i class="fas fa-quote-left"></i> BibTeX
-                </a>
-                <span id="bibtex-notification" style="display:none; margin-left:10px; color:#000000; background:#EFBF04; border-radius:20px; font-size:0.95em;">BibTeX Copied!</span>
-                <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        const btn = document.getElementById('copy-bibtex-btn');
-                        const notif = document.getElementById('bibtex-notification');
-                        btn.addEventListener('click', function(e) {
-                            e.preventDefault();
-                            const bibtex = `@inproceedings{zisman2026realstats,
-                                                title={RealStats: A Real-Only Statistical Framework for Fake Image Detection},
-                                                author={Haim Zisman and Uri Shaham},
-                                                booktitle={AISTATS},
-                                                year={2026},
-                                                url={https://github.com/shaham-lab/RealStats}
-                                            }`;
-                            navigator.clipboard.writeText(bibtex).then(function() {
-                                notif.style.display = 'inline-block';
-                                setTimeout(function() {
-                                    notif.style.display = 'none';
-                                }, 1500);
-                            });
+<header>
+    <div class="container">
+        <h1>RealStats: Real-Only Statistical Framework for Fake Image Detection</h1>
+        <div class="venue">Preprint · Target: AISTATS 2026</div>
+
+        <div class="authors">
+            <strong><a href="https://www.linkedin.com/in/haim-zisman/" target="_blank">Haim Zisman</a></strong>,
+            <strong><a href="https://www.linkedin.com/in/urishaham/" target="_blank">Uri Shaham</a></strong>
+        </div>
+
+        <div class="affiliations">Bar-Ilan University · Shaham Lab</div>
+
+        <div class="links">
+            <a href="#" class="link-button" target="_blank">
+                <i class="fas fa-file-pdf"></i> Paper (Soon)
+            </a>
+            <a href="supplementary.tex" class="link-button" target="_blank">
+                <i class="fas fa-layer-group"></i> Supplementary
+            </a>
+            <a href="#" class="link-button" target="_blank">
+                <i class="fas fa-link"></i> OpenReview (Soon)
+            </a>
+            <a href="https://github.com/shaham-lab/RealStats" class="link-button" target="_blank">
+                <i class="fab fa-github"></i> Code
+            </a>
+
+            <a href="#" class="link-button" id="copy-bibtex-btn" target="_blank">
+                <i class="fas fa-quote-left"></i> BibTeX
+            </a>
+
+            <span id="bibtex-notification" style="display:none; margin-left:10px; color:#000000; background:#EFBF04; border-radius:20px; font-size:0.95em;">BibTeX Copied!</span>
+
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const btn = document.getElementById('copy-bibtex-btn');
+                    const notif = document.getElementById('bibtex-notification');
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const bibtex =
+`@inproceedings{zisman2026realstats,
+    title={RealStats: A Real-Only Statistical Framework for Fake Image Detection},
+    author={Haim Zisman and Uri Shaham},
+    booktitle={AISTATS},
+    year={2026},
+    url={https://github.com/shaham-lab/RealStats}
+}`;
+                        navigator.clipboard.writeText(bibtex).then(function() {
+                            notif.style.display = 'inline-block';
+                            setTimeout(() => notif.style.display = 'none', 1500);
                         });
                     });
-                </script>
-            </div>
+                });
+            </script>
         </div>
-    </header>
+    </div>
+</header>
 
-    <main class="container">
-        <!-- Abstract -->
-        <section class="abstract">
-          <h2>Abstract</h2>
-          <p>
+<main class="container">
+
+    <!-- Abstract -->
+    <section class="abstract">
+        <h2>Abstract</h2>
+        <p>
             As generative models continue to advance, detecting AI-generated images remains a significant challenge. Existing detection methods can be effective, but they often lack formal <b>interpretability</b> and rely on implicit assumptions about fake content, which may limit their <b>adaptability</b> under distribution shifts. In this work, we introduce <b>RealStats</b>, a statistically rigorous, training-free framework for fake-image detection that produces probability scores interpretable with respect to the real-image population. RealStats leverages the strengths of multiple existing detectors by combining strong, training-free statistical measures. Specifically, we compute <em>p</em>-values across a range of test statistics and aggregate them using classical statistical ensembling to assess how well an image aligns with a unified real-image distribution. This framework is generic, flexible, and entirely training-free, making it well-suited for robust fake-image detection in diverse and continually evolving settings.
         </p>
-        </section>
+    </section>
 
-        <!-- Results -->
-        <section>
-            <h2>Interpretability Does Not Come at the Price of Performance</h2>
+    <section>
+        <h2>Limitations of Existing Training-Free Detectors</h2>
 
-            <div class="figure-row">
-              <div class="figure">
-                <img src="assets/images/fig5/all_auc_bar_chart.pdf" alt="Bar chart comparing average AUC and AP against training-free baselines." class="responsive-figure-img">
-              </div>
-              <div class="figure">
-                <img src="assets/images/fig6/polygon_plot.pdf" alt="Radar plot comparing AUC per generator across methods." class="responsive-figure-img">
-              </div>
+        <div class="limitations-container">
+
+            <div class="limitations-text">
+                <p>
+                    Current training-free fake-image detectors face two fundamental challenges 
+                    that motivate the RealStats framework. Select a topic below to view 
+                    an illustration of each limitation.
+                </p>
             </div>
+
+            <!-- PANEL: buttons now ABOVE the figures -->
+            <div class="limitations-panel">
+
+                <!-- NEW centered full-width button row -->
+                <div class="limitations-buttons top-buttons">
+                    <button class="limit-btn active" data-target="interpretability">Interpretability</button>
+                    <button class="limit-btn" data-target="adaptability">Adaptability</button>
+                </div>
+
+                <div class="limitations-figure-wrapper">
+
+                    <!-- INTERPRETABILITY -->
+                    <div id="limit-interpretability" class="limitations-figure-set active-set">
+
+                        <!-- Top row -->
+                        <div class="subfig">
+                            <img src="assets/images/fig1/gaugan_classifier_score_plot_2.png" class="limitations-figure">
+                            <div class="subcaption"><strong>Top:</strong> Classifier scores separate classes but lack statistical meaning; they are often overconfident and not calibrated.</div>
+                        </div>
+
+                        <!-- Bottom row -->
+                        <div class="subfig">
+                            <img src="assets/images/fig1/gaugan_pval_dist_2.png" class="limitations-figure">
+                            <div class="subcaption"><strong>Bottom:</strong> RealStats produces calibrated <em>p</em>-values with clear interpretation: the probability of observing such a statistic if the image were real.</div>
+                        </div>
+
+                        <p class="figure-caption">
+                            <strong>Illustration of the score interpretability gap.</strong><br>
+                            Supervised models output uncalibrated scores, whereas RealStats yields statistically meaningful <em>p</em>-values that enable principled decisions under a standard significance level.
+                        </p>
+                    </div>
+
+                    <!-- ADAPTABILITY -->
+                    <div id="limit-adaptability" class="limitations-figure-set">
+
+                        <!-- Row 1 -->
+                        <div class="subfig">
+                            <img src="assets/images/fig2/LatentNoiseCriterion_statistic_celeba.png" class="limitations-figure">
+                            <div class="subcaption">Manifold Curvature (SDXL)</div>
+                        </div>
+
+                        <div class="subfig">
+                            <img src="assets/images/fig2/LatentNoiseCriterion_statistic_stylegan.png" class="limitations-figure">
+                            <div class="subcaption">Manifold Curvature (StyleGAN2)</div>
+                        </div>
+
+                        <!-- Row 2 -->
+                        <div class="subfig">
+                            <img src="assets/images/fig2/RIGID.CLIP.10_statistic_stylegan2.png" class="limitations-figure">
+                            <div class="subcaption">
+                                Permutation-Based Features (StyleGAN2, f = CLIP, λ = 0.1)
+                            </div>
+                        </div>
+
+                        <div class="subfig">
+                            <img src="assets/images/fig2/RIGID.CLIP.01_statistic_stylegan2.png" class="limitations-figure">
+                            <div class="subcaption">
+                                Permutation-Based Features (StyleGAN2, f = CLIP, λ = 0.01)
+                            </div>
+                        </div>
+
+                        <p class="figure-caption">
+                            <strong>Illustration of the adaptability gap.</strong><br>
+                            <strong>Top:</strong> Manifold curvature flips ordering between SDXL and StyleGAN2, showing generator-dependent behavior.  
+                            <strong>Bottom:</strong> Permutation-based features depend strongly on λ; real-vs-fake separation reverses as λ changes.  
+                            These shifts show that handcrafted statistics rely on assumptions that fail under distribution shifts.
+                        </p>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+
+        const btns = document.querySelectorAll(".limit-btn");
+        const sets = document.querySelectorAll(".limitations-figure-set");
+        const wrapper = document.querySelector(".limitations-figure-wrapper");
+
+        function showSet(targetId) {
+
+            // Switch active
+            sets.forEach(s => s.classList.remove("active-set"));
+
+            const active = document.getElementById("limit-" + targetId);
+            active.classList.add("active-set");
+
+            // Smooth scroll only if needed
+            const rect = wrapper.getBoundingClientRect();
+
+            if (rect.top < 0 || rect.bottom > window.innerHeight) {
+                wrapper.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start"
+                });
+            }
+        }
+
+        // Initial default
+        showSet("interpretability");
+
+        // Button clicking
+        btns.forEach(btn => {
+            btn.addEventListener("click", () => {
+                btns.forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+
+                showSet(btn.dataset.target);
+            });
+        });
+
+    });
+    </script>
+
+
+
+    <!-- THREE PILLARS (NEW POSITION + REFINED TEXT) -->
+    <section>
+        <h2>The Three Pillars of RealStats</h2>
+        <p style="font-size: 1.05em; line-height: 1.7;">
+            RealStats is built upon three foundational principles that together create a 
+            statistically interpretable, modular, and competitive framework for fake-image detection. 
+            These pillars structure the design of our method and guide the experimental sections that follow.
+        </p>
+
+        <div class="method-grid">
+            <div class="method-card">
+                <h4><i class="fas fa-eye"></i> Interpretability</h4>
+                <p>
+                    Every RealStats output is a calibrated <em>p</em>-value, a statistically meaningful, 
+                    distribution-grounded measure of how consistent an image is with real data. 
+                    This replaces opaque “realness scores” with transparent hypothesis testing, enabling 
+                    explicit uncertainty quantification and principled decision thresholds.
+                </p>
+            </div>
+
+            <div class="method-card">
+                <h4><i class="fas fa-seedling"></i> Adaptability</h4>
+                <p>
+                    RealStats is fully modular: any new scalar detector computed on real images can be 
+                    added without retraining. Through independence validation and classical multi-test 
+                    aggregation, the framework seamlessly incorporates new statistics, such as ManifoldBias, 
+                    to adapt to evolving generative models.
+                </p>
+            </div>
+
+            <div class="method-card">
+                <h4><i class="fas fa-chart-line"></i> Competitive Performance</h4>
+                <p>
+                    Despite prioritizing interpretability and modularity, RealStats achieves performance 
+                    comparable to state-of-the-art training-free detectors. By aggregating diverse, 
+                    training-free statistics, it maintains strong AUC and AP while avoiding the 
+                    instability observed in single-statistic baselines.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Interpretability Section -->
+    <section>
+        <h2>Interpretability Does Not Come at the Price of Performance</h2>
+
+        <div class="figure-row">
+            <div class="figure">
+                <img src="assets/images/fig5/all_auc_bar_chart.png" alt="Bar chart comparing average AUC and AP against training-free baselines." class="responsive-figure-img">
+            </div>
+            <div class="figure">
+                <img src="assets/images/fig6/polygon_plot.png" alt="Radar plot comparing AUC per generator across methods." class="responsive-figure-img">
+            </div>
+        </div>
+
+        <p class="figure-caption">
+            A central goal of our method is to provide interpretable and reliable detection. Interpretability is a direct result of returning a <em>p</em>-value, which has clear statistical meaning rather than ambiguous logits or scores. Crucially, our method achieves performance competitive with state-of-the-art training-free detectors, as shown in Table 1.
+        </p>
+    </section>
+    <!-- Adaptability in Action -->
+    <section>
+        <h2>Adaptability in Action: Improving Performance on Challenging Generators</h2>
+
+        <div class="two-column">
+            
+            <!-- LEFT: Existing figure -->
+            <div class="figure">
+                <img src="assets/images/fig8/adaptability_improvement.png" class="responsive-figure-img">
+                <p class="figure-caption">
+                    Adding the ManifoldBias statistic improves performance on challenging generators 
+                    (GauGAN, CycleGAN, SAN), illustrating how RealStats flexibly integrates new 
+                    statistics to respond to evolving generative models.
+                </p>
+            </div>
+
+            <!-- RIGHT: CSS Animation between two images -->
+            <div class="figure">
+                <div class="crossfade">
+                    <img src="assets/images/fig7/all/all_before_mb_adapted.png" class="img-a">
+                    <img src="assets/images/fig7/all/all_after_mb_adapted.png" class="img-b">
+                </div>
+                <p class="figure-caption" style="text-align:center;">
+                    Performance distribution before (blue) and after (yellow) adding ManifoldBias.  
+                    RealStats integrates new statistics without retraining, improving separation.
+                </p>
+            </div>
+
+        </div>
+    </section>
+
+
+    <section>
+        <h2>Qualitative Comparison of Interpretability Across Methods</h2>
+
+        <div class="figure interpretability-figure">
+            <img src="assets/images/methods_interpretability/method_comparison.png" 
+                class="responsive-figure-img" 
+                alt="Qualitative interpretability comparison across methods">
+
             <p class="figure-caption">
-              A central goal of our method is to provide interpretable and reliable detection. Interpretability is a direct result of returning a <em>p</em>-value for each inference image, which is a value with clear statistical meaning rather than an ambiguous “realness score.” Crucially, we demonstrate that despite this design choice, our method achieves performance on par with state-of-the-art training-free detectors. As shown in Table 1, our method achieves competitive AUC and AP compared to state-of-the-art training-free baselines. While ManifoldBias and RIGID obtain slightly higher peak scores, our approach offers comparable performance with substantially lower variance across generators, reflecting more consistent behavior. Importantly, this competitiveness comes without sacrificing interpretability.
+                <strong>Figure 13:</strong> Qualitative comparison of interpretability across detection methods.  
+                While baseline detectors often assign similar scores to visually diverse fake images, RealStats 
+                produces calibrated <em>p</em>-values whose magnitude reflects each sample’s statistical 
+                consistency with the real-image distribution. This enables a principled, graded notion of realism: 
+                higher <em>p</em>-values indicate compatibility with the null model, whereas low values signal 
+                meaningful deviation.
             </p>
 
-            <h3>Statistical Grounding & Benchmark Highlights</h3>
-            <div class="results-grid">
-                <div class="result-card">
-                    <div class="metric">Real-Only</div>
-                    <div class="label">Hypothesis tests calibrated solely on real-image ECDFs—no synthetic training required.</div>
-                </div>
-                <div class="result-card">
-                    <div class="metric">180K</div>
-                    <div class="label">Images across CNNSpot, UFD, Stable Diffusion Face, Synthbuster, and GenImage.</div>
-                </div>
-                <div class="result-card">
-                    <div class="metric">Competitive</div>
-                    <div class="label">AUC and AP match training-free SOTA while keeping <em>p</em>-value interpretability.</div>
-                </div>
-                <div class="result-card">
-                    <div class="metric">Stable</div>
-                    <div class="label">Lower variance across generators than single-statistic baselines.</div>
-                </div>
+    </section>
+    
+        <!-- <h3>Statistical Grounding & Benchmark Highlights</h3>
+        <div class="results-grid">
+            <div class="result-card">
+                <div class="metric">Real-Only</div>
+                <div class="label">Hypothesis tests calibrated solely on real-image ECDFs, no synthetic training required.</div>
             </div>
+            <div class="result-card">
+                <div class="metric">180K</div>
+                <div class="label">Images evaluated across CNNSpot, UFD, Stable Diffusion Face, Synthbuster, and GenImage.</div>
+            </div>
+            <div class="result-card">
+                <div class="metric">Competitive</div>
+                <div class="label">AUC and AP match or approach training-free SOTA while preserving interpretability.</div>
+            </div>
+            <div class="result-card">
+                <div class="metric">Stable</div>
+                <div class="label">Lower variance across generators than single-statistic baselines.</div>
+            </div>
+        </div> -->
+    </section>
 
-            <p style="margin-top: 30px; font-size: 1.05em;">
-              RealStats centers interpretability first: calibrated <em>p</em>-values quantify uncertainty with controlled false positives, while accuracy remains on par with leading training-free baselines across all evaluated generators.
-            </p>
-        </section>
-
-        <!-- Method Overview -->
-        <section>
-          <h2>Overview of the RealStats Pipeline</h2>
-          <p style="font-size: 1.05em; line-height: 1.8; text-align: justify;">
+    <!-- Method Overview -->
+    <section>
+        <h2>Overview of the RealStats Pipeline</h2>
+        <p style="font-size: 1.05em; line-height: 1.8; text-align: justify;">
             RealStats operates in two phases. During <strong>null distribution modeling</strong>, we compute diverse training-free statistics on real images, estimate their empirical CDFs, and select an independent subset using chi-squared-based tests. At <strong>inference</strong>, incoming images are mapped to <em>p</em>-values through cached ECDFs and aggregated via Stouffer or Min-<em>p</em> rules, yielding interpretable decisions with provable error control.
-          </p>
-          <div class="figure">
-            <img src="assets/images/fig3/calibration_no_background.png" alt="Null distribution modeling phase with ECDF estimation and independence graph extraction." class="responsive-figure-img">
-            <p class="figure-caption">
-              Null distribution modeling: statistics computed on real data are converted into ECDFs, pruned by independence tests, and arranged into a maximal clique that guarantees valid multi-test aggregation.
-            </p>
-          </div>
-          <div class="figure">
-            <img src="assets/images/fig4/inference.png" alt="Inference phase mapping statistics to p-values and aggregating them." class="responsive-figure-img">
-            <p class="figure-caption">
-              Inference: selected statistics are evaluated on a test image, transformed into <em>p</em>-values using stored ECDFs, and aggregated into a single interpretable probability of the image being real.
-            </p>
-          </div>
-          <div class="method-grid">
+        </p>
+
+        <div class="figure">
+            <img src="assets/images/fig3/calibration_no_background.png" class="responsive-figure-img">
+            <p class="figure-caption">Null distribution modeling: statistics computed on real data are converted into ECDFs, pruned by independence tests, and arranged into a maximal clique that guarantees valid multi-test aggregation.</p>
+        </div>
+
+        <div class="figure">
+            <img src="assets/images/fig4/inference.png" class="responsive-figure-img">
+            <p class="figure-caption">Inference: selected statistics are evaluated on a test image, transformed into <em>p</em>-values using stored ECDFs, and aggregated into a single interpretable probability of the image being real.</p>
+        </div>
+
+        <div class="method-grid">
             <div class="method-card">
                 <h4><i class="fas fa-scale-balanced"></i> Formal Validity</h4>
                 <p>Two-sided empirical <em>p</em>-values remain uniform under the null, ensuring controlled false positives when testing against real-image distributions.</p>
@@ -403,105 +371,110 @@
                 <p>Stouffer and Min-<em>p</em> ensembles hedge against failing statistics and retain power across emerging generators.</p>
             </div>
         </div>
-        </section>
+    </section>
 
-        <section>
-            <h2>Adaptability in Action: Improving Performance on Challenging Generators</h2>
-            <div class="figure">
-                <img src="assets/images/fig8/adaptability_improvement.pdf" alt="Performance improvements after adding ManifoldBias statistic." class="responsive-figure-img">
-                <p class="figure-caption">
-                  5.2 Adaptability in Action: Improving Performance on Challenging Generators<br><br>
-                  While our method performs on par with state-of-the-art training-free detectors overall, we observe weaker results on certain generators where ManifoldBias excels, including GauGAN, CycleGAN, and SAN (see Figure 5). To demonstrate adaptability, we revisit these cases and integrate the ManifoldBias statistic under the same experimental setup.<br><br>
-                  As shown in Figure 6, the ensemble gains clear improvements on these generators, closing the gap with baselines by leveraging the strength of ManifoldBias.<br><br>
-                  To highlight the broader impact, the benefit extends to our full benchmark of 180K images, where incorporating ManifoldBias improves p-value separation (Figure 7) and raises overall AUC scores. These results demonstrate the modularity and adaptability of our framework, showing it can respond to evolving generative content by selectively integrating new, independent statistics when needed.
-                </p>
-            </div>
-        </section>
+    <section class="efficiency-section">
+        <h2>Practical Deployability: Runtime, Scalability, and Memory Efficiency</h2>
 
-        <section>
-            <h2>Statistical Significance at a Glance</h2>
-            <div class="figure">
-                <img src="assets/images/pvalues_distribution/significance_grid.png" alt="Grid of p-value significance across detectors and datasets." class="responsive-figure-img">
-                <p class="figure-caption">
-                    We further illustrate this interpretability by showing p-value distributions on our test data (Figure 12). Each row corresponds to a different p-value interval, with images annotated by ground-truth labels. Fake images tend to cluster at lower p-values, though some appear at higher values, indicating statistical similarity to real images. This visualization highlights how p-values provide a calibrated and interpretable measure of sample quality.
-                </p>
-            </div>
-            <p style="margin-top: 30px; font-size: 1.05em; line-height: 1.8;">
-                Integrating additional statistics such as <em>ManifoldBias</em> further improves separation on challenging generators (e.g., GauGAN, CycleGAN, SAN), illustrating the framework’s plug-and-play adaptability.
+        <h3>Efficient Statistic Extraction</h3>
+        <div class="figure">
+            <img src="assets/images/runtime_memory_analysis/statistic_extraction_runtime_by_workers.png"
+                alt="Statistic extraction runtime under different worker configurations"
+                class="responsive-figure-img">
+            <p class="figure-caption">
+                Parallel workers reduce extraction time for 16 statistics from 15+ minutes (1 worker) to under 8 minutes (4 workers).
             </p>
-        </section>
-
-        <section>
-            <h2>Interpretability & Adaptability in Our Experiments</h2>
-            <div class="method-grid">
-                <div class="method-card">
-                    <h4><i class="fas fa-eye"></i> Interpretability</h4>
-                    <p>Uniform real-sample <em>p</em>-values and calibrated thresholds (Fig. p-values grid) let practitioners audit error rates and diagnose uncertain cases without opaque logits.</p>
-                </div>
-                <div class="method-card">
-                    <h4><i class="fas fa-seedling"></i> Adaptability</h4>
-                    <p>Adding statistics like <em>ManifoldBias</em> or texture features immediately lifts performance on tougher generators (e.g., GauGAN, SAN) with no retraining.</p>
-                </div>
-                <div class="method-card">
-                    <h4><i class="fas fa-chart-line"></i> Stable Power</h4>
-                    <p>Across the 180K-image benchmark, both Stouffer and Min-<em>p</em> ensembles maintain AUC while avoiding the variance spikes seen in single-statistic baselines.</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Conclusion -->
-        <section class="abstract">
-            <h2>Conclusion</h2>
-            <p>
-                RealStats delivers interpretable, training-free fake-image detection grounded solely in real-image statistics. By estimating ECDFs on real data, enforcing independence, and aggregating calibrated <em>p</em>-values, the framework attains state-of-the-art training-free performance (0.775 AUC, 0.756 AP) across a 180K-image benchmark while remaining modular to new detectors and distribution shifts.
-
-            </p>
-        </section>
-        <!-- Citation -->
-        <section>
-            <h2>Citation</h2>
-            <div class="citation-box">
-              @inproceedings{zisman2026realstats,<br>
-              &nbsp;&nbsp;title={RealStats: A Real-Only Statistical Framework for Fake Image Detection},<br>
-              &nbsp;&nbsp;author={Haim Zisman and Uri Shaham},<br>
-              &nbsp;&nbsp;booktitle={International Conference on Artificial Intelligence and Statistics},<br>
-              &nbsp;&nbsp;year={2026},<br>
-              &nbsp;&nbsp;url={https://github.com/shaham-lab/RealStats}<br>
-              }
-            </div>
-        </section>
-        <!-- QR Codes -->
-        <section id="qr-codes" class="qr-desktop-only">
-          <h2>Scan the QR Codes</h2>
-          <div>
-            <img
-              src="assets/qr_codes.png"
-              alt="QR codes linking to the Project Page, Paper, and LinkedIn"
-              class="responsive-figure-img"
-              style="max-width: 900px; width: 100%; height: auto;"
-            >
-            <p class="figure-caption" style="text-align: center;">
-              Quick links: Project Page · Paper · LinkedIn
-            </p>
-          </div>
-        </section>
-
-        <style>
-          /* Hide QR section on small screens */
-          @media (max-width: 768px) {
-            .qr-desktop-only {
-              display: none;
-            }
-          }
-        </style>
-    </main>
-
-    <footer style="text-align: center; padding: 40px 0; color: #6c757d;">
-        <div class="links_footer">
-            <a href="https://www.linkedin.com/in/haim-zisman/" target="_blank">Haim Zisman</a> ·
-            <a href="https://www.linkedin.com/in/urishaham/" target="_blank">Uri Shaham</a> ·
-            <a href="https://aistats.org" target="_blank">AISTATS</a>
         </div>
-    </footer>
+
+        <p class="interpretability-text">
+            All experiments use a <strong>single A100 GPU</strong> to ensure fair comparison with baselines, which cannot 
+            utilize multiple GPUs. Within this constraint, RealStats exploits multiple workers to maximize GPU 
+            utilization and reduce CPU-GPU synchronization overhead. Runtime grows predictably with the number 
+            of statistics, and parallelism yields substantial speedups. At inference, RealStats processes 
+            2,000 images in <strong>5.5 minutes</strong> (0.165s per image), significantly faster than ManifoldBias (2.4s) 
+            and AEROBLADE (5.1s).
+        </p>
+
+        <h3>Fast Independence Testing and Clique Selection</h3>
+        <div class="figure">
+            <img src="assets/images/runtime_memory_analysis/clique_extraction_runtime_analysis.png"
+                alt="Runtime of independence testing and clique extraction"
+                class="responsive-figure-img">
+            <p class="figure-caption">
+                Independence testing and clique selection remain under 200 ms even for 32 statistics.
+            </p>
+        </div>
+
+        <p class="interpretability-text">
+            Independence validation is essential for guaranteeing valid multi-statistic aggregation. 
+            Both χ² tests and maximal clique extraction scale efficiently, adding negligible overhead even as 
+            the number of statistics grows. This enables RealStats to incorporate new detectors on the fly 
+            without slowing down the pipeline.
+        </p>
+
+        <h3>Memory Efficiency</h3>
+        <div class="figure">
+            <img src="assets/images/runtime_memory_analysis/peak_gpu_memory_usage.png"
+                alt="Peak GPU memory usage across methods"
+                class="responsive-figure-img">
+            <p class="figure-caption">
+                RealStats uses only 7-22GB (1-4 workers), compared to 40GB for ManifoldBias and 76GB for AEROBLADE.
+            </p>
+        </div>
+
+        <p class="interpretability-text">
+            Despite using multiple statistics, RealStats remains memory efficient. With batch size 128 and 
+            up to four workers, GPU memory stays within 7-22GB. In contrast, AEROBLADE reaches 76GB, and 
+            ManifoldBias (with 8 perturbations) consumes 40GB at batch size 1 and cannot scale further. 
+            ECDF storage is also minimal, about <strong>0.25MB for 32 statistics</strong>.
+        </p>
+
+        <p class="interpretability-text">
+            These results show that RealStats offers a statistically principled framework with practical 
+            runtime, strong scalability under single-GPU constraints, and substantially lower memory usage 
+            than competing training-free baselines.
+        </p>
+
+    </section>
+
+
+
+    <!-- Conclusion -->
+    <section class="abstract">
+        <h2>Conclusion</h2>
+        <p>
+            RealStats provides an interpretable, training-free framework for fake-image detection by modeling
+            real-image statistics, enforcing independence among detectors, and aggregating calibrated
+            <em>p</em>-values. It achieves competitive performance with state-of-the-art training-free methods while
+            remaining modular and easily extensible, allowing new statistics to be incorporated without retraining.
+            Together with its efficient runtime and scalable multi-statistic design, RealStats offers a principled and
+            adaptable foundation for detecting fake images in evolving generative settings.
+        </p>
+    </section>
+
+    <!-- Citation -->
+    <section>
+        <h2>Citation</h2>
+        <div class="citation-box">
+            @inproceedings{zisman2026realstats,<br>
+            &nbsp;&nbsp;title={RealStats: A Real-Only Statistical Framework for Fake Image Detection},<br>
+            &nbsp;&nbsp;author={Haim Zisman and Uri Shaham},<br>
+            &nbsp;&nbsp;booktitle={International Conference on Artificial Intelligence and Statistics},<br>
+            &nbsp;&nbsp;year={2026},<br>
+            &nbsp;&nbsp;url={https://github.com/shaham-lab/RealStats}<br>
+            }
+        </div>
+    </section>
+
+</main>
+
+<footer style="text-align: center; padding: 40px 0; color: #6c757d;">
+    <div class="links_footer">
+        <a href="https://www.linkedin.com/in/haim-zisman/" target="_blank">Haim Zisman</a> ·
+        <a href="https://www.linkedin.com/in/urishaham/" target="_blank">Uri Shaham</a> ·
+        <a href="https://aistats.org" target="_blank">AISTATS</a>
+    </div>
+</footer>
+
 </body>
 </html>
