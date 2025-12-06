@@ -40,11 +40,8 @@
                 <i class="fas fa-quote-left"></i> BibTeX
             </a>
 
-            <span id="bibtex-notification"
-                  style="display:none; margin-left:10px; color:#000000; background:#EFBF04; border-radius:20px; font-size:0.95em;">
-                  BibTeX Copied!
-            </span>
         </div>
+        <div id="bibtex-notification">BibTeX copied!</div>
     </div>
 </header>
 
@@ -150,7 +147,7 @@
         </p>
 
         <div class="method-grid">
-            <div class="method-card">
+            <div class="method-card pillar-anim">
                 <h4><i class="fas fa-eye"></i> Interpretability</h4>
                 <p>
                     Every RealStats output is a calibrated <em>p</em>-value, a statistically meaningful, 
@@ -160,7 +157,7 @@
                 </p>
             </div>
 
-            <div class="method-card">
+            <div class="method-card pillar-anim">
                 <h4><i class="fas fa-seedling"></i> Adaptability</h4>
                 <p>
                     RealStats is fully modular: any new scalar detector computed on real images can be 
@@ -170,7 +167,7 @@
                 </p>
             </div>
 
-            <div class="method-card">
+            <div class="method-card pillar-anim">
                 <h4><i class="fas fa-chart-line"></i> Competitive Performance</h4>
                 <p>
                     Despite prioritizing interpretability and modularity, RealStats achieves performance 
@@ -196,8 +193,8 @@
         </div>
 
         <p class="figure-caption">
-            Left: mean AUC and AP with standard deviations for several training-free detectors.<br>
-            Right: per-generator AUC values shown as a radar plot comparing performance across methods.
+            <b>Left</b>: mean AUC and AP with standard deviations for several training-free detectors.<br>
+            <b>Right</b>: per-generator AUC values shown as a radar plot comparing performance across methods.
         </p>
 
 
@@ -245,9 +242,9 @@
                 alt="Qualitative interpretability comparison across methods">
 
             <p class="figure-caption">
-                <strong>Figure 13:</strong> Qualitative comparison of interpretability across detection methods.  
+                <strong>Figure:</strong> Qualitative comparison of interpretability across detection methods.  
                 While baseline detectors often assign similar scores to visually diverse fake images, RealStats 
-                produces calibrated <em>p</em>-values whose magnitude reflects each sample’s statistical 
+                produces calibrated <em>p</em>-values that reflects each sample's statistical 
                 consistency with the real-image distribution. This enables a principled, graded notion of realism: 
                 higher <em>p</em>-values indicate compatibility with the null model, whereas low values signal 
                 meaningful deviation.
@@ -405,6 +402,7 @@
 <!-- External JS Files -->
 <script src="bibtex.js"></script>
 <script src="limitations.js"></script>
+<script src="pillars.js"></script>
 
 </body>
 </html>

@@ -574,3 +574,35 @@ h3 {
     opacity: 1;
     transform: translateX(0);
 }
+
+#bibtex-notification {
+    position: absolute;
+    background: white;
+    color: #232d5d;
+    padding: 6px 14px;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+    font-size: 0.85em;
+    opacity: 0;
+    transform: translate(-50%, -10px);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+    pointer-events: none;
+    z-index: 999;
+}
+#bibtex-notification.show {
+    opacity: 1;
+    transform: translate(-50%, -18px);
+}
+
+/* Initial hidden state */
+.pillar-anim {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+/* When activated */
+.pillar-anim.visible {
+    opacity: 1;
+    transform: translateY(0);
+}

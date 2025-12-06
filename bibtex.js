@@ -2,7 +2,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const btn = document.getElementById("copy-bibtex-btn");
     const notif = document.getElementById("bibtex-notification");
 
-    if (!btn) return;
+    if (!btn || !notif) return;
 
     btn.addEventListener("click", (e) => {
         e.preventDefault();
@@ -16,8 +16,15 @@ document.addEventListener("DOMContentLoaded", () => {
 }`;
 
         navigator.clipboard.writeText(bibtex).then(() => {
-            notif.style.display = "inline-block";
-            setTimeout(() => notif.style.display = "none", 1500);
+
+            // position the popup under the button
+            const rect = btn.getBoundingClientRect();
+            notif.style.left = rect.left + rect.width/2 + "px";
+            notif.style.top = rect.bottom + 8 + window.scrollY + "px";
+
+            notif.classList.add("show");
+
+            setTimeout(() => notif.classList.remove("show"), 1500);
         });
     });
 });
