@@ -505,13 +505,13 @@ h3 {
 .limitations-figure-set {
     display: none;
     width: 100%;
-    padding: 15px 10px;
+    padding: 15px 100px;
 }
 
 .limitations-figure-set.active-set {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 28px;
+    gap: 28px;      /* ← reduced spacing */
 }
 
 /* Interpretability = 1-column layout */
@@ -560,4 +560,16 @@ h3 {
     .limitations-figure-set.active-set {
         grid-template-columns: 1fr;
     }
+}
+
+/* Slide fade animation on switching */
+.limitations-figure-set {
+    opacity: 0;
+    transform: translateX(40px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.limitations-figure-set.active-set {
+    opacity: 1;
+    transform: translateX(0);
 }

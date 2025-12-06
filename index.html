@@ -40,29 +40,10 @@
                 <i class="fas fa-quote-left"></i> BibTeX
             </a>
 
-            <span id="bibtex-notification" style="display:none; margin-left:10px; color:#000000; background:#EFBF04; border-radius:20px; font-size:0.95em;">BibTeX Copied!</span>
-
-            <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    const btn = document.getElementById('copy-bibtex-btn');
-                    const notif = document.getElementById('bibtex-notification');
-                    btn.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        const bibtex =
-`@inproceedings{zisman2026realstats,
-    title={RealStats: A Real-Only Statistical Framework for Fake Image Detection},
-    author={Haim Zisman and Uri Shaham},
-    booktitle={AISTATS},
-    year={2026},
-    url={https://github.com/shaham-lab/RealStats}
-}`;
-                        navigator.clipboard.writeText(bibtex).then(function() {
-                            notif.style.display = 'inline-block';
-                            setTimeout(() => notif.style.display = 'none', 1500);
-                        });
-                    });
-                });
-            </script>
+            <span id="bibtex-notification"
+                  style="display:none; margin-left:10px; color:#000000; background:#EFBF04; border-radius:20px; font-size:0.95em;">
+                  BibTeX Copied!
+            </span>
         </div>
     </div>
 </header>
@@ -90,10 +71,8 @@
                 </p>
             </div>
 
-            <!-- PANEL: buttons now ABOVE the figures -->
             <div class="limitations-panel">
 
-                <!-- NEW centered full-width button row -->
                 <div class="limitations-buttons top-buttons">
                     <button class="limit-btn active" data-target="interpretability">Interpretability</button>
                     <button class="limit-btn" data-target="adaptability">Adaptability</button>
@@ -104,13 +83,11 @@
                     <!-- INTERPRETABILITY -->
                     <div id="limit-interpretability" class="limitations-figure-set active-set">
 
-                        <!-- Top row -->
                         <div class="subfig">
                             <img src="assets/images/fig1/gaugan_classifier_score_plot_2.png" class="limitations-figure">
                             <div class="subcaption"><strong>Top:</strong> Classifier scores separate classes but lack statistical meaning; they are often overconfident and not calibrated.</div>
                         </div>
 
-                        <!-- Bottom row -->
                         <div class="subfig">
                             <img src="assets/images/fig1/gaugan_pval_dist_2.png" class="limitations-figure">
                             <div class="subcaption"><strong>Bottom:</strong> RealStats produces calibrated <em>p</em>-values with clear interpretation: the probability of observing such a statistic if the image were real.</div>
@@ -125,7 +102,6 @@
                     <!-- ADAPTABILITY -->
                     <div id="limit-adaptability" class="limitations-figure-set">
 
-                        <!-- Row 1 -->
                         <div class="subfig">
                             <img src="assets/images/fig2/LatentNoiseCriterion_statistic_celeba.png" class="limitations-figure">
                             <div class="subcaption">Manifold Curvature (SDXL)</div>
@@ -136,18 +112,17 @@
                             <div class="subcaption">Manifold Curvature (StyleGAN2)</div>
                         </div>
 
-                        <!-- Row 2 -->
                         <div class="subfig">
                             <img src="assets/images/fig2/RIGID.CLIP.10_statistic_stylegan2.png" class="limitations-figure">
                             <div class="subcaption">
-                                Permutation-Based Features (StyleGAN2, f = CLIP, λ = 0.1)
+                                Permutation-Based Features<br>(StyleGAN2, f = CLIP, λ = 0.1)
                             </div>
                         </div>
 
                         <div class="subfig">
                             <img src="assets/images/fig2/RIGID.CLIP.01_statistic_stylegan2.png" class="limitations-figure">
                             <div class="subcaption">
-                                Permutation-Based Features (StyleGAN2, f = CLIP, λ = 0.01)
+                                Permutation-Based Features<br>(StyleGAN2, f = CLIP, λ = 0.01)
                             </div>
                         </div>
 
@@ -165,51 +140,7 @@
     </section>
 
 
-    <script>
-    document.addEventListener("DOMContentLoaded", function () {
-
-        const btns = document.querySelectorAll(".limit-btn");
-        const sets = document.querySelectorAll(".limitations-figure-set");
-        const wrapper = document.querySelector(".limitations-figure-wrapper");
-
-        function showSet(targetId) {
-
-            // Switch active
-            sets.forEach(s => s.classList.remove("active-set"));
-
-            const active = document.getElementById("limit-" + targetId);
-            active.classList.add("active-set");
-
-            // Smooth scroll only if needed
-            const rect = wrapper.getBoundingClientRect();
-
-            if (rect.top < 0 || rect.bottom > window.innerHeight) {
-                wrapper.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start"
-                });
-            }
-        }
-
-        // Initial default
-        showSet("interpretability");
-
-        // Button clicking
-        btns.forEach(btn => {
-            btn.addEventListener("click", () => {
-                btns.forEach(b => b.classList.remove("active"));
-                btn.classList.add("active");
-
-                showSet(btn.dataset.target);
-            });
-        });
-
-    });
-    </script>
-
-
-
-    <!-- THREE PILLARS (NEW POSITION + REFINED TEXT) -->
+    <!-- THREE PILLARS -->
     <section>
         <h2>The Three Pillars of RealStats</h2>
         <p style="font-size: 1.05em; line-height: 1.7;">
@@ -268,13 +199,13 @@
             A central goal of our method is to provide interpretable and reliable detection. Interpretability is a direct result of returning a <em>p</em>-value, which has clear statistical meaning rather than ambiguous logits or scores. Crucially, our method achieves performance competitive with state-of-the-art training-free detectors, as shown in Table 1.
         </p>
     </section>
+
     <!-- Adaptability in Action -->
     <section>
         <h2>Adaptability in Action: Improving Performance on Challenging Generators</h2>
 
         <div class="two-column">
             
-            <!-- LEFT: Existing figure -->
             <div class="figure">
                 <img src="assets/images/fig8/adaptability_improvement.png" class="responsive-figure-img">
                 <p class="figure-caption">
@@ -284,7 +215,6 @@
                 </p>
             </div>
 
-            <!-- RIGHT: CSS Animation between two images -->
             <div class="figure">
                 <div class="crossfade">
                     <img src="assets/images/fig7/all/all_before_mb_adapted.png" class="img-a">
@@ -317,27 +247,6 @@
                 meaningful deviation.
             </p>
 
-    </section>
-    
-        <!-- <h3>Statistical Grounding & Benchmark Highlights</h3>
-        <div class="results-grid">
-            <div class="result-card">
-                <div class="metric">Real-Only</div>
-                <div class="label">Hypothesis tests calibrated solely on real-image ECDFs, no synthetic training required.</div>
-            </div>
-            <div class="result-card">
-                <div class="metric">180K</div>
-                <div class="label">Images evaluated across CNNSpot, UFD, Stable Diffusion Face, Synthbuster, and GenImage.</div>
-            </div>
-            <div class="result-card">
-                <div class="metric">Competitive</div>
-                <div class="label">AUC and AP match or approach training-free SOTA while preserving interpretability.</div>
-            </div>
-            <div class="result-card">
-                <div class="metric">Stable</div>
-                <div class="label">Lower variance across generators than single-statistic baselines.</div>
-            </div>
-        </div> -->
     </section>
 
     <!-- Method Overview -->
@@ -475,6 +384,10 @@
         <a href="https://aistats.org" target="_blank">AISTATS</a>
     </div>
 </footer>
+
+<!-- External JS Files -->
+<script src="bibtex.js"></script>
+<script src="limitations.js"></script>
 
 </body>
 </html>
