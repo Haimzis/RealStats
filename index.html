@@ -196,7 +196,13 @@
         </div>
 
         <p class="figure-caption">
-            A central goal of our method is to provide interpretable and reliable detection. Interpretability is a direct result of returning a <em>p</em>-value, which has clear statistical meaning rather than ambiguous logits or scores. Crucially, our method achieves performance competitive with state-of-the-art training-free detectors, as shown in Table 1.
+            Left: mean AUC and AP with standard deviations for several training-free detectors.<br>
+            Right: per-generator AUC values shown as a radar plot comparing performance across methods.
+        </p>
+
+
+        <p class="interpretability-text">
+            A central aim is to provide interpretable and reliable detection. By returning <em>p</em>-values rather than raw scores, the method offers outputs with clear statistical meaning. While it shows some weaknesses on generators such as CycleGAN, it generally maintains more balanced performance across datasets, supported by multi-RIGID variants that help avoid failure when a single statistic underperforms. Overall, this maintains performance comparable to existing training-free approaches while improving consistency.
         </p>
     </section>
 
@@ -209,10 +215,7 @@
             <div class="figure">
                 <img src="assets/images/fig8/adaptability_improvement.png" class="responsive-figure-img">
                 <p class="figure-caption">
-                    Adding the ManifoldBias statistic improves performance on challenging generators 
-                    (GauGAN, CycleGAN, SAN), illustrating how RealStats flexibly integrates new 
-                    statistics to respond to evolving generative models.
-                </p>
+                    Adding the ManifoldBias statistic improves performance on generators: GauGAN, CycleGAN and SAN.
             </div>
 
             <div class="figure">
@@ -220,13 +223,16 @@
                     <img src="assets/images/fig7/all/all_before_mb_adapted.png" class="img-a">
                     <img src="assets/images/fig7/all/all_after_mb_adapted.png" class="img-b">
                 </div>
-                <p class="figure-caption" style="text-align:center;">
-                    Performance distribution before (blue) and after (yellow) adding ManifoldBias.  
-                    RealStats integrates new statistics without retraining, improving separation.
-                </p>
+                    <p class="figure-caption" style="text-align:center;">
+                        <em>p</em>-value distributions on the entire evaluation set before and after integrating ManifoldBias.
+                    </p>
             </div>
 
         </div>
+        <p class="interpretability-text">
+            Some generators, such as GauGAN, CycleGAN, and SAN, are more challenging for our detector, whereas ManifoldBias performs better. To illustrate RealStats adaptability, we incorporate this statistic under the same setup, which leads to clear improvements (left figure). This effect also scales to the full benchmark dataset, increasing the overall AUC and <em>p<em>-values seperation (right figure) - showing the method ability to strengthen itself by selectively integrating new independent statistics when needed.
+        </p>
+
     </section>
 
 
@@ -266,20 +272,31 @@
             <p class="figure-caption">Inference: selected statistics are evaluated on a test image, transformed into <em>p</em>-values using stored ECDFs, and aggregated into a single interpretable probability of the image being real.</p>
         </div>
 
-        <div class="method-grid">
-            <div class="method-card">
-                <h4><i class="fas fa-scale-balanced"></i> Formal Validity</h4>
-                <p>Two-sided empirical <em>p</em>-values remain uniform under the null, ensuring controlled false positives when testing against real-image distributions.</p>
-            </div>
-            <div class="method-card">
-                <h4><i class="fas fa-screwdriver-wrench"></i> Modular Statistics</h4>
-                <p>Any scalar detector computed on real images can be added, ECDF-modeled, and aggregated without retraining.</p>
-            </div>
-            <div class="method-card">
-                <h4><i class="fas fa-shuffle"></i> Adaptable Aggregation</h4>
-                <p>Stouffer and Min-<em>p</em> ensembles hedge against failing statistics and retain power across emerging generators.</p>
-            </div>
-        </div>
+<div class="method-grid">
+
+    <div class="method-card">
+        <h4><i class="fas fa-scale-balanced"></i> Formal Validity</h4>
+        <p>
+            Calibrated two-sided empirical <em>p</em>-values are computed under an assumed real-image distribution, providing a statistically interpretable basis for evaluation.
+        </p>
+    </div>
+
+    <div class="method-card">
+        <h4><i class="fas fa-screwdriver-wrench"></i> Modular Statistics</h4>
+        <p>
+            Any scalar detector computed on real images can be added, ECDF-modeled, and incorporated into the framework without retraining.
+        </p>
+    </div>
+
+    <div class="method-card">
+        <h4><i class="fas fa-shuffle"></i> Evidence Sensitivity</h4>
+        <p>
+            Stouffer and Min-<em>p</em> aggregation adapt to two evidence modes: several weak signals that align, or a single statistic that stands out strongly.
+        </p>
+    </div>
+
+</div>
+
     </section>
 
     <section class="efficiency-section">

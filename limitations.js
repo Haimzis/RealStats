@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     let currentIndex = 0;
-    const intervalTime = 15000; // 15 seconds
+    const intervalTime = 10000; // 10 seconds
     let autoSwitchTimer = null;
 
     /**

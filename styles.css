@@ -354,6 +354,7 @@ h3 {
   top: 0;
   left: 0;
   width: 100%;
+  opacity: 0;
   height: auto;
   animation: fadeCycle 3s infinite;
   animation-delay: 1.5s;
@@ -361,9 +362,9 @@ h3 {
 
 
 @keyframes fadeCycle {
-  0%   { opacity: 1; }
-  50%  { opacity: 0; }
-  100% { opacity: 1; }
+  0%   { opacity: 0; }
+  50%  { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* Mobile stacking */
