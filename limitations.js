@@ -82,3 +82,5 @@ document.addEventListener("DOMContentLoaded", function () {
     activate(0);
     restartTimer();
 });
+
+
