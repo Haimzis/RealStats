@@ -1,4 +1,5 @@
-# RealStats: Real-Only Statistical Framework for Fake Image Detection
+# RealStats: Real-Only Statistical Framework for Fake Image Detection (AISTATS 2026 Spotlight)
+
 Authors: [Haim Zisman](https://www.linkedin.com/in/haim-zisman/), [Uri Shaham](https://www.linkedin.com/in/urishaham/)
 
 >As generative models continue to evolve, detecting AI-generated images remains a critical challenge. Although effective detection methods exist, they often lack formal interpretability and may rely on implicit assumptions about fake content, potentially limiting their robustness to distributional shifts.
@@ -190,7 +191,13 @@ Want to plug in a new statistic? Follow these steps:
 
 ## 📚 BibTeX
 ```bibtex
-Soon
+@inproceedings{zisman2026realstats,
+  title     = {RealStats: A Real-Only Statistical Framework for Fake Image Detection},
+  author    = {Zisman, Haim and Shaham, Uri},
+  booktitle = {Proceedings of the International Conference on Artificial Intelligence and Statistics (AISTATS)},
+  year      = {2026},
+  url       = {https://github.com/shaham-lab/RealStats}
+}
 ```
 
 ---
